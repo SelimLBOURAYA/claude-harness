@@ -1,0 +1,4 @@
+.env
+
+# Personal overrides only
+*.local.md
