@@ -54,7 +54,7 @@ meal-planner-backend / -frontend, elya-fe = elya-frontend.
 | Emplacement du plan | `claude-harness/dev-plan.md` (ce fichier) |
 | Périmètre | Les 8 repos actifs ; référence = kb et kf (les plus à jour). Legacy `kreadevis/` **hors périmètre** |
 | Découpage | Par vagues : harness → conventions → adoption repo par repo → clôture |
-| Version du plugin | Les projets **suivent `main`** du harness (pas de tag figé). Un changement n'est actif qu'après ta promotion `develop` → `main` du repo harness. Les rapports d'audit citent le SHA du harness. *(précisé le 2026-09-17, doc Claude Code « plugin marketplaces »)* Sans ref, Claude Code clone la **branche par défaut** du repo, qui est `develop` (et le reste après le lot 6b) : la ref **`main` est donc obligatoire** partout où le marketplace est déclaré (`"ref": "main"` dans `extraKnownMarketplaces`, `@main` en ligne de commande), sinon tout merge sur `develop` devient actif dans les 8 repos. Tant que `main` n'existe pas, l'ajout du marketplace avec cette ref **échoue** (comportement attendu, à confirmer en V1) : la première promotion `develop` → `main` est un prérequis du lot 5 (activation user-level) et du lot 7 (première adoption) |
+| Version du plugin | Les projets **suivent `main`** du harness (pas de tag figé). Un changement n'est actif qu'après ta promotion `develop` → `main` du repo harness. Les rapports d'audit citent le SHA du harness. *(précisé le 2026-09-17, doc Claude Code « plugin marketplaces »)* Sans ref, Claude Code clone la **branche par défaut** du repo, qui est `develop` (et le reste après le lot 6b) : la ref **`main` est donc obligatoire** partout où le marketplace est déclaré (`"ref": "main"` dans `extraKnownMarketplaces`, `@main` en ligne de commande), sinon tout merge sur `develop` devient actif dans les 8 repos. `main` existe depuis le 2026-09-17 (`d7b1438`) mais ne contient que ce plan, **aucun plugin** : déclarer le marketplace avec cette ref avant la promotion qui suit le lot 4 installerait un marketplace vide ou invalide. **Cette** promotion `develop` → `main` (première version de `main` contenant le plugin) est le prérequis du lot 5 (activation user-level) et du lot 7 (première adoption) |
 | Paramètres par projet | Section `## Gate parameters` dans `CLAUDE.md` (donc dans `AGENTS.md`) |
 | Sprint vs stop | **Stop après PR** (§2.9) : un lot = une PR vers `develop`, puis arrêt jusqu'au merge. « Sprint chaining » supprimé partout ; skill `sprint` non repris dans le plugin |
 | Garde git | Hook `PreToolUse` Bash. **Refus** : push vers `main`, `--force`/`--force-with-lease`, `--no-verify`, `reset --hard`, suppression de branche distante, `gh pr create` sans `--base develop`. **Confirmation** : tout `git push`, tout `gh pr create` |
@@ -131,7 +131,7 @@ d'écrire du code. Chaque vérification a un plan B décidé à l'avance.
 
 | # | Question | Méthode | Plan B si échec |
 |---|---|---|---|
-| V1 | Syntaxe exacte marketplace/plugin, activation au niveau user **et** projet (`extraKnownMarketplaces`, `enabledPlugins`), suivi de `main`. Points à prouver : (a) avec `"ref": "main"` et sans branche `main`, l'ajout du marketplace échoue avec un message explicite ; (b) après création de `main`, `/plugin marketplace update` ne récupère que les commits de `main`, jamais ceux de `develop` ; (c) accès au repo **privé** par le credential helper git (`gh auth login`), y compris pour la mise à jour automatique en arrière-plan et depuis IntelliJ et Cursor (lien V6) | Documentation Claude Code (agent `claude-code-guide`) + plugin de test minimal installé localement, sur un repo jetable ayant `develop` comme branche par défaut | Skills copiés dans `.claude/skills/` de chaque repo, `harness-sync` vérifie la dérive par `cmp` ; si (c) échoue en arrière-plan : `git config --global url."https://x-access-token:<TOKEN>@github.com/SelimLBOURAYA/claude-harness".insteadOf …` documenté dans `README.md`, jeton hors repo |
+| V1 | Syntaxe exacte marketplace/plugin, activation au niveau user **et** projet (`extraKnownMarketplaces`, `enabledPlugins`), suivi de `main`. Points à prouver : (a) avec `"ref": "main"` pointant une branche **sans** `.claude-plugin/marketplace.json`, l'ajout du marketplace échoue avec un message explicite (test sur le repo jetable uniquement : `main` du harness existe déjà) ; (b) après création de `main`, `/plugin marketplace update` ne récupère que les commits de `main`, jamais ceux de `develop` ; (c) accès au repo **privé** par le credential helper git (`gh auth login`), y compris pour la mise à jour automatique en arrière-plan et depuis IntelliJ et Cursor (lien V6) | Documentation Claude Code (agent `claude-code-guide`) + plugin de test minimal installé localement, sur un repo jetable ayant `develop` comme branche par défaut | Skills copiés dans `.claude/skills/` de chaque repo, `harness-sync` vérifie la dérive par `cmp` ; si (c) échoue en arrière-plan : `git config --global url."https://x-access-token:<TOKEN>@github.com/SelimLBOURAYA/claude-harness".insteadOf …` documenté dans `README.md`, jeton hors repo |
 | V2 | Noms des skills de plugin (`claude-harness:lot-test`) et leur découverte en session projet et racine | Session de test | Tables Skills rédigées avec le nom réellement annoncé |
 | V3 | Un hook de plugin `PreToolUse` peut renvoyer **refus** et **confirmation** même si `Bash(git *)` est en allow | Hook de test qui renvoie `ask` sur `git status` | Retirer `Bash(git *)`, `git push *`, `gh pr *` des allow (user + projets) et garder le hook en refus seul |
 | V4 | Workflows réutilisables d'un repo **privé** appelables depuis tes autres repos privés sur un compte **gratuit** | Réglage « Access » du repo harness + workflow d'essai appelé depuis un repo jetable | Workflows copiés dans chaque `ci.yml` via le squelette, dérive vérifiée par `harness-sync` |
@@ -147,10 +147,10 @@ d'écrire du code. Chaque vérification a un plan B décidé à l'avance.
       (`/plugin marketplace add SelimLBOURAYA/claude-harness@main`), bloc
       `extraKnownMarketplaces` avec `"ref": "main"`, prérequis `gh auth login`
 
-**Après le merge de ce lot** : l'utilisateur effectue la **première promotion
-`develop` → `main`** du repo harness (création de `main`). Sans elle, aucun
-repo ne peut déclarer le marketplace avec `ref: main` et les lots 5 et 7 sont
-bloqués.
+**Après le merge du lot 4** : l'utilisateur promeut `develop` → `main` du repo
+harness. `main` existe déjà (`d7b1438`, plan seul) ; cette promotion est la
+première à y apporter le plugin. Sans elle, un repo qui déclare le marketplace
+avec `ref: main` n'obtient aucun plugin et les lots 5 et 7 sont bloqués.
 
 ---
 
@@ -546,10 +546,10 @@ Chaque lot d'adoption applique **toute** la checklist, puis les points propres a
 
 - PR `chore/develop-branching-model` **mergée** dans `develop` sur les 8 repos (état au
   2026-09-17 : chaque repo a 1 commit d'avance sur `develop`, arbre propre).
-- **Branche `main` du repo `claude-harness`** : n'existe pas au 2026-09-17 (repo sur `develop`
-  seul, branche par défaut `develop`). Créée par la première promotion `develop` → `main`
-  de l'utilisateur, **après le lot 0** et **avant les lots 5 et 7** (voir décision « Version du
-  plugin »).
+- **Branche `main` du repo `claude-harness`** : existe depuis le 2026-09-17 (`d7b1438`, égale à
+  `develop`, plan seul, aucun plugin ; branche par défaut `develop`). La promotion
+  `develop` → `main` qui compte est celle de l'utilisateur **après le lot 4** et **avant les
+  lots 5 et 7** (voir décision « Version du plugin »).
 - PR `lot-12-themealdb-fr` mpb (#16) et branches distantes obsolètes : état à relever avant
   le lot 9 (suppression de branches distantes = décision utilisateur, §4).
 
