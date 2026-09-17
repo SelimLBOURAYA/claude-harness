@@ -54,7 +54,7 @@ meal-planner-backend / -frontend, elya-fe = elya-frontend.
 | Emplacement du plan | `claude-harness/dev-plan.md` (ce fichier) |
 | Périmètre | Les 8 repos actifs ; référence = kb et kf (les plus à jour). Legacy `kreadevis/` **hors périmètre** |
 | Découpage | Par vagues : harness → conventions → adoption repo par repo → clôture |
-| Version du plugin | Les projets **suivent `main`** du harness (pas de tag figé). Un changement n'est actif qu'après ta promotion `develop` → `main` du repo harness. Les rapports d'audit citent le SHA du harness |
+| Version du plugin | Les projets **suivent `main`** du harness (pas de tag figé). Un changement n'est actif qu'après ta promotion `develop` → `main` du repo harness. Les rapports d'audit citent le SHA du harness. *(précisé le 2026-09-17, doc Claude Code « plugin marketplaces »)* Sans ref, Claude Code clone la **branche par défaut** du repo, qui est `develop` (et le reste après le lot 6b) : la ref **`main` est donc obligatoire** partout où le marketplace est déclaré (`"ref": "main"` dans `extraKnownMarketplaces`, `@main` en ligne de commande), sinon tout merge sur `develop` devient actif dans les 8 repos. Tant que `main` n'existe pas, l'ajout du marketplace avec cette ref **échoue** (comportement attendu, à confirmer en V1) : la première promotion `develop` → `main` est un prérequis du lot 5 (activation user-level) et du lot 7 (première adoption) |
 | Paramètres par projet | Section `## Gate parameters` dans `CLAUDE.md` (donc dans `AGENTS.md`) |
 | Sprint vs stop | **Stop après PR** (§2.9) : un lot = une PR vers `develop`, puis arrêt jusqu'au merge. « Sprint chaining » supprimé partout ; skill `sprint` non repris dans le plugin |
 | Garde git | Hook `PreToolUse` Bash. **Refus** : push vers `main`, `--force`/`--force-with-lease`, `--no-verify`, `reset --hard`, suppression de branche distante, `gh pr create` sans `--base develop`. **Confirmation** : tout `git push`, tout `gh pr create` |
@@ -131,7 +131,7 @@ d'écrire du code. Chaque vérification a un plan B décidé à l'avance.
 
 | # | Question | Méthode | Plan B si échec |
 |---|---|---|---|
-| V1 | Syntaxe exacte marketplace/plugin, activation au niveau user **et** projet (`extraKnownMarketplaces`, `enabledPlugins`), suivi de `main` | Documentation Claude Code (agent `claude-code-guide`) + plugin de test minimal installé localement | Skills copiés dans `.claude/skills/` de chaque repo, `harness-sync` vérifie la dérive par `cmp` |
+| V1 | Syntaxe exacte marketplace/plugin, activation au niveau user **et** projet (`extraKnownMarketplaces`, `enabledPlugins`), suivi de `main`. Points à prouver : (a) avec `"ref": "main"` et sans branche `main`, l'ajout du marketplace échoue avec un message explicite ; (b) après création de `main`, `/plugin marketplace update` ne récupère que les commits de `main`, jamais ceux de `develop` ; (c) accès au repo **privé** par le credential helper git (`gh auth login`), y compris pour la mise à jour automatique en arrière-plan et depuis IntelliJ et Cursor (lien V6) | Documentation Claude Code (agent `claude-code-guide`) + plugin de test minimal installé localement, sur un repo jetable ayant `develop` comme branche par défaut | Skills copiés dans `.claude/skills/` de chaque repo, `harness-sync` vérifie la dérive par `cmp` ; si (c) échoue en arrière-plan : `git config --global url."https://x-access-token:<TOKEN>@github.com/SelimLBOURAYA/claude-harness".insteadOf …` documenté dans `README.md`, jeton hors repo |
 | V2 | Noms des skills de plugin (`claude-harness:lot-test`) et leur découverte en session projet et racine | Session de test | Tables Skills rédigées avec le nom réellement annoncé |
 | V3 | Un hook de plugin `PreToolUse` peut renvoyer **refus** et **confirmation** même si `Bash(git *)` est en allow | Hook de test qui renvoie `ask` sur `git status` | Retirer `Bash(git *)`, `git push *`, `gh pr *` des allow (user + projets) et garder le hook en refus seul |
 | V4 | Workflows réutilisables d'un repo **privé** appelables depuis tes autres repos privés sur un compte **gratuit** | Réglage « Access » du repo harness + workflow d'essai appelé depuis un repo jetable | Workflows copiés dans chaque `ci.yml` via le squelette, dérive vérifiée par `harness-sync` |
@@ -143,6 +143,14 @@ d'écrire du code. Chaque vérification a un plan B décidé à l'avance.
 - [ ] V1 à V6 tranchées, résultat et plan retenu consignés dans `docs/audits/lot-0.md`
 - [ ] `cmp CLAUDE.md AGENTS.md` silencieux, `CONVENTIONS.md` identique au master
 - [ ] Plugin vide installable localement
+- [ ] `README.md` du harness : commande d'installation **avec** la ref
+      (`/plugin marketplace add SelimLBOURAYA/claude-harness@main`), bloc
+      `extraKnownMarketplaces` avec `"ref": "main"`, prérequis `gh auth login`
+
+**Après le merge de ce lot** : l'utilisateur effectue la **première promotion
+`develop` → `main`** du repo harness (création de `main`). Sans elle, aucun
+repo ne peut déclarer le marketplace avec `ref: main` et les lots 5 et 7 sont
+bloqués.
 
 ---
 
@@ -196,7 +204,7 @@ Skills du plugin, en anglais, extraits de la version kb/kf la plus récente et *
 | `lot-test` | kb + kf | Commande de validation, seuil et outil de couverture lus dans Gate parameters ; matrice de tests unifiée backend/frontend |
 | `lot-audit` + `checklists.md` | kb (identique kf) | Étape 2 : `Skill(security-review)` au lieu du subagent inexistant (#6) ; chemin de checklist corrigé ; **revue des exclusions de couverture** (#7) ; **migrations en `A` uniquement** (#9) ; en-tête du rapport avec SHA du harness |
 | `lot-ship` | kb + kf | Stop après PR ; exige `lot-N.md` sans Critical ; **front : exige `lot-0-integration.md`** (#3) ; PR `--base develop` ; *(P5-#11)* après `gh pr create`, affiche `gh pr checks --watch` et **refuse de déclarer le lot prêt** tant qu'un check est rouge ; *(P5-#14)* toute lecture d'historique passe par `rtk proxy git log` |
-| `harness-sync` | kb | Vérifie : plugin déclaré, Gate parameters complets, census ⇔ skills, miroir, CONVENTIONS = master, absence de `skill/` et de « Sprint chaining » ; *(P5-#14)* statuts du fichier de lots croisés avec `rtk proxy git log --first-parent` (un lot ✅ dont la mention « PR à ouvrir » subsiste est une dérive) |
+| `harness-sync` | kb | Vérifie : plugin déclaré **avec `"ref": "main"`**, Gate parameters complets, census ⇔ skills, miroir, CONVENTIONS = master, absence de `skill/` et de « Sprint chaining » ; *(P5-#14)* statuts du fichier de lots croisés avec `rtk proxy git log --first-parent` (un lot ✅ dont la mention « PR à ouvrir » subsiste est une dérive) |
 | `dep-update` | kb + kf | Paramétré par stack |
 | `i-have-adhd` | identique partout | `disable-model-invocation: true` conservé |
 | `integration-check` (nouveau) | – | Procédure du smoke manuel front ↔ backend réel et gabarit de `lot-0-integration.md` |
@@ -228,7 +236,7 @@ actions épinglées par SHA *(P5-#9)* :
 
 | Workflow | Contrôle | Déclenché sur |
 |---|---|---|
-| `harness-invariants.yml` | `cmp CLAUDE.md AGENTS.md` ; `CONVENTIONS.md` = version du harness ; absence de `skill/` ; census ⇔ `.claude/skills/` | toute PR, tout push |
+| `harness-invariants.yml` | `cmp CLAUDE.md AGENTS.md` ; source du marketplace `claude-harness` dans `.claude/settings.json` avec `"ref": "main"` ; `CONVENTIONS.md` = version du harness ; absence de `skill/` ; census ⇔ `.claude/skills/` | toute PR, tout push |
 | `commit-format.yml` | Commits de la PR : Conventional Commits, titre ASCII sans U+2014 | PR |
 | `branch-naming.yml` | `feat/lot-N-slug`, `fix/…`, `chore/…`, `docs/…` ; PR vers `develop` (ou `main` seulement depuis `develop` ou `fix/…`) | PR |
 | `migrations-immutable.yml` | Tout fichier du répertoire de migrations modifié vs `origin/develop` doit être en `A` ; *(P5-#8)* tout fichier ajouté contenant `addNotNullConstraint`, `dropColumn`, `dropTable`, `renameColumn`, `renameTable` (Liquibase) ou `ALTER … SET NOT NULL`, `DROP COLUMN`, `DROP TABLE`, `RENAME` (SQL Flyway) doit porter le marqueur `contract` (commentaire `-- contract` / `comment: contract`) **et** la PR le label `schema-contract` ; sinon échec avec le rappel expand/contract | PR |
@@ -308,7 +316,9 @@ Constats : **#4**, #5, #13, #21, #15 (mémoire), §12/§13 à réécrire.
 
 `~/.claude/settings.json` :
 
-- Plugin `claude-harness` activé (user) ; ancien hook miroir retiré (remplacé par le plugin).
+- Plugin `claude-harness` activé (user) via `extraKnownMarketplaces` avec `"ref": "main"`
+  (jamais sans ref : la branche par défaut du harness est `develop`) ; ancien hook miroir retiré
+  (remplacé par le plugin). Prérequis : branche `main` du harness créée par la première promotion.
 - Allow `Bash(git *)` réexaminé selon V3.
 
 Mémoires :
@@ -382,7 +392,8 @@ Chaque lot d'adoption applique **toute** la checklist, puis les points propres a
 
 1. Branche `chore/harness-adoption` depuis `develop` (prérequis : PR `chore/develop-branching-model`
    mergée, cf. « Prérequis »).
-2. `.claude/settings.json` : marketplace + plugin `claude-harness` déclarés.
+2. `.claude/settings.json` : marketplace + plugin `claude-harness` déclarés, source GitHub avec
+   **`"ref": "main"`** (une déclaration sans ref suivrait `develop`, branche par défaut du harness).
 3. Suppression des skills locaux repris par le plugin (`skill/` ou `.claude/skills/`) ;
    conservation des seuls skills propres au projet, déplacés dans `.claude/skills/` (#1).
 4. `CLAUDE.md` : section `## Gate parameters` complète ; table Skills avec noms plugin ;
@@ -535,6 +546,10 @@ Chaque lot d'adoption applique **toute** la checklist, puis les points propres a
 
 - PR `chore/develop-branching-model` **mergée** dans `develop` sur les 8 repos (état au
   2026-09-17 : chaque repo a 1 commit d'avance sur `develop`, arbre propre).
+- **Branche `main` du repo `claude-harness`** : n'existe pas au 2026-09-17 (repo sur `develop`
+  seul, branche par défaut `develop`). Créée par la première promotion `develop` → `main`
+  de l'utilisateur, **après le lot 0** et **avant les lots 5 et 7** (voir décision « Version du
+  plugin »).
 - PR `lot-12-themealdb-fr` mpb (#16) et branches distantes obsolètes : état à relever avant
   le lot 9 (suppression de branches distantes = décision utilisateur, §4).
 
@@ -617,6 +632,10 @@ Chaque lot d'adoption applique **toute** la checklist, puis les points propres a
   KB.22 avant KB.17.
 - **Suivi de `main` du harness** : une régression promue casse les 8 repos d'un coup.
   Mitigation : tests du harness + promotion manuelle, rollback par revert sur `main`.
+- **Déclaration du marketplace sans ref** : suivrait `develop` (branche par défaut du harness) et
+  rendrait actif tout merge non promu. Mitigation : `"ref": "main"` imposé aux lots 5 et 7–14,
+  vérifié par `harness-sync` (lot 2) et par `harness-invariants.yml` (lot 3, lecture de
+  `.claude/settings.json`).
 - **Garde git contournable** (commande non analysable, exécution hors Claude Code). Mitigation :
   confirmation par défaut sur l'inconnu, CI en second rideau.
 - **Blocage des fronts** par l'exigence `lot-0-integration.md` : effet voulu, mais kf est
