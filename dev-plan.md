@@ -4,7 +4,9 @@
 > et audit `~/ENV/projets/audit/p5-harness-cicd-2026-09-17.md` (23 constats, gardes CI/CD et
 > GitHub ; copie dans `deployment/docs/audits/`). Les constats P5 sont référencés `P5-#n`.
 > Décisions arbitrées avec l'utilisateur le 2026-09-17 (section « Décisions »), amendées le soir
-> même par l'intégration de P5 (lignes marquées *(P5)*).
+> même par l'intégration de P5 (lignes marquées *(P5)*), puis par l'arbitrage de l'audit P6
+> `~/ENV/projets/audit/p6-meta-portfolio-2026-09-17.md` §9, décisions D1 à D14 (lignes
+> marquées *(P6-Dn)*).
 > Objectif : remplacer un harnais **dupliqué dans 8 repos et appliqué seulement par la prose**
 > par un harnais **central, versionné et appliqué mécaniquement** (hooks + CI), puis faire
 > adopter ce harnais par les 8 repos, en partant de kreadevis-backend et kreadevis-frontend.
@@ -22,7 +24,7 @@
 | 4 | A – Harness | Squelette de projet (remplace `prompt-harness.md`) | claude-harness, racine, mpb | ⬜ |
 | 5 | B – Conventions | Master `coding-conventions.md`, réglages user-level, mémoires | `~/.claude` | ⬜ |
 | 6 | B – Conventions | Nettoyage racine `~/ENV/projets` | racine, deployment | ⬜ |
-| 6b | B – Conventions | Réglages GitHub : branche par défaut `develop`, protection des repos publics *(P5)* | GitHub (utilisateur), 8 repos | ⬜ |
+| 6b | B – Conventions | Réglages GitHub : branche par défaut `develop` *(P5)*, passage en privé de `kreadevis` et `meal-planner-frontend` *(P6-D1)* | GitHub (utilisateur), 9 repos | 🔄 |
 | 7 | C – Adoption | kreadevis-backend (pilote backend) | kb | ⬜ |
 | 8 | C – Adoption | kreadevis-frontend (pilote frontend) | kf | ⬜ |
 | 9 | C – Adoption | meal-planner-backend | mpb | ⬜ |
@@ -39,9 +41,10 @@ planifié mais dormant (décision : livrable manuel d'abord, CI ensuite). Le lot
 manuel et court (≈ 15 min) : il peut être exécuté par l'utilisateur **dès maintenant**, hors
 séquence, sans dépendance sur les lots 0 à 6.
 
-**Priorité fenêtre de septembre** *(P5)* : les lots 1, 3 et 6b, puis 7 et 8, doivent être
-livrés **avant** le merge de `kreadevis-backend` lot 17 et de `kreadevis-frontend` lot 13,
-sinon les deux images de production seront publiées par des CI sans garde.
+**Priorité avant les premières images** *(P5 ; P6-D5 : aucun jalon daté)* : les lots 1, 3 et 6b,
+puis 7 et 8, doivent être livrés **avant** le merge de `kreadevis-backend` lot 17 et de
+`kreadevis-frontend` lot 13, sinon les deux images de production seront publiées par des CI sans
+garde. Les lots se réalisent au rythme du temps disponible ; aucune date n'est engagée.
 
 Abréviations : kb = kreadevis-backend, kf = kreadevis-frontend, mpb / mpf =
 meal-planner-backend / -frontend, elya-fe = elya-frontend.
@@ -51,6 +54,7 @@ meal-planner-backend / -frontend, elya-fe = elya-frontend.
 | Sujet | Décision |
 |---|---|
 | Emplacement du harnais | Nouveau repo **privé** `SelimLBOURAYA/claude-harness` = marketplace + plugin (skills, hooks, squelette de projet) + workflows CI réutilisables |
+| Visibilité des repos *(P6-D1)* | **Tous privés.** `kreadevis` (backend) et `meal-planner-frontend` passent en privé (lot 6b) : GitHub n'autorise l'accès aux workflows réutilisables d'un repo privé que depuis des repos privés, et leur statut public exposait la posture sécurité de kreadevis sans bénéfice (protection jamais activée). Conséquence : packages GHCR privés par défaut (question n°8 de `deployment/LOTS.md` close) |
 | Emplacement du plan | `claude-harness/dev-plan.md` (ce fichier) |
 | Périmètre | Les 8 repos actifs ; référence = kb et kf (les plus à jour). Legacy `kreadevis/` **hors périmètre** |
 | Découpage | Par vagues : harness → conventions → adoption repo par repo → clôture |
@@ -60,21 +64,39 @@ meal-planner-backend / -frontend, elya-fe = elya-frontend.
 | Garde git | Hook `PreToolUse` Bash. **Refus** : push vers `main`, `--force`/`--force-with-lease`, `--no-verify`, `reset --hard`, suppression de branche distante, `gh pr create` sans `--base develop`. **Confirmation** : tout `git push`, tout `gh pr create` |
 | Rapport d'audit | Exigé à `gh pr create` depuis `feat/lot-N-*` (pas au push) |
 | Hooks git locaux | Aucun (pas de lefthook/husky) : les invariants sont vérifiés **en CI** |
-| Protection de branches GitHub | *(amendé P5-#3)* **Indisponible sur les 6 repos privés** (compte gratuit : l'API répond 403 « Upgrade to GitHub Pro »), mais **disponible et à activer** sur les 2 repos publics `SelimLBOURAYA/kreadevis` (backend) et `meal-planner-frontend` (API : 404 « not protected »). Lot 6b. Sur les 6 privés, conséquence assumée : une CI rouge **n'empêche pas** un merge ; le seul verrou est ta relecture, et `lot-ship` refuse de déclarer un lot prêt si `gh pr checks` est rouge (P5-#11, elya a mergé 3 PR pendant 6 runs rouges) |
+| Protection de branches GitHub | *(amendé P5-#3, puis P6-D1)* **Indisponible sur les 9 repos**, tous privés (compte gratuit : l'API répond 403 « Upgrade to GitHub Pro »). Conséquence assumée : une CI rouge **n'empêche pas** un merge ; le seul verrou est ta relecture, et `lot-ship` refuse de déclarer un lot prêt si `gh pr checks` est rouge (P5-#11, elya a mergé 3 PR pendant 6 runs rouges) |
 | Branche par défaut GitHub *(P5-#3)* | **`develop` sur les 8 repos** : `gh pr create` sans `--base`, l'interface GitHub et les `git clone` visent alors `develop` par défaut. `main` reste la branche de production. Lot 6b, manuel |
 | Exécution des migrations en CI *(P5-#1, #7)* | Tout backend a au moins un `@SpringBootTest` sur **Testcontainers `postgres:17`** avec Liquibase/Flyway **actifs** dans sa validation gate. Ce n'est pas un livrable du harnais mais une **condition d'adoption** (lots 7 et 9) : KB.22 pour kreadevis-backend, MP.BE.13 pour meal-planner-backend |
 | Image démarrée en CI *(P5-#6)* | Workflow réutilisable `image-smoke.yml` (lot 3) : `docker compose up` de l'image construite sur la PR + attente `healthy` + `curl` du chemin de santé. Appelé par KB.17, KF.13, MP.BE.13, MP.FE.14, E.6.2, E-FE.12 |
-| Chaîne d'approvisionnement CI *(P5-#9)* | Actions épinglées par **SHA** (commentaire `# vX.Y.Z`), `permissions: contents: read` en tête de chaque workflow, `dependabot.yml` (github-actions, maven, npm) dans le squelette (lot 4) et dans chaque repo à l'adoption. Scan d'image (trivy) : **proposé, non décidé** (point ouvert P5) |
+| Publication d'image *(P6-D9)* | Workflow réutilisable `image-publish.yml` (lot 3) : **seule** implémentation du build/push GHCR du portefeuille. PR = build sans push + `image-smoke.yml` ; `develop` = tags `dev` + `sha-<court>` ; `main` = `latest` + `sha-<court>` ; labels OCI `revision` et `source`. Appelé par les 6 lots image ; aucun lot image ne réécrit ces étapes |
+| Épinglage en production *(P6-D11)* | Tag **`sha-<court>`** dans les stacks ; digest journalisé en plus dans `history.tsv` (`deployment` LOT 6) |
+| Chaîne d'approvisionnement CI *(P5-#9)* | Actions épinglées par **SHA** (commentaire `# vX.Y.Z`), `permissions: contents: read` en tête de chaque workflow, `dependabot.yml` (github-actions, maven, npm) dans le squelette (lot 4) et dans chaque repo à l'adoption. *(P6-D12)* Scans de vulnérabilités **informatifs** d'abord (trivy dans `image-publish.yml`, `npm audit --audit-level=high` / `dependency-check` dans `lint.yml`, jobs non bloquants), **bloquants sur CRITICAL après le premier go-live** ; accord §4 donné pour l'action trivy |
 | Intégration front ↔ back | Livrable `docs/audits/lot-0-integration.md` exigé par `lot-ship` avant toute PR front ; job CI « contract » au lot 16 |
 | Couverture meal-planner | Retrait des exclusions de packages métier, mesure, seuil fixé au niveau réel (ratchet), puis lots de tests |
 | Audits manquants mpf | Un audit rétroactif global `docs/audits/retro-lots-01-13.md` |
 | rtk | Le hook rtk ne réécrit plus `git log` ni la lecture des fichiers mémoire |
 | Démarrage §9 | Lecture du **tableau de statut + section du lot courant** seulement ; fichiers de lots non scindés |
+| Contrat du fichier de lots *(P6-D10)* | Tableau `\| Lot \| Branche \| Statut \|` **obligatoire en tête** de chaque fichier de lots, statuts ⬜/🔄/✅/⏸️/❄️ ; vérifié par `harness-invariants.yml` ; condition d'adoption (item 12 de la checklist commune) |
+| Master des conventions *(P6-D2, tranche P1)* | `claude-harness/CONVENTIONS.md` **devient le master** (lot 5) ; `~/.claude/coding-conventions.md` devient un lien symbolique vers le clone local ; la CI compare les copies des repos à ce fichier. Vérification V7 au lot 0 |
+| Agents non-Claude *(P6-D3)* | Cursor, DeepClaude/OpenRouter : le `CLAUDE.md` (donc `AGENTS.md`) de chaque repo renvoie aux `SKILL.md` du clone local `~/ENV/projets/claude-harness/plugins/claude-harness/skills/` ; **tout invariant bloquant est porté par la CI**, seule garde agnostique de l'agent. §12 réécrit au lot 5 |
+| Audits transverses *(P6-D4)* | Versionnés dans `claude-harness/docs/audits/portfolio/` (P4 v1 et v2, P5, P6, puis les v3 du lot 15) ; `deployment/docs/audits/` ne garde que P3 |
+| Jalons temporels *(P6-D5)* | **Aucun.** Plus de « fenêtre de septembre » : l'ordre des lots est conservé, les dates ne le sont pas |
+| Ordre de déploiement *(P6-D6)* | kreadevis → elya → meal-planner → summerize-youtube (tenu dans `deployment/ROADMAP.md`) ; ordre de promotion du lot 15 aligné |
 | Copie racine `ROADMAP.md` | Supprimée ; `deployment/ROADMAP.md` seul fait foi |
 | CI partagée | Workflows réutilisables (`workflow_call`) dans `claude-harness` |
 | Promotion `develop` → `main` | **Manuelle, par l'utilisateur**, hors plan |
 | Gate des lots de remédiation | Gate **allégé** (voir « Règles transverses ») ; rapports dans `claude-harness/docs/audits/` |
 | Constats mineurs | Tous inclus (#15, #17, #19–#25) |
+
+### Répartition des responsabilités *(P6-D2)*
+
+| Objet | Propriétaire |
+|---|---|
+| Conventions (master), skills, hooks, squelette de projet, workflows CI (contrôle **et** publication) | `claude-harness` |
+| Statuts et séquencement inter-projets (`ROADMAP.md`), runbook, stacks, hôte | `deployment` |
+| Politique de branches et de pistes d'images | `CONVENTIONS.md` §7 (texte) ; `deployment/CLAUDE.md` ne garde que les **conséquences runtime** et renvoie à §7 |
+| Audits transverses | `claude-harness/docs/audits/portfolio/` |
+| Export claude.ai (`~/ENV/claude-backup/export-claude-project.sh`) | `deployment` (lit `ROADMAP.md` du repo) ; régénéré à chaque sync de la ROADMAP |
 
 ## Règles transverses du plan
 
@@ -121,7 +143,7 @@ d'écrire du code. Chaque vérification a un plan B décidé à l'avance.
 
 - `git init`, branches `main` puis `develop` ; `.gitignore` avec `.env` et `*.local.md` (§5, §8).
 - `CLAUDE.md` = `AGENTS.md` (census, gate du repo, structure), `CONVENTIONS.md` (copie du
-  master), `README.md` (installation du plugin, mise à jour, désinstallation), `dev-plan.md`.
+  master, qui devient lui-même le master au lot 5, *P6-D2*), `README.md` (installation du plugin, mise à jour, désinstallation), `dev-plan.md`.
 - Manifestes : `.claude-plugin/marketplace.json` et `plugins/claude-harness/.claude-plugin/plugin.json`
   (structure exacte à confirmer par la vérification V1).
 - `tests/run.sh` (squelette), `docs/audits/.gitkeep`.
@@ -134,13 +156,14 @@ d'écrire du code. Chaque vérification a un plan B décidé à l'avance.
 | V1 | Syntaxe exacte marketplace/plugin, activation au niveau user **et** projet (`extraKnownMarketplaces`, `enabledPlugins`), suivi de `main`. Points à prouver : (a) avec `"ref": "main"` pointant une branche **sans** `.claude-plugin/marketplace.json`, l'ajout du marketplace échoue avec un message explicite (test sur le repo jetable uniquement : `main` du harness existe déjà) ; (b) après création de `main`, `/plugin marketplace update` ne récupère que les commits de `main`, jamais ceux de `develop` ; (c) accès au repo **privé** par le credential helper git (`gh auth login`), y compris pour la mise à jour automatique en arrière-plan et depuis IntelliJ et Cursor (lien V6) | Documentation Claude Code (agent `claude-code-guide`) + plugin de test minimal installé localement, sur un repo jetable ayant `develop` comme branche par défaut | Skills copiés dans `.claude/skills/` de chaque repo, `harness-sync` vérifie la dérive par `cmp` ; si (c) échoue en arrière-plan : `git config --global url."https://x-access-token:<TOKEN>@github.com/SelimLBOURAYA/claude-harness".insteadOf …` documenté dans `README.md`, jeton hors repo |
 | V2 | Noms des skills de plugin (`claude-harness:lot-test`) et leur découverte en session projet et racine | Session de test | Tables Skills rédigées avec le nom réellement annoncé |
 | V3 | Un hook de plugin `PreToolUse` peut renvoyer **refus** et **confirmation** même si `Bash(git *)` est en allow | Hook de test qui renvoie `ask` sur `git status` | Retirer `Bash(git *)`, `git push *`, `gh pr *` des allow (user + projets) et garder le hook en refus seul |
-| V4 | Workflows réutilisables d'un repo **privé** appelables depuis tes autres repos privés sur un compte **gratuit** | Réglage « Access » du repo harness + workflow d'essai appelé depuis un repo jetable | Workflows copiés dans chaque `ci.yml` via le squelette, dérive vérifiée par `harness-sync` |
+| V4 | Workflows réutilisables d'un repo **privé** appelables depuis tes autres repos privés sur un compte **gratuit personnel** (pas une organisation) ; *(P6-D1)* l'appel depuis un repo public est exclu par la doc GitHub, d'où le passage en privé de kb et mpf | Réglage « Access » du repo harness (« Accessible from repositories owned by the user ») + workflow d'essai appelé depuis un repo jetable **privé** | Workflows copiés dans chaque `ci.yml` via le squelette, dérive vérifiée par `harness-sync` |
 | V5 | Moyen d'empêcher rtk de réécrire `git log` et la lecture de la mémoire | `rtk config`, doc rtk | Hook wrapper qui n'appelle `rtk hook claude` que hors motifs exclus |
-| V6 | Sessions IDE (IntelliJ, Cursor) et DeepClaude : plugin chargé, `rtk` et `python3` sur le `PATH`, routage modèle (#audit « Non vérifié ») | Session de test depuis chaque IDE, `echo $PATH` dans un hook de diagnostic | Documenter le lancement requis dans `README.md` du harness |
+| V6 | Sessions IDE (IntelliJ, Cursor) et DeepClaude : plugin chargé, `rtk` et `python3` sur le `PATH`, routage modèle (#audit « Non vérifié ») | Session de test depuis chaque IDE, `echo $PATH` dans un hook de diagnostic ; *(P6-D3)* une session Cursor ou DeepClaude tente `gh pr create` depuis `feat/lot-N-*` sans rapport d'audit : **seule la CI** doit l'arrêter, et l'agent doit trouver les `SKILL.md` par le renvoi du `CLAUDE.md` | Documenter le lancement requis dans `README.md` du harness |
+| V7 *(P6-D2)* | L'import `@coding-conventions.md` de `~/.claude/CLAUDE.md` suit un **lien symbolique** vers `claude-harness/CONVENTIONS.md` (contenu présent en session) | Lien posé sur une copie de test de `~/.claude`, session ouverte, contenu vérifié | Import direct du chemin du clone (`@/home/selim/ENV/projets/claude-harness/CONVENTIONS.md`) dans `~/.claude/CLAUDE.md` |
 
 ### Critères de validation
 
-- [ ] V1 à V6 tranchées, résultat et plan retenu consignés dans `docs/audits/lot-0.md`
+- [ ] V1 à V7 tranchées, résultat et plan retenu consignés dans `docs/audits/lot-0.md`
 - [ ] `cmp CLAUDE.md AGENTS.md` silencieux, `CONVENTIONS.md` identique au master
 - [ ] Plugin vide installable localement
 - [ ] `README.md` du harness : commande d'installation **avec** la ref
@@ -204,7 +227,7 @@ Skills du plugin, en anglais, extraits de la version kb/kf la plus récente et *
 | `lot-test` | kb + kf | Commande de validation, seuil et outil de couverture lus dans Gate parameters ; matrice de tests unifiée backend/frontend |
 | `lot-audit` + `checklists.md` | kb (identique kf) | Étape 2 : `Skill(security-review)` au lieu du subagent inexistant (#6) ; chemin de checklist corrigé ; **revue des exclusions de couverture** (#7) ; **migrations en `A` uniquement** (#9) ; en-tête du rapport avec SHA du harness |
 | `lot-ship` | kb + kf | Stop après PR ; exige `lot-N.md` sans Critical ; **front : exige `lot-0-integration.md`** (#3) ; PR `--base develop` ; *(P5-#11)* après `gh pr create`, affiche `gh pr checks --watch` et **refuse de déclarer le lot prêt** tant qu'un check est rouge ; *(P5-#14)* toute lecture d'historique passe par `rtk proxy git log` |
-| `harness-sync` | kb | Vérifie : plugin déclaré **avec `"ref": "main"`**, Gate parameters complets, census ⇔ skills, miroir, CONVENTIONS = master, absence de `skill/` et de « Sprint chaining » ; *(P5-#14)* statuts du fichier de lots croisés avec `rtk proxy git log --first-parent` (un lot ✅ dont la mention « PR à ouvrir » subsiste est une dérive) |
+| `harness-sync` | kb | Vérifie : plugin déclaré **avec `"ref": "main"`**, Gate parameters complets, census ⇔ skills, miroir, CONVENTIONS = master, absence de `skill/` et de « Sprint chaining » ; *(P5-#14)* statuts du fichier de lots croisés avec `rtk proxy git log --first-parent` (un lot ✅ dont la mention « PR à ouvrir » subsiste est une dérive) ; *(P6-D10)* tableau de statut présent en tête du fichier de lots ; *(P6-D14)* mémoires `project_*` sans date de vérification ou vérifiées il y a plus de 60 jours signalées ; *(P6-D5)* aucune date ni « fenêtre » dans le fichier de lots |
 | `dep-update` | kb + kf | Paramétré par stack |
 | `i-have-adhd` | identique partout | `disable-model-invocation: true` conservé |
 | `integration-check` (nouveau) | – | Procédure du smoke manuel front ↔ backend réel et gabarit de `lot-0-integration.md` |
@@ -212,7 +235,8 @@ Skills du plugin, en anglais, extraits de la version kb/kf la plus récente et *
 - `sprint` **non repris** (décision stop après PR) ; #16 disparaît avec lui.
 - Contrat `## Gate parameters` documenté dans `README.md` du harness :
   `Stack`, `Validation command`, `Coverage tool`, `Coverage threshold`, `Coverage exclusions`
-  (liste explicite, vide par défaut), `Migrations directory`, `Lots file`, `Frontend backend pair`,
+  (liste explicite, vide par défaut), `Migrations directory`, `Lots file` (*P6-D10* : fichier
+  commençant par le tableau `| Lot | Branche | Statut |`), `Frontend backend pair`,
   *(P5)* `Health path` (chemin de santé de l'image, ex. `/actuator/health` ou `/health`),
   `Dist forbidden pattern` (fronts, ex. `localhost:8080`), `Image name` (ex.
   `ghcr.io/selimlbouraya/kreadevis-backend`).
@@ -236,13 +260,14 @@ actions épinglées par SHA *(P5-#9)* :
 
 | Workflow | Contrôle | Déclenché sur |
 |---|---|---|
-| `harness-invariants.yml` | `cmp CLAUDE.md AGENTS.md` ; source du marketplace `claude-harness` dans `.claude/settings.json` avec `"ref": "main"` ; `CONVENTIONS.md` = version du harness ; absence de `skill/` ; census ⇔ `.claude/skills/` | toute PR, tout push |
+| `harness-invariants.yml` | `cmp CLAUDE.md AGENTS.md` ; source du marketplace `claude-harness` dans `.claude/settings.json` avec `"ref": "main"` ; `CONVENTIONS.md` = master du harness *(P6-D2)* ; absence de `skill/` ; census ⇔ `.claude/skills/` ; *(P6-D10)* le fichier `Lots file` commence par un tableau `\| Lot \| Branche \| Statut \|` dont chaque statut est ⬜, 🔄, ✅, ⏸️ ou ❄️ | toute PR, tout push |
 | `commit-format.yml` | Commits de la PR : Conventional Commits, titre ASCII sans U+2014 | PR |
 | `branch-naming.yml` | `feat/lot-N-slug`, `fix/…`, `chore/…`, `docs/…` ; PR vers `develop` (ou `main` seulement depuis `develop` ou `fix/…`) | PR |
 | `migrations-immutable.yml` | Tout fichier du répertoire de migrations modifié vs `origin/develop` doit être en `A` ; *(P5-#8)* tout fichier ajouté contenant `addNotNullConstraint`, `dropColumn`, `dropTable`, `renameColumn`, `renameTable` (Liquibase) ou `ALTER … SET NOT NULL`, `DROP COLUMN`, `DROP TABLE`, `RENAME` (SQL Flyway) doit porter le marqueur `contract` (commentaire `-- contract` / `comment: contract`) **et** la PR le label `schema-contract` ; sinon échec avec le rappel expand/contract | PR |
 | `lot-deliverables.yml` | Branche `feat/lot-N-*` : `docs/audits/lot-N.md` présent ; front : `lot-0-integration.md` présent ; *(P5-#13)* la PR n'ajoute qu'**un seul** `docs/audits/lot-*.md` et ne modifie le fichier de lots que sur les lignes de statut (diff limité aux lignes contenant `✅`, `🔄`, `⬜`, `Done`) | PR |
 | `image-smoke.yml` *(P5-#6)* | Entrées : `image` (tag local construit dans le job appelant), `health_path`, `compose_file` optionnel. `docker compose up -d` (image + `postgres:17` si backend), attente `healthy` ≤ `start_period` + 60 s, `curl -f <health_path>`, `docker compose logs` en cas d'échec, `down -v`. Sur PR : construit sans pousser ; sur `main`/`develop` : réutilise le tag poussé | PR, push `develop`/`main` |
 | `frontend-dist.yml` *(P5-#15)* | Après `npm run build` : `! grep -r "<Dist forbidden pattern>" dist/` ; `ls dist/**/index.html` présent | PR, push |
+| `image-publish.yml` *(P6-D9)* | Entrées : `image` (`Image name` des Gate parameters), `context`, `dockerfile`, `health_path`. Sur PR : build `linux/amd64` **sans push** puis appel de `image-smoke.yml`. Sur push `develop` : push tags `dev` + `sha-<court>` ; sur push `main` : `latest` + `sha-<court>`. Labels OCI `org.opencontainers.image.revision` et `.source` ; `permissions: packages: write` **au niveau du job de push uniquement** ; `paths-ignore: ['**.md']` documenté dans le gabarit d'appel ; *(P6-D12)* job trivy non bloquant sur l'image construite (bloquant sur CRITICAL après le premier go-live) | PR, push `develop`/`main` |
 | `lint.yml` *(P5-#21)* | Fronts : `prettier --check` (+ `ng lint` si configuré) ; backends : `./mvnw spotless:check` si le plugin est présent, sinon no-op explicite (`echo`, statut `skipped` lisible) | PR |
 
 - Gabarit d'appel `templates/ci-caller.yml` avec `on: push: branches: ["**"]` et `pull_request` (#19),
@@ -250,12 +275,17 @@ actions épinglées par SHA *(P5-#9)* :
 - *(P5-#9)* `templates/dependabot.yml` : écosystèmes `github-actions`, `maven` ou `npm`, `docker`
   (images de base des Dockerfiles), hebdomadaire, groupé patch/minor ; les PR dependabot suivent
   le même gate que les lots (`chore(deps)`).
-- Le master `CONVENTIONS.md` est lu depuis `~/.claude/coding-conventions.md` en local ; en CI,
-  la comparaison se fait avec une copie publiée dans le harness (voir « Points ouverts » P1).
+- *(P6-D2)* La CI compare le `CONVENTIONS.md` du repo appelant au `CONVENTIONS.md` du harness à
+  la ref `main` (master) ; en local, `~/.claude/coding-conventions.md` est un lien symbolique vers
+  le même fichier.
+- *(P6-D12)* `lint.yml` ajoute un job **non bloquant** `npm audit --audit-level=high` (fronts) ou
+  `dependency-check` (backends) ; passage en bloquant sur CRITICAL après le premier go-live.
 
 ### Critères de validation
 
-- [ ] Chaque workflow testé sur un repo jetable : un cas vert, un cas rouge
+- [ ] Chaque workflow testé sur un repo jetable **privé** : un cas vert, un cas rouge
+- [ ] `image-publish.yml` : sur PR aucune image poussée ; sur `develop` tags `dev` + SHA ; label
+      `revision` = SHA du commit
 - [ ] Rapport `docs/audits/lot-3.md`
 
 ---
@@ -277,6 +307,13 @@ Constats : **#10**, #22.
 - Suppression de `~/ENV/projets/prompt-harness.md` et de `meal-planner-backend/prompt-harness.md`
   (la seconde au lot 9, dans la PR du repo) ; mise à jour de la mémoire racine qui les référence.
 - Aucune mention de `skill/`, `lot-XX-slug`, `main` comme base de branche.
+- *(P6-D10)* Gabarit de fichier de lots commençant par le tableau `| Lot | Branche | Statut |`.
+- *(P6-D3)* `CLAUDE.md` du gabarit : section Skills avec le renvoi aux `SKILL.md` du clone local
+  du harness pour les agents non-Claude.
+- *(P6-D9)* `ci.yml` du gabarit : appel de `image-publish.yml` commenté, à activer par le lot image.
+- *(P6-D13)* Suppression de `~/.claude/templates/project-skeleton/` (squelette user-level non
+  conforme : `CLAUDE.md` ≠ `AGENTS.md`, ni Skills, ni Gate parameters, ni census) après
+  validation de `templates/project/`.
 
 ### Critères de validation
 
@@ -286,16 +323,21 @@ Constats : **#10**, #22.
 
 ## LOT 5 — Conventions, réglages user-level, mémoires ⬜
 
-Constats : **#4**, #5, #13, #21, #15 (mémoire), §12/§13 à réécrire.
+Constats : **#4**, #5, #13, #21, #15 (mémoire), §12/§13 à réécrire ; *(P6)* A2, A3, A5, A6, B8.
 
 ### Livrables
 
-`~/.claude/coding-conventions.md` (master) :
+*(P6-D2)* **Déménagement du master** : contenu de `~/.claude/coding-conventions.md` versé dans
+`claude-harness/CONVENTIONS.md` (PR du harness), puis `~/.claude/coding-conventions.md` remplacé
+par un lien symbolique vers le clone local (selon V7, sinon import direct). En-tête du master :
+« Master: `claude-harness/CONVENTIONS.md` ». Les modifications ci-dessous portent sur ce master.
+
+Master des conventions :
 
 - §2 : étape 9 inchangée (stop après PR) et **mention explicite** qu'aucun chaînage de lots
   n'est autorisé ; étape 1 : `git log` hors rtk.
-- §7 : garde git appliquée par le hook du plugin ; rappel « pas de protection de branches sur
-  les repos privés : ne jamais merger une PR à CI rouge » ; *(P5-#3)* branche par défaut
+- §7 : garde git appliquée par le hook du plugin ; rappel « pas de protection de branches (tous les
+  repos sont privés, *P6-D1*) : ne jamais merger une PR à CI rouge » ; *(P5-#3)* branche par défaut
   GitHub = `develop` (lot 6b) ; *(P5-#8)* règle **expand/contract** pour toute migration
   (jamais de suppression, renommage ou `NOT NULL` dans la même version que le code qui cesse
   d'utiliser la colonne ; étape `contract` explicitement marquée, une version plus tard).
@@ -307,7 +349,12 @@ Constats : **#4**, #5, #13, #21, #15 (mémoire), §12/§13 à réécrire.
   et Liquibase/Flyway désactivés n'est pas un test d'intégration.
 - §10.1 : les règles issues des `feedback_*` sont **promues dans CONVENTIONS** ; la relecture de
   la mémoire reste mais n'est plus la seule source.
-- §12 : skills génériques **dans le plugin `claude-harness`** ; `.claude/skills/` d'un repo
+- §11 *(P6-D13)* : le squelette de projet de référence est `claude-harness/templates/project/`.
+- §12 : skills génériques **dans le plugin `claude-harness`** ; *(P6-D3)* la phrase « never stored
+  outside the project or shared globally » est **retirée** ; les agents non-Claude lisent les
+  `SKILL.md` du clone local du harness ; tout invariant bloquant est vérifié en CI ; *(P6-D2)*
+  « Master propagation » : le master est `claude-harness/CONVENTIONS.md`, les copies sont mises à
+  jour dans les lots d'adoption et vérifiées par `harness-invariants.yml` ; `.claude/skills/` d'un repo
   réservé aux skills propres au projet ; `## Gate parameters` obligatoire et au census.
 - §13 : noms des skills du plugin, gate `lot-test → lot-audit → lot-ship` (+ `integration-check`
   pour les fronts).
@@ -325,19 +372,24 @@ Mémoires :
 
 - kf `feedback_pr_workflow.md` : « PR to `develop` » (#15).
 - Racine `project-portfolio-state.md` : faits périmés (Angular 21, PR #16, `prompt-harness.md`,
-  copie ROADMAP) corrigés.
+  copie ROADMAP) corrigés ; *(P6-D14)* squelette elya-frontend désormais commité, audits versionnés
+  dans le harness, repos tous privés. (Remote Bitbucket du legacy : corrigé le 2026-09-17.)
+- *(P6-D14)* Toute mémoire `project_*` porte une ligne « Verified: AAAA-MM-JJ » ; `harness-sync`
+  signale celles de plus de 60 jours.
 
 ### Critères de validation
 
 - [ ] Master propagé : `cp` dans le `CONVENTIONS.md` de chaque repo **dans les lots d'adoption**
       (7 à 14), pas en commit isolé
 - [ ] Aucun « Sprint chaining » dans le master
+- [ ] `readlink ~/.claude/coding-conventions.md` pointe vers le clone du harness ; contenu
+      présent en session (V7)
 
 ---
 
 ## LOT 6 — Nettoyage de la racine ⬜
 
-Constats : **#11**, #23.
+Constats : **#11**, #23 ; *(P6)* A3, A4.
 
 ### Livrables
 
@@ -345,17 +397,24 @@ Constats : **#11**, #23.
   lit `deployment/ROADMAP.md` directement.
 - `claude-project-instructions.md` : en-tête « Not for coding agents – claude.ai project
   instructions » et renvoi au master `deployment/ROADMAP.md`.
-- `~/ENV/projets/audit/` conservé (lecture seule), référencé dans le census du harness.
+- *(P6-D4, inverse la décision initiale)* `~/ENV/projets/audit/*` (P4 v1 et v2, P5, P6) **déplacé**
+  dans `claude-harness/docs/audits/portfolio/` et inscrit au census du harness ;
+  `deployment/docs/audits/` ne garde que P3 et renvoie au harness pour les autres ; census de
+  `deployment/CLAUDE.md` corrigé (P4 v2, « 8 repos »). Le répertoire `~/ENV/projets/audit/` est
+  supprimé après vérification `cmp` des copies.
+- *(P6-D2)* Timer systemd user hebdomadaire sur `~/ENV/claude-backup/backup-md.sh` (mémoires,
+  réglages user-level), sans dépendance nouvelle.
 
 ### Critères de validation
 
 - [ ] Export claude.ai régénéré et `EXPORT-INFO.txt` cohérent
+- [ ] `ls ~/ENV/projets/audit` vide ou absent ; `systemctl --user list-timers` montre le timer de sauvegarde
 
 ---
 
-## LOT 6b — Réglages GitHub (manuel, utilisateur) ⬜
+## LOT 6b — Réglages GitHub (manuel, utilisateur) 🔄
 
-Constats : **P5-#3**, P5-#11, P5-#10 (partie visibilité, tranchée dans `deployment` LOT 1).
+Constats : **P5-#3**, P5-#11, P5-#10 ; *(P6)* **A7**, A8, B1.
 
 Exécuté **par l'utilisateur** dans l'interface GitHub (ou `gh api -X PATCH`, hors périmètre
 agent : §4, décision avec impact sécurité). Aucun code ; peut être fait avant les lots 0 à 6.
@@ -365,21 +424,21 @@ agent : §4, décision avec impact sécurité). Aucun code ; peut être fait ava
 1. **Branche par défaut `develop`** sur les 8 repos (`Settings → Branches → Default branch`) :
    `kreadevis`, `kreadevis-frontend`, `meal-planner-backend`, `meal-planner-frontend`, `elya`,
    `elya-frontend`, `summerize-youtube`, `deployment`, plus `claude-harness`.
-2. **Protection sur les 2 repos publics** (`kreadevis`, `meal-planner-frontend`), branches
-   `main` **et** `develop` : PR obligatoire (`Require a pull request before merging`, 0 reviewer
-   requis, compte solo), check `CI` requis et à jour (`Require status checks to pass`,
-   `Require branches to be up to date`), pas de force-push, pas de suppression ; `main` en plus :
-   `Restrict who can push` (personne, y compris les admins : « Do not allow bypassing »).
-3. Vérification : `gh api repos/<owner>/<repo>/branches/main/protection` répond 200 sur les
-   2 repos publics ; `gh repo view --json defaultBranchRef` = `develop` ×9.
+   **Fait le 2026-09-17** (`git ls-remote --symref origin HEAD` = `develop` ×9).
+2. *(P6-D1, remplace « protection sur les 2 repos publics »)* **Passage en privé** de
+   `kreadevis` (backend) et `meal-planner-frontend` (`Settings → General → Danger Zone → Change
+   visibility`). Effets à connaître avant de le faire : étoiles et observateurs retirés, forks
+   publics éventuels détachés et **restent publics**, GitHub Pages désactivé ; les packages GHCR
+   déjà publiés gardent leur visibilité propre (à vérifier, aucun n'est attendu).
+3. Vérification : `gh repo view <repo> --json visibility,defaultBranchRef` = `PRIVATE` et
+   `develop` ×9.
 4. `deployment/CLAUDE.md` § Branching model : une ligne « branche par défaut GitHub = `develop` ;
-   protection active sur les repos publics, relecture humaine seule sur les privés ».
+   tous les repos privés, aucune protection disponible : relecture humaine seule ».
 
 ### Critères de validation
 
 - [ ] Un `gh pr create` sans `--base` depuis une branche `feat/*` cible `develop` sur les 9 repos
-- [ ] Un `git push origin HEAD:main` depuis un clone est refusé sur `kreadevis` et
-      `meal-planner-frontend`
+- [ ] `gh repo list SelimLBOURAYA --json name,visibility` : aucun repo du portefeuille `PUBLIC`
 - [ ] Rapport `docs/audits/lot-6b.md` (captures ou sorties `gh api`)
 
 ---
@@ -406,10 +465,16 @@ Chaque lot d'adoption applique **toute** la checklist, puis les points propres a
 7. `.claude/settings.local.json` : retrait de `git push *`, `gh pr *`, `git *` selon V3 (#2).
 8. `.gitignore` : `.env`, `*.local.md` (§5, §8).
 9. Nommage des branches documenté `feat/lot-N-slug` (#19).
-10. *(P5-#6, #15)* Repos avec image : `ci.yml` appelle `image-smoke.yml` ; fronts : appellent
+10. *(P5-#6, #15)* Repos avec image : `ci.yml` appelle `image-smoke.yml` (via `image-publish.yml`, *P6-D9*) ; fronts : appellent
     `frontend-dist.yml` avec le `Dist forbidden pattern` des Gate parameters.
 11. Gate allégé : validation du repo verte + workflows du harness verts sur la PR ; rapport
     `claude-harness/docs/audits/lot-N.md`.
+12. *(P6-D10)* Fichier de lots : tableau `| Lot | Branche | Statut |` en tête (créé s'il manque,
+    statuts repris du fichier et de `deployment/ROADMAP.md`) ; aucune date ni « fenêtre » (*P6-D5*).
+13. *(P6-D3)* `CLAUDE.md` § Skills : renvoi aux `SKILL.md` du clone local du harness pour les
+    agents non-Claude.
+14. *(P6-D9)* Repos avec image : le lot image appelle `image-publish.yml`, jamais d'étapes
+    build/push écrites dans le repo.
 
 ## LOT 7 — kreadevis-backend ⬜
 
@@ -427,9 +492,13 @@ Chaque lot d'adoption applique **toute** la checklist, puis les points propres a
   Liquibase actif dans `./mvnw verify`) mergé **avant** ce lot, ou livré dans la même PR si
   l'utilisateur le décide ; sans lui, `image-smoke.yml` serait le premier endroit où les
   changesets s'exécutent.
-- *(P5-#5)* Ce lot ne touche pas la branche `feat/lot-17-dockerization` : KB.17 est réécrit dans
-  `kreadevis-backend/lots.md` (label OCI, `paths-ignore`, piste `dev`, `build-image` sur PR sans
-  push, appel `image-smoke.yml`) et rebasé sur `develop` **après** le merge de ce lot.
+- *(P5-#5, P6-D9)* Ce lot ne touche pas la branche `feat/lot-17-dockerization`. KB.17 appelle
+  `image-publish.yml` (spec dans `kreadevis-backend/lots.md`) ; la branche existante n'est **pas**
+  rebasée (1 commit, 7 commits de retard, `lots.md` +257 lignes) : KB.17 repart de `develop`
+  **après** le merge de ce lot et reprend par `git cherry-pick -n` les seuls `Dockerfile`,
+  `docker-compose.yml` et `HealthEndpointSmokeTest.java`.
+- *(P6-D1)* Prérequis : `kreadevis` passé en privé (lot 6b), sinon les workflows du harness ne sont
+  pas appelables.
 
 ## LOT 8 — kreadevis-frontend ⬜
 
@@ -439,7 +508,7 @@ Chaque lot d'adoption applique **toute** la checklist, puis les points propres a
 - Règle signals/RxJS issue de la mémoire promue dans `CLAUDE.md`.
 - Gate parameters : `Frontend backend pair = kreadevis-backend`, seuil `angular.json` **79**,
   `Dist forbidden pattern = localhost:8080` *(P5-#15)*, `Image name`
-  `ghcr.io/selimlbouraya/kreadevis-frontend`.
+  `ghcr.io/selimlbouraya/kreadevis-frontend` ; KF.13 appelle `image-publish.yml` *(P6-D9)*.
 - *(P5-#15)* `ci.yml` appelle `frontend-dist.yml` dès ce lot : il **échouera** tant que
   `environment.ts` porte `localhost:8080` (`angular.json` `fileReplacements` no-op) ; c'est voulu,
   le correctif est le lot 13 kf (same-origin). Si le lot 13 n'est pas prêt, le job est déclaré
@@ -472,7 +541,9 @@ Chaque lot d'adoption applique **toute** la checklist, puis les points propres a
 
 ## LOT 10 — meal-planner-frontend ⬜
 
-- Checklist commune.
+- Checklist commune ; *(P6-D1)* prérequis : `meal-planner-frontend` passé en privé (lot 6b).
+- *(P6-D8)* Vérifier que le lot de montée Angular 19 → 21 est planifié dans `lots.md` **avant** le
+  lot 14 ; le gabarit du front (Vitest, Prettier) suit kf une fois la montée faite.
 - Audit rétroactif `docs/audits/retro-lots-01-13.md` (sécurité + architecture sur l'état
   actuel de `develop`), avec `lot-audit` du plugin (#8).
 - `karma.conf.js` : seuil `lines: 0` remplacé par le niveau mesuré ; étape CI renommée si le
@@ -498,7 +569,9 @@ Chaque lot d'adoption applique **toute** la checklist, puis les points propres a
 ## LOT 12 — elya-frontend ⬜
 
 - Checklist commune.
-- `CLAUDE.md:20` : Angular 21 → **22**, aligné sur `lots.md:10` (#12).
+- `CLAUDE.md:20` : aligné sur le **manifeste** (#12). *(P6-D7)* Le squelette commité est en
+  Angular 21 ; la montée 21 → 22 est un lot de `elya-frontend/lots.md` livré avant le lot 1 :
+  `CLAUDE.md` ne passe à 22 **qu'après** ce lot, jamais avant.
 - Gate parameters : `Frontend backend pair = elya`, `Dist forbidden pattern = localhost:8080`.
   Premier projet démarré sous le nouveau harnais (aucun lot livré) : vérifier que
   `lot-0-integration.md` est bien planifié dans `lots.md` et que le lot 1 elya-fe livre
@@ -525,12 +598,13 @@ Chaque lot d'adoption applique **toute** la checklist, puis les points propres a
 
 ## LOT 15 — Ré-audit de contrôle et clôture ⬜
 
-- Ré-exécution des prompts P4 et P5 sur l'état `develop` des 8 repos + harness ; rapports
-  `~/ENV/projets/audit/p4-meta-harness-<date>-v3.md` et `p5-harness-cicd-<date>-v2.md`.
+- Ré-exécution des prompts P4, P5 et P6 sur l'état `develop` des 8 repos + harness ; rapports
+  *(P6-D4)* `claude-harness/docs/audits/portfolio/p4-meta-harness-<date>-v3.md`,
+  `p5-harness-cicd-<date>-v2.md` et `p6-meta-portfolio-<date>-v2.md`.
 - Chaque constat des deux matrices ci-dessous vérifié **fermé** ou justifié.
 - Session de test depuis chaque IDE (V6 rejouée sur un repo réel).
 - **Checklist de promotion** remise à l'utilisateur (non exécutée par l'agent) : ordre
-  conseillé harness `develop → main` d'abord, puis kb, kf, mpb, mpf, elya, elya-fe,
+  conseillé harness `develop → main` d'abord, puis *(P6-D6)* kb, kf, elya, elya-fe, mpb, mpf,
   deployment, summerize.
 
 ## LOT 16 — Job CI « contract » front ↔ backend réel ⏸️
@@ -596,7 +670,7 @@ Chaque lot d'adoption applique **toute** la checklist, puis les points propres a
 | 7 | majeur | Tests d'intégration sur H2 (kb, mpb) | 5, 7, 9 ; KB.22, MP.BE.13 |
 | 8 | majeur | Règle expand/contract absente du harnais kb ; aucun job | 3, 5, 7 ; INF.6 |
 | 9 | majeur | Actions non épinglées, pas de `permissions`, pas de dependabot, pas de scan | 3, 4, 7–14 ; point ouvert P5 |
-| 10 | majeur | Repos publics → image GHCR publique par héritage | INF.1 (décision) |
+| 10 | majeur | Repos publics → image GHCR publique par héritage | 6b (P6-D1 : repos privés) |
 | 11 | majeur | PR mergées pendant 6 runs CI rouges (elya) | 2 (`lot-ship`), 6b |
 | 12 | majeur | Runbook non réordonné par R1 | INF (runbook corrigé le 2026-09-17) |
 | 13 | majeur | Périmètre agent non gardé (fichiers hors lot, plusieurs lots par PR) | 3 (`lot-deliverables`) |
@@ -611,25 +685,49 @@ Chaque lot d'adoption applique **toute** la checklist, puis les points propres a
 | 22 | mineur | Dérive de structure CI, elya SB 4.0.6 | 3 ; E.1.3 |
 | 23 | mineur | Hooks dépendants du PATH de l'IDE | 0 (V6) |
 
+### Constats P6 (`audit/p6-meta-portfolio-2026-09-17.md`) → décisions et lots
+
+| P6-# | Sév. | Constat (abrégé) | Décision | Lot(s) |
+|---|---|---|---|---|
+| A1 | majeur | Aucun workflow réutilisable de publication d'image | D9 | 3, 7–12 ; KB.17 |
+| A2 | majeur | Aucun propriétaire des règles transverses | D2 | Décisions, 5 |
+| A3 | majeur | Master et mémoires sous sauvegarde manuelle de 2 mois | D2 | 5, 6 |
+| A4 | majeur | Audits sources hors git (par décision du lot 6) | D4 | 6, 15 |
+| A5 | mineur | Squelette user-level non conforme | D13 | 4, 5 |
+| A6 | majeur | Agents non-Claude non traités | D3 | 0 (V6), 4, 5, 7–14 |
+| A7 | bloquant | Repos publics incapables d'appeler les workflows du harnais privé | D1 | 0 (V4), 6b, 7, 10 |
+| A8 | mineur | Visibilité publique sans bénéfice, posture sécurité exposée | D1 | 6b |
+| B1 | mineur | 6b à moitié livré, statuts faux | D1, D14 | 6b |
+| B2 | mineur | PR #2 : « `main` n'existe pas » | D14 | corrigé dans la PR #2 |
+| B3 | majeur | elya-frontend en Angular 21 vs décision 22 | D7 | 12 ; `elya-frontend/lots.md` |
+| B4 | majeur | meal-planner-frontend en Angular 19 hors support | D8 | 10 ; `meal-planner-frontend/lots.md`, ROADMAP |
+| B5 | mineur | INF.5 impossible à clore | D6 | `deployment/LOTS.md` |
+| B6 | majeur | Fichiers de lots sans statut lisible | D10 | 2, 3, 7–14 |
+| B7 | majeur | Fenêtre sans date, prérequis tous ⬜ | D5 | ROADMAP, runbook |
+| B8 | mineur | Mémoire racine fausse | D14 | 5 |
+
 ## Points ouverts (à trancher au plus tard au lot indiqué)
 
 | # | Question | Lot |
 |---|---|---|
-| P1 | Le master des conventions déménage-t-il dans `claude-harness/CONVENTIONS.md` (avec `~/.claude/coding-conventions.md` en lien symbolique) pour que la CI puisse le comparer ? Sinon la CI compare à une copie publiée | 3 |
+| P1 | ~~Emplacement du master des conventions~~ **Tranché (P6-D2)** : `claude-harness/CONVENTIONS.md`, lien symbolique côté `~/.claude` | 5 |
 | P2 | Contenu et paliers des lots de tests mpb/mpf (seuils cibles, ordre des packages) | 9, 10 |
 | P3 | deployment : `test -d stacks/core` ou gate annoté no-op | 13 |
 | P4 | Sort des fichiers `.claude/settings.local.json` (non versionnés) : nettoyage manuel par l'utilisateur ou par l'agent | 7 |
-| P5 | Scan de vulnérabilités des images (trivy) et des dépendances (`mvn dependency-check`, `npm audit --audit-level=high`) en CI : bloquant, informatif, ou différé post-fenêtre ? Nouvelle action tierce = accord §4 | 3 |
+| P5 | ~~Scan de vulnérabilités en CI~~ **Tranché (P6-D12)** : informatif d'abord, bloquant sur CRITICAL après le premier go-live ; accord §4 donné pour trivy | 3 |
 | P6 | Marqueur `contract` des migrations : commentaire dans le fichier, label de PR, ou les deux (règle de `migrations-immutable.yml`) | 3 |
 
 ## Risques
 
-- **Pas de protection de branches sur les 6 repos privés** : une PR à CI rouge reste mergeable
+- **Aucune protection de branches** (9 repos privés, *P6-D1*) : une PR à CI rouge reste mergeable
   (déjà arrivé sur elya, P5-#11). Mitigation : `lot-ship` affiche l'état CI et refuse de déclarer
-  le lot prêt ; relecture humaine obligatoire ; protection activée sur les 2 repos publics (6b).
-- **Fenêtre de septembre** : si KB.17 et KF.13 sont mergés avant les lots 1, 3, 6b, les images de
-  production naissent sans garde (P5-#5, #6). Mitigation : ordre « Priorité fenêtre » ci-dessus, et
-  KB.22 avant KB.17.
+  le lot prêt ; relecture humaine obligatoire.
+- **Premières images** : si KB.17 et KF.13 sont mergés avant les lots 1, 3, 6b, les images de
+  production naissent sans garde (P5-#5, #6). Mitigation : « Priorité avant les premières images »
+  ci-dessus, et KB.22 avant KB.17.
+- **Passage en privé oublié** *(P6-D1)* : kb ou mpf restés publics ne peuvent pas appeler les
+  workflows du harness ; le plan B (copie) réintroduirait la dérive. Mitigation : prérequis
+  explicite des lots 7 et 10, vérifié par `gh repo view --json visibility`.
 - **Suivi de `main` du harness** : une régression promue casse les 8 repos d'un coup.
   Mitigation : tests du harness + promotion manuelle, rollback par revert sur `main`.
 - **Déclaration du marketplace sans ref** : suivrait `develop` (branche par défaut du harness) et
@@ -638,6 +736,5 @@ Chaque lot d'adoption applique **toute** la checklist, puis les points propres a
   `.claude/settings.json`).
 - **Garde git contournable** (commande non analysable, exécution hors Claude Code). Mitigation :
   confirmation par défaut sur l'inconnu, CI en second rideau.
-- **Blocage des fronts** par l'exigence `lot-0-integration.md` : effet voulu, mais kf est
-  dans la fenêtre de septembre (`deployment/docs/runbook-septembre.md`) ; planifier le lot 0 kf
-  en conséquence.
+- **Blocage des fronts** par l'exigence `lot-0-integration.md` : effet voulu, mais kf est le
+  premier front déployé (`deployment/ROADMAP.md`) ; planifier le lot 0 kf en conséquence.
