@@ -336,11 +336,13 @@ Master des conventions :
 
 - §2 : étape 9 inchangée (stop après PR) et **mention explicite** qu'aucun chaînage de lots
   n'est autorisé ; étape 1 : `git log` hors rtk.
-- §4 *(demande utilisateur, 2026-09-18)* : **exception** au « Ask before doing » pour le
-  changement de profil LLM — exécuter `/home/selim/.local/bin/claude-profile claude` ou
-  `/home/selim/.local/bin/claude-profile deepseek` est **pré-autorisé**, sans confirmation à
-  chaque fois (voir livrable « Routage revue/code par profil LLM » ci-dessous). Toute autre voie
-  de changement de modèle (édition directe de `settings.json`, autre script) reste soumise à
+- §4 *(demande utilisateur, 2026-09-18, révisé 2026-09-18 après test)* : **exception** au
+  « Ask before doing » pour l'exécution de `/home/selim/.local/bin/claude-profile claude` ou
+  `/home/selim/.local/bin/claude-profile deepseek` — pré-autorisé, sans confirmation à chaque
+  fois. Ces commandes ne rebasculent **pas** le modèle de la session en cours (vérifié : elles ne
+  réécrivent que `settings.json`, lu par les *prochaines* sessions) — voir livrable « Routage
+  revue/code par profil LLM » ci-dessous pour le point d'arrêt imposé en conséquence. Toute autre
+  voie de changement de modèle (édition directe de `settings.json`, autre script) reste soumise à
   confirmation.
 - §7 : garde git appliquée par le hook du plugin ; rappel « pas de protection de branches (tous les
   repos sont privés, *P6-D1*) : ne jamais merger une PR à CI rouge » ; *(P5-#3)* branche par défaut
@@ -376,11 +378,15 @@ Routage revue/code par profil LLM *(demande utilisateur, 2026-09-18, hors consta
   `settings.claude.json` (modèle `claude-fable-5-1[1m]`, agent Claude natif) et
   `settings.deepseek.json` (modèle `sonnet` routé vers DeepSeek via
   `ANTHROPIC_BASE_URL=https://api.deepseek.com/anthropic` + `ANTHROPIC_DEFAULT_*_MODEL=deepseek-v4-*`).
-- Convention d'usage : toute **demande de revue de code** (`/code-review`, relecture de PR) passe
-  exclusivement par le profil `claude` (`claude-profile claude` avant l'invocation) ; toute
-  **tâche d'implémentation** (écrire/modifier du code) est déléguée au profil `deepseek`
-  (`claude-profile deepseek` avant l'invocation). Le choix du profil suit la nature de la
-  demande de l'utilisateur, pas une bascule automatique en cours de session.
+- Convention d'usage *(révisée 2026-09-18 après test)* : le switch de profil en cours de session
+  **ne change pas** le modèle de la session active — vérifié : après `claude-profile deepseek`
+  puis `claude-profile claude`, la session est restée sur `deepseek-v4-pro[1m]` alors que
+  `settings.json` indiquait de nouveau `claude-fable-5-1[1m]`. En conséquence, l'agent **n'effectue
+  aucune bascule de profil en cours de session**. Le harness impose un point d'arrêt en fin de
+  développement d'un lot, **avant** la génération de l'audit (`lot-audit`) et la création de la PR
+  (`lot-ship`) : l'agent s'arrête, indique à l'utilisateur que le développement est terminé, et
+  l'invite à démarrer une **nouvelle session** (après `claude-profile claude` si le profil actif
+  est `deepseek`) pour enchaîner sur l'audit et la PR sous le profil `claude`.
 - §4 du master (ci-dessus) autorise ces deux commandes sans confirmation répétée : les invoquer
   est en soi la demande explicite de l'utilisateur.
 - ⚠️ Constat relevé en vérifiant ce livrable : `settings.deepseek.json` contient
@@ -416,6 +422,9 @@ Mémoires :
 - [ ] `claude-profile claude` et `claude-profile deepseek` fonctionnels (script + les deux
       `settings.$PROFILE.json` valides) ; §4 documente l'exception ; fuite `ANTHROPIC_AUTH_TOKEN`
       de `settings.deepseek.json` signalée à l'utilisateur (corrigée hors périmètre de ce lot)
+- [ ] Point d'arrêt `lot-dev` → (nouvelle session) → `lot-audit`/`lot-ship` documenté dans le
+      livrable « Routage revue/code par profil LLM » et respecté par l'agent (aucune bascule de
+      profil tentée en cours de session)
 
 ---
 
