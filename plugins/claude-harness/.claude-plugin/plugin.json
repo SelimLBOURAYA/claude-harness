@@ -1,0 +1,19 @@
+{
+  "name": "claude-harness",
+  "description": "Lot gate skills (lot-test, lot-review, lot-audit, lot-ship, harness-sync, integration-check, dep-update), a git command guard and the CLAUDE.md/AGENTS.md mirror.",
+  "version": "0.1.0",
+  "author": {
+    "name": "SelimLBOURAYA",
+    "url": "https://github.com/SelimLBOURAYA"
+  },
+  "homepage": "https://github.com/SelimLBOURAYA/claude-harness",
+  "repository": "https://github.com/SelimLBOURAYA/claude-harness",
+  "license": "UNLICENSED",
+  "keywords": [
+    "harness",
+    "lot",
+    "gate",
+    "git-guard",
+    "conventions"
+  ]
+}
