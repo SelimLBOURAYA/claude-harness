@@ -11,7 +11,7 @@ SKILLS="$REPO_ROOT/plugins/claude-harness/skills"
 # Gate parameters. dep-update is excluded from the command check: its whole job
 # is to drive a package manager, selected by Stack. i-have-adhd is an output
 # style, generic and unrelated to any gate.
-GATE_SKILLS="lot-test lot-audit lot-ship harness-sync integration-check"
+GATE_SKILLS="lot-test lot-review lot-audit lot-ship harness-sync integration-check"
 ALL_SKILLS="$GATE_SKILLS dep-update i-have-adhd"
 
 for skill in $ALL_SKILLS; do
@@ -30,9 +30,14 @@ for skill in $ALL_SKILLS; do
   body=$(sed -n '/^description:/,/^[a-z-]*:/p' "$file" | wc -c)
   [ "$body" -gt 80 ] || assert_eq "long" "short" "$skill description is substantial"
 
-  # No absolute user path baked into a shared skill.
-  assert_eq "" "$(grep -n '/home/[a-z]*/' "$file" | grep -v 'ENV/projets/claude-harness' || true)" \
-    "$skill has no absolute user path outside the harness clone"
+  # No absolute user path baked into a shared skill. Two are allowed because
+  # they are the documented locations themselves: the harness clone that
+  # non-Claude agents read, and the claude-profile script named in section 4
+  # of CONVENTIONS.md.
+  assert_eq "" "$(grep -n '/home/[a-z]*/' "$file" \
+    | grep -v 'ENV/projets/claude-harness' \
+    | grep -v '\.local/bin/claude-profile' || true)" \
+    "$skill has no absolute user path beyond the two documented ones"
 
   # No legacy skill/ directory reference (finding #1).
   assert_eq "" "$(grep -nE '(^|[^.a-z/])skill/[a-z-]+/SKILL\.md' "$file" || true)" \
@@ -71,6 +76,39 @@ for skill in lot-test lot-audit lot-ship; do
 done
 assert_ok "lot-audit refuses to run before lot-review" -- \
   grep -q 'lot-N-review.md' "$SKILLS/lot-audit/SKILL.md"
+
+# --- lot 2b: the review skill and its profile guard ----------------------
+REVIEW="$SKILLS/lot-review/SKILL.md"
+# It must refuse to run under any profile but claude, on a runtime signal
+# rather than on trust: the mid-session profile switch does not move the model.
+assert_ok "lot-review checks ANTHROPIC_BASE_URL" -- \
+  grep -q 'ANTHROPIC_BASE_URL' "$REVIEW"
+assert_ok "lot-review names the deepseek endpoint it rejects" -- \
+  grep -q 'api.deepseek.com' "$REVIEW"
+assert_ok "lot-review tells the user to open a new session" -- \
+  grep -q 'claude-profile claude' "$REVIEW"
+assert_ok "lot-review forbids switching the profile itself" -- \
+  grep -q 'Never attempt the switch yourself' "$REVIEW"
+# It drives the generic review skill with both flags.
+assert_ok "lot-review invokes the code-review skill" -- \
+  grep -q 'Skill(code-review)' "$REVIEW"
+assert_ok "lot-review posts inline comments and applies fixes" -- \
+  grep -q -- '--comment --fix' "$REVIEW"
+# Its deliverable is what lot-audit gates on, and it must be verifiable.
+assert_ok "lot-review writes its deliverable" -- \
+  grep -q 'lot-N-review.md' "$REVIEW"
+assert_ok "lot-review records the reviewed SHA" -- \
+  grep -q 'Reviewed at' "$REVIEW"
+# It must not take over the next gate steps.
+assert_ok "lot-review hands over instead of auditing" -- \
+  grep -q 'Do not run the audit from this skill' "$REVIEW"
+assert_eq "" "$(grep -n 'gh pr create' "$REVIEW" || true)" \
+  "lot-review does not open the PR"
+# harness-sync must enforce the new gate order and the deliverable ordering.
+assert_ok "harness-sync checks the review deliverable precedes the audit one" -- \
+  grep -q 'lot-N-review.md' "$SKILLS/harness-sync/SKILL.md"
+assert_ok "harness-sync checks the documented gate order" -- \
+  grep -qF 'lot-test → lot-review → lot-audit → lot-ship' "$SKILLS/harness-sync/SKILL.md"
 
 # --- corrections the lot 2 table requires --------------------------------
 # Finding #6: the security step calls the skill, not a non-existent subagent.
