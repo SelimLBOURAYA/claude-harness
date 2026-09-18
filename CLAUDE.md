@@ -112,7 +112,10 @@ Every blocking invariant is also enforced in CI, which is the only agent-agnosti
 | `docs/audits/lot-4.md` | Lot 4 report — project skeleton |
 | `docs/audits/lot-5.md` | Lot 5 report — conventions master |
 | `docs/audits/lot-6.md` | Lot 6 report — portfolio audits moved in |
-| `docs/audits/portfolio/` | Cross-cutting portfolio audits (P4 v1 and v2, P5, P6) |
+| `docs/audits/portfolio/p4-meta-harness-2026-09-17.md` | P4 portfolio audit, v1 |
+| `docs/audits/portfolio/p4-meta-harness-2026-09-17-v2.md` | P4 portfolio audit, v2 |
+| `docs/audits/portfolio/p5-harness-cicd-2026-09-17.md` | P5 CI/CD guards audit |
+| `docs/audits/portfolio/p6-meta-portfolio-2026-09-17.md` | P6 cross-cutting portfolio audit |
 | `templates/project/` | Project skeleton generated into a new repo |
 | `templates/ci-caller.yml` | Caller workflow template for consuming repos |
 | `templates/dependabot.yml` | Dependabot template for consuming repos |

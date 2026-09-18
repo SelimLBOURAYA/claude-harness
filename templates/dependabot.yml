@@ -2,8 +2,10 @@
 # blocks the project actually has, and delete the rest.
 #
 # Dependabot opens its PRs against the target-branch below: develop, never main
-# (CONVENTIONS.md section 7). Its branch names do not follow feat/lot-N, so the
-# branch-naming job accepts the chore/ form it produces via the prefix set here.
+# (CONVENTIONS.md section 7). Its branch names are dependabot/<ecosystem>/... and
+# that prefix is not configurable — commit-message.prefix below only rewrites the
+# commit subject, so that commit-format.yml accepts it. The branch name itself is
+# exempted by name in branch-naming.yml.
 
 version: 2
 

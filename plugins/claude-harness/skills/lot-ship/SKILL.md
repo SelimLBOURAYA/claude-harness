@@ -79,9 +79,17 @@ Re-read §10 of `CONVENTIONS.md` and verify against the **staged diff**:
 - [ ] `docs/audits/lot-N-review.md` exists (produced by `lot-review`)
 - [ ] `docs/audits/lot-N.md` exists and carries no unresolved Critical row
 - [ ] *(frontend)* `docs/audits/lot-0-integration.md` exists
+- [ ] Every report just written is listed in the `## Project documents` census of
+      `CLAUDE.md` — §12 says "in the same commit", and `harness-invariants.yml`
+      fails on any `docs/audits/**.md` it cannot find there. A directory row
+      (`docs/audits/`) does **not** cover the files inside it
 
 ```bash
 <Validation command>
+# Every audit report must appear verbatim in the census, or CI fails.
+for f in $(find docs/audits -name '*.md' | sort); do
+  grep -qF "$f" CLAUDE.md || echo "missing from the census: $f"
+done
 git diff --cached --stat
 git commit -m "feat(N): <description>"
 ```

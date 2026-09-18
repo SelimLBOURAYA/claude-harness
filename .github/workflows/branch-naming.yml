@@ -25,6 +25,11 @@ jobs:
 
           case "$branch" in
             main|develop) echo "long-lived branch, nothing to check"; exit 0 ;;
+            # Dependabot names its own branches, dependabot/<ecosystem>/<dep>-<version>,
+            # and that prefix is not configurable: commit-message.prefix only
+            # rewrites the commit subject. Rejecting them would make every
+            # weekly dependency PR red for a name nobody can change.
+            dependabot/*) echo "dependabot branch, named by the bot"; exit 0 ;;
           esac
 
           # feat/lot-<N>-<description>, N flat with an optional letter suffix

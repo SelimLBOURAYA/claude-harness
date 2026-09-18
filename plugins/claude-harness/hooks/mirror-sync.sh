@@ -13,21 +13,27 @@ set -uo pipefail
 
 payload=$(cat)
 
-read -r tool file cwd <<EOF
-$(printf '%s' "$payload" | python3 -c '
+# One field per line, never space-separated: a repository path containing a
+# space would otherwise be split across $file and $cwd, and the hook would exit
+# silently while the pair diverges.
+fields=$(printf '%s' "$payload" | python3 -c '
 import json, sys
 try:
     d = json.load(sys.stdin)
 except Exception:
-    print(". . .")
+    print(".\n.\n.")
     sys.exit(0)
 tool = d.get("tool_name") or "."
 inp = d.get("tool_input") or {}
 resp = d.get("tool_response") or {}
 path = inp.get("file_path") or (resp.get("filePath") if isinstance(resp, dict) else "") or "."
 cwd = d.get("cwd") or "."
-print(tool, path, cwd)
+for value in (tool, path, cwd):
+    print(str(value).replace("\n", " "))
 ')
+
+{ IFS= read -r tool; IFS= read -r file; IFS= read -r cwd; } <<EOF
+$fields
 EOF
 
 [ "$tool" = "." ] && exit 0

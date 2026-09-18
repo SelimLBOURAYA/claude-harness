@@ -115,9 +115,17 @@ jobs:
           added=$(git diff --name-only --diff-filter=A "$BASE" "$GITHUB_SHA" \
                   -- 'docs/audits/lot-*.md' || true)
           for f in $added; do
+            # lot-0-integration.md is the integration-check deliverable, not a
+            # lot report: it belongs to every frontend branch, whatever it declares.
+            case "$f" in */lot-0-integration.md) continue ;; esac
+
             n=$(basename "$f" .md | sed -E 's/^lot-([0-9]+[a-z]?)(-review)?$/\1/')
+            # seq only produces plain integers, so lot 2b never appears in a
+            # range that covers it. A suffixed lot belongs to the range holding
+            # its number.
+            base=${n%%[a-z]}
             case " $LOTS " in
-              *" $n "*) ;;
+              *" $n "* | *" $base "*) ;;
               *)
                 echo "::error file=$f::$f belongs to lot $n, which this branch does not declare (lots: $LOTS)"
                 status=1 ;;
