@@ -1,0 +1,152 @@
+name: lot-deliverables
+
+# The gate produces deliverables; a missing one means a gate step was skipped
+# (CONVENTIONS.md section 13, "deliverables are proof"). This is the
+# agent-agnostic half of the git-guard hook check.
+
+on:
+  workflow_call:
+    inputs:
+      stack:
+        description: "backend | frontend | harness | other, from the Gate parameters"
+        required: true
+        type: string
+      lots_file:
+        description: "Planning file, from the Gate parameters"
+        required: false
+        type: string
+        default: "lots.md"
+      require_review:
+        description: "Require docs/audits/lot-N-review.md (the lot-review deliverable)"
+        required: false
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+jobs:
+  deliverables:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout with history
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Expand the lot numbers carried by the branch
+        id: lots
+        env:
+          HEAD_REF: ${{ github.head_ref }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          branch="${HEAD_REF:-$REF_NAME}"
+          nums=$(printf '%s' "$branch" | sed -nE 's#^feat/lot-([0-9]+[a-z]?)(-([0-9]+[a-z]?))?-.*$#\1 \3#p')
+          if [ -z "$nums" ]; then
+            echo "list=" >> "$GITHUB_OUTPUT"
+            echo "::notice::'$branch' is not a lot branch, no deliverable required"
+            exit 0
+          fi
+
+          first=$(printf '%s' "$nums" | awk '{print $1}')
+          last=$(printf '%s' "$nums" | awk '{print $2}')
+
+          # A range is only a range when both ends are plain integers and the
+          # second is the larger: feat/lot-0-6-x spans 0 to 6, while
+          # feat/lot-2b-review is a single lot whose number carries a suffix.
+          if printf '%s' "$first" | grep -qE '^[0-9]+$' \
+             && printf '%s' "$last" | grep -qE '^[0-9]+$' \
+             && [ "$last" -gt "$first" ]; then
+            list=$(seq "$first" "$last" | tr '\n' ' ')
+          else
+            list="$first"
+          fi
+          echo "list=$list" >> "$GITHUB_OUTPUT"
+          echo "lots covered: $list"
+
+      - name: Each lot ships its audit report, and its review report before it
+        if: steps.lots.outputs.list != ''
+        env:
+          LOTS: ${{ steps.lots.outputs.list }}
+          REQUIRE_REVIEW: ${{ inputs.require_review }}
+        run: |
+          status=0
+          for n in $LOTS; do
+            audit="docs/audits/lot-$n.md"
+            review="docs/audits/lot-$n-review.md"
+
+            if [ ! -f "$audit" ]; then
+              echo "::error::$audit is missing: lot-audit did not run for lot $n"
+              status=1
+              continue
+            fi
+
+            if [ "$REQUIRE_REVIEW" = "true" ] && [ ! -f "$review" ]; then
+              echo "::error::$review is missing: lot-review runs before lot-audit"
+              status=1
+            fi
+
+            # An audit report is not a pass just by existing: a Critical row that
+            # is still open blocks the PR (lot-ship, absolute rules).
+            # The severity must be the row's FIRST cell. Every report opens with
+            # a summary table whose header names a Critical column; that header
+            # is not a finding.
+            open_criticals=$(grep -inE '^\|[^|a-zA-Z0-9]*critical\b' "$audit" \
+              | grep -viE '\b(resolved|r.solu|fixed|closed|accepted|none|n/a)\b' || true)
+            if [ -n "$open_criticals" ]; then
+              echo "::error file=$audit::unresolved Critical row in $audit:"
+              printf '%s\n' "$open_criticals"
+              status=1
+            fi
+          done
+          exit $status
+
+      - name: The branch stays inside the lots it declares
+        if: steps.lots.outputs.list != '' && (github.event_name == 'pull_request' || github.event_name == 'pull_request_target')
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+          LOTS: ${{ steps.lots.outputs.list }}
+          LOTS_FILE: ${{ inputs.lots_file }}
+        run: |
+          status=0
+
+          # P5-#13: one PR delivers the lots its branch names, and no others. A
+          # report for a lot the branch does not claim means the scope drifted.
+          added=$(git diff --name-only --diff-filter=A "$BASE" "$GITHUB_SHA" \
+                  -- 'docs/audits/lot-*.md' || true)
+          for f in $added; do
+            n=$(basename "$f" .md | sed -E 's/^lot-([0-9]+[a-z]?)(-review)?$/\1/')
+            case " $LOTS " in
+              *" $n "*) ;;
+              *)
+                echo "::error file=$f::$f belongs to lot $n, which this branch does not declare (lots: $LOTS)"
+                status=1 ;;
+            esac
+          done
+
+          # The lots file is a planning document: a lot branch updates statuses,
+          # it does not rewrite the specification of lots it is not delivering.
+          if [ -f "$LOTS_FILE" ]; then
+            body_changes=$(git diff -U0 "$BASE" "$GITHUB_SHA" -- "$LOTS_FILE" \
+              | grep -E '^[+-][^+-]' \
+              | grep -vE '⬜|🔄|✅|⏸️|❄️|Done|Fait' || true)
+            if [ -n "$body_changes" ]; then
+              echo "::warning file=$LOTS_FILE::$LOTS_FILE changed outside its status lines:"
+              printf '%s\n' "$body_changes" | head -30
+              echo "Specification edits belong to their own 'docs: sync $LOTS_FILE status' commit (section 2 item 1)."
+            fi
+          fi
+          exit $status
+
+      - name: A frontend lot ships its integration report
+        if: steps.lots.outputs.list != '' && inputs.stack == 'frontend'
+        run: |
+          f="docs/audits/lot-0-integration.md"
+          if [ ! -f "$f" ]; then
+            echo "::error::$f is missing (finding #3): a frontend PR needs a smoke test against the real backend, not against a mock"
+            exit 1
+          fi
+          for field in "Backend SHA" "Frontend SHA"; do
+            grep -qF "$field" "$f" \
+              || { echo "::error file=$f::$f has no '$field'; the report must pin both sides it exercised"; exit 1; }
+          done

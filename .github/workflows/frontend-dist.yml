@@ -1,0 +1,92 @@
+name: frontend-dist
+
+# A production bundle must not carry a development endpoint. The pattern comes
+# from the caller's Gate parameters (Dist forbidden pattern), because what is
+# forbidden differs per project.
+
+on:
+  workflow_call:
+    inputs:
+      build_command:
+        required: false
+        type: string
+        default: "npm run build"
+      dist_dir:
+        required: false
+        type: string
+        default: "dist"
+      forbidden_pattern:
+        description: "Extended regex that must not appear in the built bundle"
+        required: true
+        type: string
+      node_version:
+        required: false
+        type: string
+        default: "22"
+      working_directory:
+        required: false
+        type: string
+        default: "."
+
+permissions:
+  contents: read
+
+jobs:
+  dist:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ${{ inputs.working_directory }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ inputs.node_version }}
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Build
+        env:
+          BUILD_COMMAND: ${{ inputs.build_command }}
+          NODE_ENV: production
+        run: bash -eo pipefail -c "$BUILD_COMMAND"
+
+      - name: The bundle carries no development endpoint
+        env:
+          DIST: ${{ inputs.dist_dir }}
+          PATTERN: ${{ inputs.forbidden_pattern }}
+        run: |
+          [ -d "$DIST" ] || { echo "::error::the build produced no '$DIST' directory"; exit 1; }
+          # An entry point is the minimum proof the build produced something
+          # servable rather than an empty tree.
+          if [ -z "$(find "$DIST" -name 'index.html' -print -quit)" ]; then
+            echo "::error::'$DIST' contains no index.html"
+            find "$DIST" -maxdepth 2 | head -20
+            exit 1
+          fi
+
+          hits=$(grep -rlE "$PATTERN" "$DIST" || true)
+          if [ -n "$hits" ]; then
+            echo "::error::the production bundle matches the forbidden pattern '$PATTERN':"
+            for f in $hits; do
+              echo "--- $f"
+              grep -oE ".{0,40}$PATTERN.{0,40}" "$f" | head -3
+            done
+            echo "The API base URL must come from the build environment, not from a literal (section 3)."
+            exit 1
+          fi
+
+      - name: No source map shipped to production
+        env:
+          DIST: ${{ inputs.dist_dir }}
+        run: |
+          maps=$(find "$DIST" -name '*.map' | head -20)
+          if [ -n "$maps" ]; then
+            echo "::warning::the bundle ships source maps, which expose the original sources:"
+            printf '%s\n' "$maps"
+          fi

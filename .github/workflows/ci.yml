@@ -1,0 +1,50 @@
+name: ci
+
+# The harness running its own gate. Only the workflows that apply to a repo that
+# IS the harness: harness-invariants compares CONVENTIONS.md against the master
+# at ref main, which here would compare this repo to itself at a ref that does
+# not carry it yet, and lot-deliverables expects a consuming project's layout.
+# Both are exercised by the consuming repos instead.
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: [develop, main]
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' && github.ref != 'refs/heads/develop' }}
+
+permissions:
+  contents: read
+
+jobs:
+  commit-format:
+    uses: ./.github/workflows/commit-format.yml
+
+  branch-naming:
+    uses: ./.github/workflows/branch-naming.yml
+
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Dependency budget
+        # bash, python3, jq, git: adding to this list needs section 4 approval,
+        # so the gate asserts the list instead of trusting it.
+        run: |
+          for dep in bash python3 jq git; do
+            command -v "$dep" > /dev/null || { echo "::error::$dep is missing"; exit 1; }
+          done
+
+      - name: Run the validation gate
+        run: ./tests/run.sh
+
+  mirror:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: CLAUDE.md and AGENTS.md are byte-identical
+        run: cmp CLAUDE.md AGENTS.md

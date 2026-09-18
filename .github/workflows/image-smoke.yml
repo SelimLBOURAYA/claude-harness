@@ -1,0 +1,141 @@
+name: image-smoke
+
+# Starts the image and waits for its health endpoint, so that what CI validated
+# is the artefact that ships (P5-#6, P5-#18). A green unit suite says nothing
+# about an image that cannot boot.
+#
+# The image is not built here: the publishing job builds it once and hands it
+# over, either through the registry (push on main and develop) or through an
+# artifact (pull request, where nothing is pushed).
+
+on:
+  workflow_call:
+    inputs:
+      image:
+        description: "Image tag to start, exactly as the building job produced it"
+        required: true
+        type: string
+      image_artifact:
+        description: >-
+          Artifact holding a docker save tarball of that image. Used on a pull
+          request, where the image exists nowhere but in the previous job.
+        required: false
+        type: string
+        default: ""
+      compose_file:
+        description: >-
+          Compose file starting the image and its dependencies (a real database,
+          not an in-memory substitute). Without it the image is started alone.
+        required: false
+        type: string
+        default: ""
+      service:
+        description: "Compose service carrying the image, used to read its logs"
+        required: false
+        type: string
+        default: "app"
+      health_path:
+        description: "Path polled until the container answers, from the Gate parameters"
+        required: true
+        type: string
+      port:
+        required: false
+        type: number
+        default: 8080
+      timeout_seconds:
+        description: "Budget after the container starts, on top of its own start_period"
+        required: false
+        type: number
+        default: 120
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Download the built image
+        if: inputs.image_artifact != ''
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: ${{ inputs.image_artifact }}
+          path: /tmp/image
+
+      - name: Load the built image
+        if: inputs.image_artifact != ''
+        run: |
+          tarball=$(find /tmp/image -name '*.tar' | head -1)
+          [ -n "$tarball" ] || { echo "::error::artifact '${{ inputs.image_artifact }}' holds no .tar"; exit 1; }
+          docker load -i "$tarball"
+          docker image inspect "${{ inputs.image }}" > /dev/null \
+            || { echo "::error::the loaded tarball does not contain ${{ inputs.image }}"; docker images; exit 1; }
+
+      - name: Start the stack
+        env:
+          IMAGE: ${{ inputs.image }}
+          COMPOSE_FILE: ${{ inputs.compose_file }}
+          PORT: ${{ inputs.port }}
+        run: |
+          if [ -n "$COMPOSE_FILE" ]; then
+            [ -f "$COMPOSE_FILE" ] || { echo "::error::compose file '$COMPOSE_FILE' does not exist"; exit 1; }
+            # The compose file reads the image from the environment, so the tag
+            # under test is never duplicated in two places.
+            IMAGE="$IMAGE" docker compose -f "$COMPOSE_FILE" up -d
+            docker compose -f "$COMPOSE_FILE" ps
+          else
+            docker run -d --name smoke -p "$PORT:$PORT" "$IMAGE"
+          fi
+
+      - name: Wait for the health endpoint
+        env:
+          PORT: ${{ inputs.port }}
+          HEALTH: ${{ inputs.health_path }}
+          LIMIT: ${{ inputs.timeout_seconds }}
+          COMPOSE_FILE: ${{ inputs.compose_file }}
+        run: |
+          url="http://localhost:${PORT}${HEALTH}"
+          echo "polling $url for up to ${LIMIT}s"
+          deadline=$(( $(date +%s) + LIMIT ))
+          code=""
+          while [ "$(date +%s)" -lt "$deadline" ]; do
+            code=$(curl -fsS -o /dev/null -w '%{http_code}' --max-time 5 "$url" || true)
+            if [ "$code" = "200" ]; then
+              echo "healthy"
+              curl -fsS --max-time 5 "$url" | head -20
+              exit 0
+            fi
+            if [ -z "$COMPOSE_FILE" ] && [ -z "$(docker ps -q -f name=smoke)" ]; then
+              echo "::error::the container exited before answering"
+              break
+            fi
+            sleep 3
+          done
+          echo "::error::no 200 on $url within ${LIMIT}s (last code: ${code:-none})"
+          exit 1
+
+      - name: Logs
+        if: always()
+        env:
+          COMPOSE_FILE: ${{ inputs.compose_file }}
+          SERVICE: ${{ inputs.service }}
+        run: |
+          if [ -n "$COMPOSE_FILE" ]; then
+            docker compose -f "$COMPOSE_FILE" logs --no-color --tail 200 || true
+          else
+            docker logs smoke 2>&1 | tail -200 || true
+          fi
+
+      - name: Tear down
+        if: always()
+        env:
+          COMPOSE_FILE: ${{ inputs.compose_file }}
+        run: |
+          if [ -n "$COMPOSE_FILE" ]; then
+            docker compose -f "$COMPOSE_FILE" down -v || true
+          else
+            docker rm -f smoke || true
+          fi
