@@ -1,11 +1,12 @@
 # claude-harness — Plan de remédiation du harnais agentique
 
-> Sources : audit `~/ENV/projets/audit/p4-meta-harness-2026-09-17-v2.md` (25 constats, harnais)
-> et audit `~/ENV/projets/audit/p5-harness-cicd-2026-09-17.md` (23 constats, gardes CI/CD et
-> GitHub ; copie dans `deployment/docs/audits/`). Les constats P5 sont référencés `P5-#n`.
+> Sources *(déplacées ici au lot 6, P6-D4)* : audit
+> `docs/audits/portfolio/p4-meta-harness-2026-09-17-v2.md` (25 constats, harnais) et audit
+> `docs/audits/portfolio/p5-harness-cicd-2026-09-17.md` (23 constats, gardes CI/CD et
+> GitHub). Les constats P5 sont référencés `P5-#n`.
 > Décisions arbitrées avec l'utilisateur le 2026-09-17 (section « Décisions »), amendées le soir
 > même par l'intégration de P5 (lignes marquées *(P5)*), puis par l'arbitrage de l'audit P6
-> `~/ENV/projets/audit/p6-meta-portfolio-2026-09-17.md` §9, décisions D1 à D14 (lignes
+> `docs/audits/portfolio/p6-meta-portfolio-2026-09-17.md` §9, décisions D1 à D14 (lignes
 > marquées *(P6-Dn)*).
 > Objectif : remplacer un harnais **dupliqué dans 8 repos et appliqué seulement par la prose**
 > par un harnais **central, versionné et appliqué mécaniquement** (hooks + CI), puis faire
@@ -15,27 +16,35 @@
 
 ## Vue d'ensemble
 
-| Lot | Vague | Objectif | Repos touchés | Statut |
-|---|---|---|---|---|
-| 0 | A – Harness | Bootstrap du repo `claude-harness` + vérifications techniques bloquantes | claude-harness | ⬜ |
-| 1 | A – Harness | Hooks : garde git, miroir CLAUDE/AGENTS étendu, exclusion rtk | claude-harness, `~/.claude` | ⬜ |
-| 2 | A – Harness | Skills génériques extraits de kb/kf et corrigés | claude-harness | ⬜ |
-| 2b | A – Harness | Skill `lot-review` : revue de code qui annote la PR et applique les corrections, sous profil `claude`, avant l'audit sécurité | claude-harness | ⬜ |
-| 3 | A – Harness | Workflows CI réutilisables | claude-harness | ⬜ |
-| 4 | A – Harness | Squelette de projet (remplace `prompt-harness.md`) | claude-harness, racine, mpb | ⬜ |
-| 5 | B – Conventions | Master `coding-conventions.md`, réglages user-level, mémoires | `~/.claude` | ⬜ |
-| 6 | B – Conventions | Nettoyage racine `~/ENV/projets` | racine, deployment | ⬜ |
-| 6b | B – Conventions | Réglages GitHub : branche par défaut `develop` *(P5)*, passage en privé de `kreadevis` et `meal-planner-frontend` *(P6-D1)* | GitHub (utilisateur), 9 repos | 🔄 |
-| 7 | C – Adoption | kreadevis-backend (pilote backend) | kb | ⬜ |
-| 8 | C – Adoption | kreadevis-frontend (pilote frontend) | kf | ⬜ |
-| 9 | C – Adoption | meal-planner-backend | mpb | ⬜ |
-| 10 | C – Adoption | meal-planner-frontend (+ audit rétroactif) | mpf | ⬜ |
-| 11 | C – Adoption | elya | elya | ⬜ |
-| 12 | C – Adoption | elya-frontend | elya-frontend | ⬜ |
-| 13 | C – Adoption | deployment | deployment | ⬜ |
-| 14 | C – Adoption | summerize-youtube | summerize-youtube | ⬜ |
-| 15 | D – Clôture | Ré-audit de contrôle et checklist de promotion | tous | ⬜ |
-| 16 | Plus tard | Job CI « contract » front ↔ backend réel | claude-harness, kf, mpf, elya-frontend | ⏸️ |
+| Lot | Branche | Vague | Objectif | Repos touchés | Statut |
+|---|---|---|---|---|---|
+| 0 | `feat/lot-0-6-harness-foundation` | A – Harness | Bootstrap du repo `claude-harness` + vérifications techniques bloquantes | claude-harness | 🔄 |
+| 1 | `feat/lot-0-6-harness-foundation` | A – Harness | Hooks : garde git, miroir CLAUDE/AGENTS étendu, exclusion rtk | claude-harness, `~/.claude` | 🔄 |
+| 2 | `feat/lot-0-6-harness-foundation` | A – Harness | Skills génériques extraits de kb/kf et corrigés | claude-harness | 🔄 |
+| 2b | `feat/lot-0-6-harness-foundation` | A – Harness | Skill `lot-review` : revue de code qui annote la PR et applique les corrections, sous profil `claude`, avant l'audit sécurité | claude-harness | 🔄 |
+| 3 | `feat/lot-0-6-harness-foundation` | A – Harness | Workflows CI réutilisables | claude-harness | 🔄 |
+| 4 | `feat/lot-0-6-harness-foundation` | A – Harness | Squelette de projet (remplace `prompt-harness.md`) | claude-harness, racine, mpb | 🔄 |
+| 5 | `feat/lot-0-6-harness-foundation` | B – Conventions | Master des conventions déplacé dans `claude-harness/CONVENTIONS.md`, réglages user-level, mémoires | claude-harness, `~/.claude` | 🔄 |
+| 6 | `feat/lot-0-6-harness-foundation` | B – Conventions | Nettoyage racine `~/ENV/projets` | racine, claude-harness, deployment | 🔄 |
+| 6b | – (manuel, GitHub) | B – Conventions | Réglages GitHub : branche par défaut `develop` *(P5)*, passage en privé de `kreadevis` et `meal-planner-frontend` *(P6-D1)* | GitHub (utilisateur), 9 repos | 🔄 |
+| 7 | `chore/harness-adoption` (kb) | C – Adoption | kreadevis-backend (pilote backend) | kb | ⬜ |
+| 8 | `chore/harness-adoption` (kf) | C – Adoption | kreadevis-frontend (pilote frontend) | kf | ⬜ |
+| 9 | `chore/harness-adoption` (mpb) | C – Adoption | meal-planner-backend | mpb | ⬜ |
+| 10 | `chore/harness-adoption` (mpf) | C – Adoption | meal-planner-frontend (+ audit rétroactif) | mpf | ⬜ |
+| 11 | `chore/harness-adoption` (elya) | C – Adoption | elya | elya | ⬜ |
+| 12 | `chore/harness-adoption` (elya-fe) | C – Adoption | elya-frontend | elya-frontend | ⬜ |
+| 13 | `chore/harness-adoption` (deployment) | C – Adoption | deployment | deployment | ⬜ |
+| 14 | `chore/harness-adoption` (summerize) | C – Adoption | summerize-youtube | summerize-youtube | ⬜ |
+| 15 | `feat/lot-15-closure` | D – Clôture | Ré-audit de contrôle et checklist de promotion | tous | ⬜ |
+| 16 | `feat/lot-16-contract-ci` | Plus tard | Job CI « contract » front ↔ backend réel | claude-harness, kf, mpf, elya-frontend | ⏸️ |
+
+Légende des statuts *(P6-D10)* : ⬜ à faire · 🔄 en cours (livré sur la branche, PR non
+mergée) · ✅ mergé sur `develop` · ⏸️ planifié mais dormant · ❄️ gelé.
+
+Les lots 0 à 6 sont livrés sur une **branche unique** `feat/lot-0-6-harness-foundation` :
+le harnais n'a pas encore de `develop` → `main` promu, donc pas de plugin installable, donc
+pas de gate `lot-test → lot-review → lot-audit → lot-ship` exécutable en session ; la
+fondation part en une PR, et le découpage un-lot-une-PR reprend au lot 7.
 
 Ordre strict : 0 → 1 → 2 → 2b → 3 → 4 → 5 → 6 → 6b → 7 → 8 → 9 … 14 → 15. Le lot 16 est
 planifié mais dormant (décision : livrable manuel d'abord, CI ensuite). Le lot 6b est
@@ -133,7 +142,7 @@ meal-planner-backend / -frontend, elya-fe = elya-frontend.
 
 ---
 
-## LOT 0 — Bootstrap du repo et vérifications techniques ⬜
+## LOT 0 — Bootstrap du repo et vérifications techniques 🔄
 
 ### Objectif
 
@@ -178,7 +187,7 @@ avec `ref: main` n'obtient aucun plugin et les lots 5 et 7 sont bloqués.
 
 ---
 
-## LOT 1 — Hooks ⬜
+## LOT 1 — Hooks 🔄
 
 Constats : **#2**, #5, #18 (+ #8, #25 en partie via lot 3).
 
@@ -214,7 +223,7 @@ Constats : **#2**, #5, #18 (+ #8, #25 en partie via lot 3).
 
 ---
 
-## LOT 2 — Skills génériques ⬜
+## LOT 2 — Skills génériques 🔄
 
 Constats : **#1**, #6, #16, #17, #3 (en partie), #7 (en partie).
 
@@ -251,7 +260,7 @@ Skills du plugin, en anglais, extraits de la version kb/kf la plus récente et *
 
 ---
 
-## LOT 2b — Skill `lot-review` (revue de code avant audit) ⬜
+## LOT 2b — Skill `lot-review` (revue de code avant audit) 🔄
 
 Constats : demande utilisateur (2026-09-18, hors constats d'audit) — conséquence directe du test
 du lot 5 : le switch de profil ne change pas le modèle d'une session en cours (voir §4 du master
@@ -291,7 +300,7 @@ de code et applique les corrections **avant** que `lot-audit` ne lance l'audit s
 
 ---
 
-## LOT 3 — Workflows CI réutilisables ⬜
+## LOT 3 — Workflows CI réutilisables 🔄
 
 Constats : **#9**, #8, #18, #19, #25, #3 (contrôle du livrable) ; *(P5)* **#6, #8, #9, #13, #15, #21**.
 
@@ -332,7 +341,7 @@ actions épinglées par SHA *(P5-#9)* :
 
 ---
 
-## LOT 4 — Squelette de projet ⬜
+## LOT 4 — Squelette de projet 🔄
 
 Constats : **#10**, #22.
 
@@ -363,7 +372,7 @@ Constats : **#10**, #22.
 
 ---
 
-## LOT 5 — Conventions, réglages user-level, mémoires ⬜
+## LOT 5 — Conventions, réglages user-level, mémoires 🔄
 
 Constats : **#4**, #5, #13, #21, #15 (mémoire), §12/§13 à réécrire ; *(P6)* A2, A3, A5, A6, B8.
 
@@ -471,7 +480,7 @@ Mémoires :
 
 ---
 
-## LOT 6 — Nettoyage de la racine ⬜
+## LOT 6 — Nettoyage de la racine 🔄
 
 Constats : **#11**, #23 ; *(P6)* A3, A4.
 
