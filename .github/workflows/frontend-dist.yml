@@ -46,6 +46,10 @@ jobs:
         with:
           node-version: ${{ inputs.node_version }}
           cache: npm
+          # defaults.run.working-directory does not reach an action's inputs:
+          # without this, setup-node looks for the lockfile at the repo root and
+          # fails before npm ci on any project that is not at the root.
+          cache-dependency-path: ${{ inputs.working_directory }}/package-lock.json
 
       - name: Install
         run: npm ci

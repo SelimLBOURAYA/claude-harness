@@ -166,6 +166,22 @@ rejects "feat/lot-3"                          "a lot branch with no description 
 rejects "feat/lot-3-Quote-Totals"             "an upper-case description is rejected"
 rejects "feat/quote-totals"                   "a feat branch outside a lot is rejected"
 
+# Dependabot names its own branches and that prefix is not configurable, so the
+# workflow exempts them by name rather than by regex: without the exemption every
+# weekly dependency PR is red.
+assert_ok "branch-naming exempts dependabot branches" -- \
+  grep -qF 'dependabot/*)' "$WF/branch-naming.yml"
+for b in dependabot/github_actions/actions/checkout-5 \
+         dependabot/npm_and_yarn/vite-5.4.2 \
+         dependabot/maven/org.springframework.boot-3.3.4; do
+  case "$b" in
+    dependabot/*) assert_eq "exempt" "exempt" "$b is exempt from the branch regexes" ;;
+    *) assert_eq "exempt" "checked" "$b is exempt from the branch regexes" ;;
+  esac
+done
+assert_eq "" "$(grep -n 'accepts the chore/ form' "$REPO_ROOT/templates/dependabot.yml" || true)" \
+  "the dependabot template no longer claims the chore/ prefix renames its branches"
+
 # --- the deliverables workflow expands a lot range the same way ---------
 RANGE_SED=$(sed -n 's/.*sed -nE .\(.*\). *$/\1/p' "$WF/lot-deliverables.yml" | head -1)
 assert_ok "lot-deliverables extracts both ends of a range" -- \
@@ -178,6 +194,36 @@ assert_ok "lot-deliverables blocks on an unresolved Critical row" -- \
 # table header naming a Critical column does not block the PR.
 assert_ok "lot-deliverables anchors Critical to the first cell" -- \
   grep -qF '^\|[^|a-zA-Z0-9]*critical' "$WF/lot-deliverables.yml"
+
+# --- a report is in scope when its lot number is in the declared range ---
+# seq only emits plain integers, so lot 2b never appears in the expansion of
+# feat/lot-0-6-*. Reproduce the workflow's membership test on the real shapes.
+in_scope() {  # in_scope <declared lots> <report path>
+  local lots="$1" f="$2" n base
+  case "$f" in */lot-0-integration.md) printf 'skipped'; return ;; esac
+  n=$(basename "$f" .md | sed -E 's/^lot-([0-9]+[a-z]?)(-review)?$/\1/')
+  base=${n%%[a-z]}
+  case " $lots " in
+    *" $n "* | *" $base "*) printf 'in' ;;
+    *) printf 'out' ;;
+  esac
+}
+assert_eq "in" "$(in_scope "0 1 2 3 4 5 6" docs/audits/lot-2b.md)" \
+  "a lettered lot inside the declared range is in scope"
+assert_eq "in" "$(in_scope "0 1 2 3 4 5 6" docs/audits/lot-2b-review.md)" \
+  "its review report is in scope too"
+assert_eq "in" "$(in_scope "0 1 2 3 4 5 6" docs/audits/lot-3.md)" \
+  "a plain lot inside the declared range is in scope"
+assert_eq "out" "$(in_scope "0 1 2" docs/audits/lot-7.md)" \
+  "a lot outside the declared range is rejected"
+assert_eq "out" "$(in_scope "0 1 2" docs/audits/lot-7b.md)" \
+  "a lettered lot outside the declared range is rejected"
+# The integration report belongs to no lot: it is the integration-check
+# deliverable and every frontend branch carries it.
+assert_eq "skipped" "$(in_scope "3" docs/audits/lot-0-integration.md)" \
+  "the integration report is never treated as an out-of-scope lot report"
+assert_ok "lot-deliverables exempts the integration report from the scope check" -- \
+  grep -qF '*/lot-0-integration.md) continue' "$WF/lot-deliverables.yml"
 
 # --- the caller template ------------------------------------------------
 assert_file "$TPL/ci-caller.yml" "the caller template is shipped"

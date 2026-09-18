@@ -31,7 +31,21 @@ FORCE_FLAGS = {"--force", "-f", "--force-with-lease", "--force-if-includes"}
 # A token we cannot resolve statically: shell expansion, substitution, glob.
 UNRESOLVED = re.compile(r"[$`*?]|\$\(")
 
-LOT_BRANCH = re.compile(r"^feat/lot-(\d+[a-z]?)(?:-|$)")
+LOT_BRANCH = re.compile(r"^feat/lot-(\d+[a-z]?)(?:-(\d+[a-z]?))?(?:-|$)")
+
+# Commands that prefix another command instead of being one. The guard must see
+# through them or it is not a guard: `rtk` is the token-saving proxy every git
+# call in this portfolio is rewritten through (~/.claude/RTK.md), and `Bash(rtk *)`
+# is allowlisted, so an unstripped `rtk git push origin main` would reach main
+# with no prompt at all.
+COMMAND_WRAPPERS = {
+    "rtk", "sudo", "doas", "env", "command", "builtin", "exec", "time",
+    "nohup", "nice", "ionice", "stdbuf", "setsid", "timeout", "xargs",
+}
+# Sub-commands a wrapper may insert before the real command (`rtk proxy git ...`).
+WRAPPER_SUBCOMMANDS = {"proxy"}
+# A bare duration/priority argument: `timeout 5s git ...`, `nice 10 git ...`.
+WRAPPER_NUMERIC = re.compile(r"^\d+[smhd]?$")
 # A report line still carrying an unresolved Critical finding. The severity must
 # be the row's FIRST cell: the summary table of every report has a "Critical"
 # column header, and that header is not a finding.
@@ -107,7 +121,7 @@ def segments(tokens):
 
     expanded = []
     for segment in out:
-        head = strip_assignments(segment)
+        head = strip_wrappers(segment)
         if len(head) >= 3 and os.path.basename(head[0]) in ("bash", "sh", "zsh"):
             try:
                 flag_index = head.index("-c")
@@ -141,6 +155,28 @@ def strip_assignments(segment):
     while index < len(segment) and re.match(r"^[A-Za-z_][A-Za-z0-9_]*=", segment[index]):
         index += 1
     return segment[index:]
+
+
+def strip_wrappers(segment):
+    """Drop `rtk`, `sudo`, `env`, ... so a wrapped command is judged like a bare one.
+
+    Also drops the wrapper's own options and the one bare numeric argument
+    `timeout`/`nice` take, then any environment assignments it introduced.
+    """
+    segment = strip_assignments(segment)
+    for _ in range(5):  # pathological nesting must not loop forever
+        if not segment or os.path.basename(segment[0]) not in COMMAND_WRAPPERS:
+            break
+        rest = segment[1:]
+        index = 0
+        while index < len(rest) and (
+            rest[index].startswith("-")
+            or rest[index] in WRAPPER_SUBCOMMANDS
+            or WRAPPER_NUMERIC.match(rest[index])
+        ):
+            index += 1
+        segment = strip_assignments(rest[index:])
+    return segment
 
 
 # --------------------------------------------------------------------------
@@ -389,20 +425,41 @@ def gate_parameter(root, name):
     return match.group(1).strip() if match else None
 
 
+def branch_lots(branch):
+    """Every lot number a branch declares, expanding `feat/lot-0-6-...` to 0..6.
+
+    Same expansion as lot-deliverables.yml: a guard that checked only the first
+    lot of a range would pass a PR that CI then rejects.
+    """
+    match = LOT_BRANCH.match(branch)
+    if not match:
+        return []
+    first, last = match.group(1), match.group(2)
+    if last and first.isdigit() and last.isdigit() and int(last) > int(first):
+        return [str(number) for number in range(int(first), int(last) + 1)]
+    return [first]
+
+
 def guard_pr_deliverables(cwd):
     root = repo_root(cwd)
     branch = current_branch(cwd)
     if root is None or branch is None:
         ask("Repository state could not be resolved; confirm the PR creation manually.")
 
-    match = LOT_BRANCH.match(branch)
-    if match:
-        lot = match.group(1)
+    for lot in branch_lots(branch):
         report = os.path.join(root, "docs", "audits", "lot-%s.md" % lot)
         if not os.path.isfile(report):
             deny(
                 "docs/audits/lot-%s.md is missing. Run the gate "
                 "lot-test -> lot-review -> lot-audit before opening the PR." % lot
+            )
+        # lot-review runs before lot-audit, and lot-deliverables.yml requires its
+        # report by default: denying here beats a red PR five minutes later.
+        review = os.path.join(root, "docs", "audits", "lot-%s-review.md" % lot)
+        if not os.path.isfile(review):
+            deny(
+                "docs/audits/lot-%s-review.md is missing: lot-review runs before "
+                "lot-audit (CONVENTIONS.md section 13)." % lot
             )
         with open(report, encoding="utf-8") as handle:
             for raw in handle:
@@ -483,7 +540,7 @@ def main():
         )
 
     for segment in segments(tokens):
-        segment = strip_assignments(segment)
+        segment = strip_wrappers(segment)
         if not segment:
             continue
         name = os.path.basename(segment[0])
