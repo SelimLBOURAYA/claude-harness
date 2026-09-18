@@ -20,6 +20,7 @@
 | 0 | A – Harness | Bootstrap du repo `claude-harness` + vérifications techniques bloquantes | claude-harness | ⬜ |
 | 1 | A – Harness | Hooks : garde git, miroir CLAUDE/AGENTS étendu, exclusion rtk | claude-harness, `~/.claude` | ⬜ |
 | 2 | A – Harness | Skills génériques extraits de kb/kf et corrigés | claude-harness | ⬜ |
+| 2b | A – Harness | Skill `lot-review` : revue de code qui annote la PR et applique les corrections, sous profil `claude`, avant l'audit sécurité | claude-harness | ⬜ |
 | 3 | A – Harness | Workflows CI réutilisables | claude-harness | ⬜ |
 | 4 | A – Harness | Squelette de projet (remplace `prompt-harness.md`) | claude-harness, racine, mpb | ⬜ |
 | 5 | B – Conventions | Master `coding-conventions.md`, réglages user-level, mémoires | `~/.claude` | ⬜ |
@@ -36,7 +37,7 @@
 | 15 | D – Clôture | Ré-audit de contrôle et checklist de promotion | tous | ⬜ |
 | 16 | Plus tard | Job CI « contract » front ↔ backend réel | claude-harness, kf, mpf, elya-frontend | ⏸️ |
 
-Ordre strict : 0 → 1 → 2 → 3 → 4 → 5 → 6 → 6b → 7 → 8 → 9 … 14 → 15. Le lot 16 est
+Ordre strict : 0 → 1 → 2 → 2b → 3 → 4 → 5 → 6 → 6b → 7 → 8 → 9 … 14 → 15. Le lot 16 est
 planifié mais dormant (décision : livrable manuel d'abord, CI ensuite). Le lot 6b est
 manuel et court (≈ 15 min) : il peut être exécuté par l'utilisateur **dès maintenant**, hors
 séquence, sans dépendance sur les lots 0 à 6.
@@ -225,9 +226,10 @@ Skills du plugin, en anglais, extraits de la version kb/kf la plus récente et *
 | Skill | Origine | Corrections |
 |---|---|---|
 | `lot-test` | kb + kf | Commande de validation, seuil et outil de couverture lus dans Gate parameters ; matrice de tests unifiée backend/frontend |
-| `lot-audit` + `checklists.md` | kb (identique kf) | Étape 2 : `Skill(security-review)` au lieu du subagent inexistant (#6) ; chemin de checklist corrigé ; **revue des exclusions de couverture** (#7) ; **migrations en `A` uniquement** (#9) ; en-tête du rapport avec SHA du harness |
+| `lot-review` *(nouveau, demande utilisateur 2026-09-18)* | – | Revue de code du lot : invoque le skill générique `code-review` (`--comment --fix`) sur la PR du lot pour poster les commentaires inline et appliquer les corrections retenues ; **refuse de s'exécuter si le modèle actif n'est pas `claude`** (redirige vers le point d'arrêt fin-de-dev du lot 5) ; s'exécute **avant** `lot-audit` |
+| `lot-audit` + `checklists.md` | kb (identique kf) | Étape 0 *(nouveau)* : exige que `lot-review` ait été exécuté sur la PR courante (commentaires postés, corrections appliquées) avant de poursuivre ; étape 2 (déplacée) : `Skill(security-review)` au lieu du subagent inexistant (#6) ; chemin de checklist corrigé ; **revue des exclusions de couverture** (#7) ; **migrations en `A` uniquement** (#9) ; en-tête du rapport avec SHA du harness |
 | `lot-ship` | kb + kf | Stop après PR ; exige `lot-N.md` sans Critical ; **front : exige `lot-0-integration.md`** (#3) ; PR `--base develop` ; *(P5-#11)* après `gh pr create`, affiche `gh pr checks --watch` et **refuse de déclarer le lot prêt** tant qu'un check est rouge ; *(P5-#14)* toute lecture d'historique passe par `rtk proxy git log` |
-| `harness-sync` | kb | Vérifie : plugin déclaré **avec `"ref": "main"`**, Gate parameters complets, census ⇔ skills, miroir, CONVENTIONS = master, absence de `skill/` et de « Sprint chaining » ; *(P5-#14)* statuts du fichier de lots croisés avec `rtk proxy git log --first-parent` (un lot ✅ dont la mention « PR à ouvrir » subsiste est une dérive) ; *(P6-D10)* tableau de statut présent en tête du fichier de lots ; *(P6-D14)* mémoires `project_*` sans date de vérification ou vérifiées il y a plus de 60 jours signalées ; *(P6-D5)* aucune date ni « fenêtre » dans le fichier de lots |
+| `harness-sync` | kb | Vérifie : plugin déclaré **avec `"ref": "main"`**, Gate parameters complets, census ⇔ skills, miroir, CONVENTIONS = master, absence de `skill/` et de « Sprint chaining » ; *(P5-#14)* statuts du fichier de lots croisés avec `rtk proxy git log --first-parent` (un lot ✅ dont la mention « PR à ouvrir » subsiste est une dérive) ; *(P6-D10)* tableau de statut présent en tête du fichier de lots ; *(P6-D14)* mémoires `project_*` sans date de vérification ou vérifiées il y a plus de 60 jours signalées ; *(P6-D5)* aucune date ni « fenêtre » dans le fichier de lots ; *(nouveau, lot 2b)* le gate documenté est bien `lot-test → lot-review → lot-audit → lot-ship` (pas d'audit sans revue préalable) |
 | `dep-update` | kb + kf | Paramétré par stack |
 | `i-have-adhd` | identique partout | `disable-model-invocation: true` conservé |
 | `integration-check` (nouveau) | – | Procédure du smoke manuel front ↔ backend réel et gabarit de `lot-0-integration.md` |
@@ -246,6 +248,46 @@ Skills du plugin, en anglais, extraits de la version kb/kf la plus récente et *
 - [ ] Aucun chemin `skill/`, aucune commande ou seuil en dur dans les skills
 - [ ] Skills découverts en session sur un repo de test (nom confirmé par V2)
 - [ ] Rapport `docs/audits/lot-2.md`
+
+---
+
+## LOT 2b — Skill `lot-review` (revue de code avant audit) ⬜
+
+Constats : demande utilisateur (2026-09-18, hors constats d'audit) — conséquence directe du test
+du lot 5 : le switch de profil ne change pas le modèle d'une session en cours (voir §4 du master
+et le livrable « Routage revue/code par profil LLM » au lot 5). Le harnais a donc besoin d'un
+skill dédié, exécuté **sous une session déjà démarrée sous le profil `claude`**, qui fait la revue
+de code et applique les corrections **avant** que `lot-audit` ne lance l'audit sécurité.
+
+### Livrables
+
+- Nouveau skill du plugin `lot-review` : invoque le skill générique `code-review` du harnais avec
+  `--comment --fix` sur la PR du lot en cours (cible = la branche `feat/lot-N-*` ouverte par
+  `lot-ship` d'un tour précédent, ou le diff local si la PR n'est pas encore ouverte) — poste les
+  commentaires de revue **en ligne sur la PR** et applique les corrections retenues au working
+  tree, à committer par l'agent comme un commit normal (`fix:`/`refactor:` selon le cas).
+- **Garde-fou modèle** : en tête d'exécution, le skill vérifie le modèle annoncé de la session
+  active. S'il ne s'agit pas de `claude`, il **s'arrête sans lancer la revue** et affiche le
+  rappel du point d'arrêt documenté au lot 5 (« termine cette session, lance
+  `claude-profile claude`, ouvre une nouvelle session, relance `lot-review` »).
+- **Gate mis à jour** : `lot-test → lot-review → lot-audit → lot-ship` (§13 du master, lot 5, et
+  table des skills du lot 2, déjà modifiées ci-dessus). `lot-audit` refuse de démarrer si
+  `lot-review` n'a pas produit son livrable pour la PR courante.
+- Livrable de traçabilité : `docs/audits/lot-N-review.md` (commentaires postés + liste des
+  corrections appliquées + SHA du commit de correction), sur le même modèle que
+  `docs/audits/lot-N.md` produit par `lot-audit`. Ajouté au census de `CLAUDE.md` (§12 du master).
+- `harness-sync` (lot 2) étendu pour vérifier l'ordre du gate et la présence du livrable
+  `lot-N-review.md` avant tout `lot-N.md`.
+
+### Critères de validation
+
+- [ ] Sur une PR de test avec au moins un défaut volontaire, `lot-review` poste un commentaire
+      inline et corrige le défaut avant que `lot-audit` ne soit lançable
+- [ ] `lot-review` lancé depuis une session sous profil `deepseek` s'arrête sans modifier la PR ni
+      le working tree, et affiche l'instruction de nouvelle session
+- [ ] `lot-audit` refuse de démarrer si `docs/audits/lot-N-review.md` est absent pour la PR
+      courante
+- [ ] Rapport `docs/audits/lot-2b.md`
 
 ---
 
@@ -336,6 +378,14 @@ Master des conventions :
 
 - §2 : étape 9 inchangée (stop après PR) et **mention explicite** qu'aucun chaînage de lots
   n'est autorisé ; étape 1 : `git log` hors rtk.
+- §4 *(demande utilisateur, 2026-09-18, révisé 2026-09-18 après test)* : **exception** au
+  « Ask before doing » pour l'exécution de `/home/selim/.local/bin/claude-profile claude` ou
+  `/home/selim/.local/bin/claude-profile deepseek` — pré-autorisé, sans confirmation à chaque
+  fois. Ces commandes ne rebasculent **pas** le modèle de la session en cours (vérifié : elles ne
+  réécrivent que `settings.json`, lu par les *prochaines* sessions) — voir livrable « Routage
+  revue/code par profil LLM » ci-dessous pour le point d'arrêt imposé en conséquence. Toute autre
+  voie de changement de modèle (édition directe de `settings.json`, autre script) reste soumise à
+  confirmation.
 - §7 : garde git appliquée par le hook du plugin ; rappel « pas de protection de branches (tous les
   repos sont privés, *P6-D1*) : ne jamais merger une PR à CI rouge » ; *(P5-#3)* branche par défaut
   GitHub = `develop` (lot 6b) ; *(P5-#8)* règle **expand/contract** pour toute migration
@@ -356,10 +406,38 @@ Master des conventions :
   « Master propagation » : le master est `claude-harness/CONVENTIONS.md`, les copies sont mises à
   jour dans les lots d'adoption et vérifiées par `harness-invariants.yml` ; `.claude/skills/` d'un repo
   réservé aux skills propres au projet ; `## Gate parameters` obligatoire et au census.
-- §13 : noms des skills du plugin, gate `lot-test → lot-audit → lot-ship` (+ `integration-check`
-  pour les fronts).
+- §13 : noms des skills du plugin, gate `lot-test → lot-review → lot-audit → lot-ship` (+
+  `integration-check` pour les fronts) ; *(lot 2b)* `lot-review` s'exécute sous profil `claude`
+  uniquement, voir point d'arrêt fin-de-dev ci-dessous.
 - Promotion des feedbacks (#21) : invocation des skills (kb), règles kf (PR vers `develop`,
   tiret demi-cadratin, signals Angular : ce dernier dans le `CLAUDE.md` des fronts).
+
+Routage revue/code par profil LLM *(demande utilisateur, 2026-09-18, hors constats d'audit)* :
+
+- Script `~/.local/bin/claude-profile {claude|deepseek}` (préexistant, vérifié fonctionnel :
+  `set -euo pipefail`, valide le profil par regex, vérifie l'existence et le JSON de
+  `~/.claude/settings.$PROFILE.json` avant de l'écraser sur `~/.claude/settings.json` par
+  `cp`+`mv` atomique ; notifie via `notify-send`). Deux profils déjà présents :
+  `settings.claude.json` (modèle `claude-fable-5-1[1m]`, agent Claude natif) et
+  `settings.deepseek.json` (modèle `sonnet` routé vers DeepSeek via
+  `ANTHROPIC_BASE_URL=https://api.deepseek.com/anthropic` + `ANTHROPIC_DEFAULT_*_MODEL=deepseek-v4-*`).
+- Convention d'usage *(révisée 2026-09-18 après test)* : le switch de profil en cours de session
+  **ne change pas** le modèle de la session active — vérifié : après `claude-profile deepseek`
+  puis `claude-profile claude`, la session est restée sur `deepseek-v4-pro[1m]` alors que
+  `settings.json` indiquait de nouveau `claude-fable-5-1[1m]`. En conséquence, l'agent **n'effectue
+  aucune bascule de profil en cours de session**. Le harness impose un point d'arrêt en fin de
+  développement d'un lot, **avant** la génération de l'audit (`lot-audit`) et la création de la PR
+  (`lot-ship`) : l'agent s'arrête, indique à l'utilisateur que le développement est terminé, et
+  l'invite à démarrer une **nouvelle session** (après `claude-profile claude` si le profil actif
+  est `deepseek`) pour enchaîner sur l'audit et la PR sous le profil `claude`.
+- §4 du master (ci-dessus) autorise ces deux commandes sans confirmation répétée : les invoquer
+  est en soi la demande explicite de l'utilisateur.
+- ⚠️ Constat relevé en vérifiant ce livrable : `settings.deepseek.json` contient
+  `ANTHROPIC_AUTH_TOKEN` en clair (clé API DeepSeek). Contraire à la règle « secrets hors repo /
+  pas de valeur par défaut en dur » (§5 du master, « Forbidden patterns » §3). Hors périmètre de
+  cette édition (fichier local, non versionné) mais à corriger : déplacer vers un gestionnaire de
+  secrets ou une variable d'environnement chargée au lancement, jamais commitée telle quelle si
+  ce fichier venait à être versionné.
 
 `~/.claude/settings.json` :
 
@@ -384,6 +462,12 @@ Mémoires :
 - [ ] Aucun « Sprint chaining » dans le master
 - [ ] `readlink ~/.claude/coding-conventions.md` pointe vers le clone du harness ; contenu
       présent en session (V7)
+- [ ] `claude-profile claude` et `claude-profile deepseek` fonctionnels (script + les deux
+      `settings.$PROFILE.json` valides) ; §4 documente l'exception ; fuite `ANTHROPIC_AUTH_TOKEN`
+      de `settings.deepseek.json` signalée à l'utilisateur (corrigée hors périmètre de ce lot)
+- [ ] Point d'arrêt `lot-dev` → (nouvelle session) → `lot-audit`/`lot-ship` documenté dans le
+      livrable « Routage revue/code par profil LLM » et respecté par l'agent (aucune bascule de
+      profil tentée en cours de session)
 
 ---
 

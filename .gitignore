@@ -2,3 +2,6 @@
 
 # Personal overrides only
 *.local.md
+
+# IntelliJ IDEA project files
+.idea/
