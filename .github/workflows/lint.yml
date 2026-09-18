@@ -1,0 +1,127 @@
+name: lint
+
+# Formatting and dependency hygiene (P5-#21, P6-D12). Deliberately separate from
+# the validation gate: a formatting complaint and a failing test are not the same
+# signal, and reading one run to learn which of the two happened wastes time.
+#
+# Every check degrades to an explicit skip rather than to a silent pass: a step
+# that reports "skipped, no spotless plugin" is auditable, one that quietly
+# exits 0 is not.
+
+on:
+  workflow_call:
+    inputs:
+      stack:
+        description: "backend | frontend | harness | other"
+        required: true
+        type: string
+      java_version:
+        required: false
+        type: string
+        default: "21"
+      node_version:
+        required: false
+        type: string
+        default: "22"
+      working_directory:
+        required: false
+        type: string
+        default: "."
+
+permissions:
+  contents: read
+
+jobs:
+  format:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ${{ inputs.working_directory }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Java
+        if: inputs.stack == 'backend'
+        uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          distribution: temurin
+          java-version: ${{ inputs.java_version }}
+          cache: maven
+
+      - name: Spotless
+        if: inputs.stack == 'backend'
+        run: |
+          if grep -q 'spotless-maven-plugin' pom.xml 2>/dev/null; then
+            ./mvnw -B -q spotless:check
+          else
+            echo "skipped: no spotless-maven-plugin in pom.xml"
+            echo "- format: **skipped**, no spotless-maven-plugin" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Set up Node
+        if: inputs.stack == 'frontend'
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ inputs.node_version }}
+          cache: npm
+
+      - name: Install
+        if: inputs.stack == 'frontend'
+        run: npm ci
+
+      - name: Prettier
+        if: inputs.stack == 'frontend'
+        run: |
+          if [ -n "$(ls .prettierrc* prettier.config.* 2>/dev/null)" ] \
+             || node -e 'process.exit(require("./package.json").prettier?0:1)' 2>/dev/null; then
+            npx --no-install prettier --check .
+          else
+            echo "skipped: no prettier configuration"
+            echo "- prettier: **skipped**, not configured" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Lint
+        if: inputs.stack == 'frontend'
+        run: |
+          if node -e 'process.exit(require("./package.json").scripts?.lint?0:1)' 2>/dev/null; then
+            npm run lint
+          else
+            echo "skipped: no lint script in package.json"
+            echo "- lint: **skipped**, no script" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+  # Non-blocking until the first go-live (P6-D12). It reports, it does not gate:
+  # a transitive advisory with no fix available must not stop a lot.
+  audit:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    defaults:
+      run:
+        working-directory: ${{ inputs.working_directory }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Node
+        if: inputs.stack == 'frontend'
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ inputs.node_version }}
+          cache: npm
+
+      - name: npm audit
+        if: inputs.stack == 'frontend'
+        run: npm audit --audit-level=high
+
+      - name: Set up Java
+        if: inputs.stack == 'backend'
+        uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          distribution: temurin
+          java-version: ${{ inputs.java_version }}
+          cache: maven
+
+      - name: Dependency vulnerabilities
+        if: inputs.stack == 'backend'
+        run: ./mvnw -B -q org.owasp:dependency-check-maven:check -DfailBuildOnCVSS=11

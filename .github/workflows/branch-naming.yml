@@ -1,0 +1,74 @@
+name: branch-naming
+
+# Branch naming and PR target (CONVENTIONS.md section 7). The agent-side guard
+# lives in the git-guard hook; this is the same rule enforced where no agent is
+# involved.
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  branch-naming:
+    runs-on: ubuntu-latest
+    steps:
+      - name: The branch name follows the convention
+        env:
+          EVENT: ${{ github.event_name }}
+          HEAD_REF: ${{ github.head_ref }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          branch="${HEAD_REF:-$REF_NAME}"
+          echo "branch: $branch"
+
+          case "$branch" in
+            main|develop) echo "long-lived branch, nothing to check"; exit 0 ;;
+          esac
+
+          # feat/lot-<N>-<description>, N flat with an optional letter suffix
+          # (lot-2b) and an optional range (lot-0-6-...) for a branch that
+          # delivers several consecutive lots in one PR.
+          lot='^feat/lot-[0-9]+[a-z]?(-[0-9]+[a-z]?)?-[a-z0-9]+(-[a-z0-9]+)*$'
+          chore='^(chore|docs|fix|refactor|test)/[a-z0-9]+(-[a-z0-9]+)*$'
+
+          if printf '%s' "$branch" | grep -qE "$lot"; then
+            exit 0
+          fi
+          if printf '%s' "$branch" | grep -qE "$chore"; then
+            exit 0
+          fi
+
+          echo "::error::'$branch' does not follow the branch convention (section 7)."
+          echo "Expected one of:"
+          echo "  feat/lot-<N>-<short-description>        e.g. feat/lot-12-quote-totals"
+          echo "  feat/lot-<N>-<M>-<short-description>    e.g. feat/lot-0-6-harness-foundation"
+          echo "  chore|docs|fix|refactor|test/<short-description>"
+          echo "No sub-version lot-N.M, lower case and dashes only."
+          exit 1
+
+      - name: The pull request targets develop
+        if: github.event_name == 'pull_request' || github.event_name == 'pull_request_target'
+        env:
+          BASE: ${{ github.base_ref }}
+          HEAD_REF: ${{ github.head_ref }}
+        run: |
+          if [ "$BASE" = "develop" ]; then
+            exit 0
+          fi
+          if [ "$BASE" = "main" ]; then
+            case "$HEAD_REF" in
+              fix/*)
+                echo "::notice::hotfix to main accepted (section 7 exception)."
+                echo "::notice::the same fix must be replayed on develop."
+                exit 0 ;;
+              develop)
+                echo "::notice::develop to main promotion, user-driven."
+                exit 0 ;;
+            esac
+            echo "::error::'$HEAD_REF' must not target main. The promotion path is develop to main, user-only."
+            exit 1
+          fi
+          echo "::error::pull requests target develop, not '$BASE'."
+          exit 1

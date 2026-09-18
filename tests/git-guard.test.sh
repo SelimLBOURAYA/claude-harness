@@ -130,6 +130,16 @@ printf '# Lot 1\n\n| Critical | src/x | secret in logs | resolved in 1a2b3c4 |\n
   > "$FEAT/docs/audits/lot-1.md"
 expect ask "$FEAT" "gh pr create --base develop --title t --body b"
 
+# The severity must be the row's FIRST cell. Every report opens with a summary
+# table whose header names a Critical column and whose counts are zero; that
+# header is not a finding and must not block the PR.
+printf '# Lot 1\n\n| Dimension | Critical | Warning | Info |\n|---|---|---|---|\n| Security | 0 | 1 | 1 |\n' \
+  > "$FEAT/docs/audits/lot-1.md"
+expect ask "$FEAT" "gh pr create --base develop --title t --body b"
+# A severity cell prefixed by its emoji still counts as a first-cell Critical.
+printf '| ⚠️ Critical | src/y | token in clear | to do |\n' >> "$FEAT/docs/audits/lot-1.md"
+expect deny "$FEAT" "gh pr create --base develop --title t --body b"
+
 # A frontend repo additionally needs its integration report.
 FRONT=$(make_repo front-repo feat/lot-3-list)
 mkdir -p "$FRONT/docs/audits"
