@@ -1,0 +1,35 @@
+# Stack started by image-smoke.yml: the image under test plus a real database.
+# Delete this file on a frontend repository.
+#
+# A real PostgreSQL, not an in-memory substitute (section 2.5): the point of the
+# smoke test is to prove the image boots against the engine it will actually
+# talk to, migrations included.
+
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: "{{DB_NAME}}"
+      POSTGRES_USER: ci
+      # CI-only throwaway credentials for a container with no published port.
+      # Real credentials never appear in a committed file (section 5).
+      POSTGRES_PASSWORD: ci
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ci -d {{DB_NAME}}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  app:
+    # Set by image-smoke.yml to the exact tag it loaded; no default, so a
+    # missing value fails loudly instead of starting yesterday's image.
+    image: ${IMAGE:?IMAGE must be set to the image under test}
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DB_URL: jdbc:postgresql://db:5432/{{DB_NAME}}
+      DB_USERNAME: ci
+      DB_PASSWORD: ci
+    ports:
+      - "8080:8080"

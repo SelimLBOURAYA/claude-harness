@@ -1,0 +1,25 @@
+# Secrets — never committed. .env.example is the committed template (section 5).
+.env
+.env.local
+*.local
+
+# Personal per-machine overrides only. CLAUDE.md, AGENTS.md, CONVENTIONS.md and
+# lots.md are versioned documentation and are NEVER added here (section 8).
+*.local.md
+
+# Build output
+target/
+build/
+dist/
+out/
+node_modules/
+coverage/
+
+# Tooling
+.idea/
+.vscode/
+*.iml
+.DS_Store
+
+# Claude Code: the project settings are versioned, the local override is not.
+.claude/settings.local.json
