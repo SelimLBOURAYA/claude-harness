@@ -336,6 +336,12 @@ Master des conventions :
 
 - §2 : étape 9 inchangée (stop après PR) et **mention explicite** qu'aucun chaînage de lots
   n'est autorisé ; étape 1 : `git log` hors rtk.
+- §4 *(demande utilisateur, 2026-09-18)* : **exception** au « Ask before doing » pour le
+  changement de profil LLM — exécuter `/home/selim/.local/bin/claude-profile claude` ou
+  `/home/selim/.local/bin/claude-profile deepseek` est **pré-autorisé**, sans confirmation à
+  chaque fois (voir livrable « Routage revue/code par profil LLM » ci-dessous). Toute autre voie
+  de changement de modèle (édition directe de `settings.json`, autre script) reste soumise à
+  confirmation.
 - §7 : garde git appliquée par le hook du plugin ; rappel « pas de protection de branches (tous les
   repos sont privés, *P6-D1*) : ne jamais merger une PR à CI rouge » ; *(P5-#3)* branche par défaut
   GitHub = `develop` (lot 6b) ; *(P5-#8)* règle **expand/contract** pour toute migration
@@ -361,6 +367,29 @@ Master des conventions :
 - Promotion des feedbacks (#21) : invocation des skills (kb), règles kf (PR vers `develop`,
   tiret demi-cadratin, signals Angular : ce dernier dans le `CLAUDE.md` des fronts).
 
+Routage revue/code par profil LLM *(demande utilisateur, 2026-09-18, hors constats d'audit)* :
+
+- Script `~/.local/bin/claude-profile {claude|deepseek}` (préexistant, vérifié fonctionnel :
+  `set -euo pipefail`, valide le profil par regex, vérifie l'existence et le JSON de
+  `~/.claude/settings.$PROFILE.json` avant de l'écraser sur `~/.claude/settings.json` par
+  `cp`+`mv` atomique ; notifie via `notify-send`). Deux profils déjà présents :
+  `settings.claude.json` (modèle `claude-fable-5-1[1m]`, agent Claude natif) et
+  `settings.deepseek.json` (modèle `sonnet` routé vers DeepSeek via
+  `ANTHROPIC_BASE_URL=https://api.deepseek.com/anthropic` + `ANTHROPIC_DEFAULT_*_MODEL=deepseek-v4-*`).
+- Convention d'usage : toute **demande de revue de code** (`/code-review`, relecture de PR) passe
+  exclusivement par le profil `claude` (`claude-profile claude` avant l'invocation) ; toute
+  **tâche d'implémentation** (écrire/modifier du code) est déléguée au profil `deepseek`
+  (`claude-profile deepseek` avant l'invocation). Le choix du profil suit la nature de la
+  demande de l'utilisateur, pas une bascule automatique en cours de session.
+- §4 du master (ci-dessus) autorise ces deux commandes sans confirmation répétée : les invoquer
+  est en soi la demande explicite de l'utilisateur.
+- ⚠️ Constat relevé en vérifiant ce livrable : `settings.deepseek.json` contient
+  `ANTHROPIC_AUTH_TOKEN` en clair (clé API DeepSeek). Contraire à la règle « secrets hors repo /
+  pas de valeur par défaut en dur » (§5 du master, « Forbidden patterns » §3). Hors périmètre de
+  cette édition (fichier local, non versionné) mais à corriger : déplacer vers un gestionnaire de
+  secrets ou une variable d'environnement chargée au lancement, jamais commitée telle quelle si
+  ce fichier venait à être versionné.
+
 `~/.claude/settings.json` :
 
 - Plugin `claude-harness` activé (user) via `extraKnownMarketplaces` avec `"ref": "main"`
@@ -384,6 +413,9 @@ Mémoires :
 - [ ] Aucun « Sprint chaining » dans le master
 - [ ] `readlink ~/.claude/coding-conventions.md` pointe vers le clone du harness ; contenu
       présent en session (V7)
+- [ ] `claude-profile claude` et `claude-profile deepseek` fonctionnels (script + les deux
+      `settings.$PROFILE.json` valides) ; §4 documente l'exception ; fuite `ANTHROPIC_AUTH_TOKEN`
+      de `settings.deepseek.json` signalée à l'utilisateur (corrigée hors périmètre de ce lot)
 
 ---
 
