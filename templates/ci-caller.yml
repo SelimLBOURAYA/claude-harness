@@ -1,0 +1,138 @@
+# Copy to .github/workflows/ci.yml in the project and fill the {{placeholders}}
+# from the project's "## Gate parameters" table in CLAUDE.md. Every value below
+# has exactly one source of truth: that table. If a value is n/a there, delete
+# the job that consumes it.
+#
+# @main pins the workflows to the harness production branch, like the plugin
+# marketplace ref. Without it the calling repository follows the harness default
+# branch, develop, and every unpromoted merge goes live here.
+
+name: ci
+
+on:
+  push:
+    branches: ["**"]
+    # A documentation-only push does not change what the image contains. Remove
+    # this if a doc check ever becomes blocking.
+    paths-ignore: ["**.md"]
+  pull_request:
+    branches: [develop, main]
+
+# One run per ref: a push over a push cancels the previous one, except on the
+# long-lived branches where every commit's result is worth keeping.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' && github.ref != 'refs/heads/develop' }}
+
+permissions:
+  contents: read
+
+jobs:
+  # --- harness invariants, the agent-agnostic guard -----------------------
+  harness-invariants:
+    uses: SelimLBOURAYA/claude-harness/.github/workflows/harness-invariants.yml@main
+    with:
+      lots_file: "{{LOTS_FILE}}"            # Gate parameters: Lots file
+    # Only while the harness repository is private.
+    # secrets:
+    #   harness_token: ${{ secrets.HARNESS_READ_TOKEN }}
+
+  commit-format:
+    uses: SelimLBOURAYA/claude-harness/.github/workflows/commit-format.yml@main
+
+  branch-naming:
+    uses: SelimLBOURAYA/claude-harness/.github/workflows/branch-naming.yml@main
+
+  lot-deliverables:
+    uses: SelimLBOURAYA/claude-harness/.github/workflows/lot-deliverables.yml@main
+    with:
+      stack: "{{STACK}}"                    # Gate parameters: Stack
+      lots_file: "{{LOTS_FILE}}"
+
+  migrations-immutable:
+    uses: SelimLBOURAYA/claude-harness/.github/workflows/migrations-immutable.yml@main
+    with:
+      migrations_dir: "{{MIGRATIONS_DIR}}"  # Gate parameters: Migrations directory, or n/a
+
+  lint:
+    uses: SelimLBOURAYA/claude-harness/.github/workflows/lint.yml@main
+    with:
+      stack: "{{STACK}}"
+
+  # --- the validation gate, section 10 item 4 -----------------------------
+  # Inline rather than reusable: the command, the toolchain and the artefact it
+  # produces are the most project-specific thing in this file, and hiding them
+  # behind three inputs buys nothing.
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # --- backend: delete this block on a frontend ---
+      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+
+      # --- frontend: delete this block on a backend ---
+      # - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      #   with:
+      #     node-version: "22"
+      #     cache: npm
+      # - run: npm ci
+
+      - name: Run the validation gate
+        run: "{{VALIDATION_COMMAND}}"       # Gate parameters: Validation command
+
+      # P5-#18: the image must embed the artefact the tests actually ran on, so
+      # it is uploaded here and downloaded into the build context below.
+      - name: Upload the tested artefact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: tested-artifact
+          path: target/*.jar
+          if-no-files-found: error
+          retention-days: 1
+
+      - name: Upload the test reports
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: test-reports
+          path: |
+            **/target/surefire-reports/**
+            **/target/failsafe-reports/**
+            **/target/site/jacoco/**
+            **/coverage/**
+          if-no-files-found: ignore
+          retention-days: 7
+
+  # --- frontend only: delete this job on a backend ------------------------
+  frontend-dist:
+    needs: validate
+    uses: SelimLBOURAYA/claude-harness/.github/workflows/frontend-dist.yml@main
+    with:
+      forbidden_pattern: "{{DIST_FORBIDDEN_PATTERN}}"  # Gate parameters: Dist forbidden pattern
+
+  # --- backend only: delete these two jobs on a frontend ------------------
+  # Builds once. On a pull request nothing is pushed and the image travels to
+  # the smoke test as an artifact; on main and develop it is published.
+  image-publish:
+    needs: [harness-invariants, validate]
+    uses: SelimLBOURAYA/claude-harness/.github/workflows/image-publish.yml@main
+    with:
+      image_name: "{{IMAGE_NAME}}"          # Gate parameters: Image name
+      artifact_name: tested-artifact
+
+  image-smoke:
+    needs: image-publish
+    if: github.event_name != 'push'
+    uses: SelimLBOURAYA/claude-harness/.github/workflows/image-smoke.yml@main
+    with:
+      image: ${{ needs.image-publish.outputs.image }}
+      image_artifact: ${{ needs.image-publish.outputs.image_artifact }}
+      health_path: "{{HEALTH_PATH}}"        # Gate parameters: Health path
+      # A real database, never an in-memory substitute (section 2.5).
+      compose_file: "compose.ci.yml"
+      port: 8080

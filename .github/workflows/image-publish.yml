@@ -1,0 +1,193 @@
+name: image-publish
+
+# Builds the image, and publishes it only from the two long-lived branches:
+# main feeds the production tags (latest + short SHA), develop feeds the dev
+# tags (dev + short SHA); a dev tag is never deployed to production
+# (CONVENTIONS.md section 7, CI paragraph).
+#
+# On a pull request nothing is pushed: the image is built and handed to
+# image-smoke as an artifact, so the boot test runs on the very bytes the merge
+# would publish.
+
+on:
+  workflow_call:
+    inputs:
+      image_name:
+        description: "Image name without the registry, from the Gate parameters"
+        required: true
+        type: string
+      context:
+        required: false
+        type: string
+        default: "."
+      dockerfile:
+        required: false
+        type: string
+        default: "Dockerfile"
+      registry:
+        required: false
+        type: string
+        default: "ghcr.io"
+      artifact_name:
+        description: >-
+          Artifact produced by the validation job (P5-#18: the jar that the test
+          suite actually ran). Downloaded into the build context so the image
+          embeds the tested artefact instead of rebuilding an untested one.
+        required: false
+        type: string
+        default: ""
+      artifact_path:
+        description: "Where to place that artifact inside the build context"
+        required: false
+        type: string
+        default: "target"
+    outputs:
+      image:
+        description: "Local tag of the built image, to hand to image-smoke"
+        value: ${{ jobs.build.outputs.image }}
+      image_artifact:
+        description: "Artifact holding that image, empty on a push"
+        value: ${{ jobs.build.outputs.image_artifact }}
+
+# Read-only by default. Only the publish job below widens it, and only to
+# packages: write. A workflow-level write scope would hand that token to every
+# step of every job, including third-party actions.
+permissions:
+  contents: read
+
+jobs:
+  # --- pull request: build, never push -----------------------------------
+  build:
+    if: github.event_name != 'push'
+    runs-on: ubuntu-latest
+    outputs:
+      image: ${{ steps.name.outputs.image }}
+      image_artifact: ${{ steps.name.outputs.artifact }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Fetch the tested artefact
+        if: inputs.artifact_name != ''
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: ${{ inputs.artifact_name }}
+          path: ${{ inputs.context }}/${{ inputs.artifact_path }}
+
+      - name: Name the image
+        id: name
+        env:
+          IMAGE_NAME: ${{ inputs.image_name }}
+        run: |
+          echo "image=${IMAGE_NAME}:pr-${GITHUB_SHA:0:7}" >> "$GITHUB_OUTPUT"
+          echo "artifact=image-${GITHUB_SHA:0:7}" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      - name: Build without pushing
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: ${{ inputs.context }}
+          file: ${{ inputs.dockerfile }}
+          platforms: linux/amd64
+          push: false
+          load: true
+          tags: ${{ steps.name.outputs.image }}
+          labels: |
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Hand the image to the smoke test
+        run: docker save -o /tmp/image.tar "${{ steps.name.outputs.image }}"
+
+      - name: Upload the image
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: ${{ steps.name.outputs.artifact }}
+          path: /tmp/image.tar
+          retention-days: 1
+
+  # --- push on main or develop: publish ----------------------------------
+  publish:
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Fetch the tested artefact
+        if: inputs.artifact_name != ''
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: ${{ inputs.artifact_name }}
+          path: ${{ inputs.context }}/${{ inputs.artifact_path }}
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      - name: Log in to the registry
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ${{ inputs.registry }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Compute the tags
+        id: meta
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
+        with:
+          images: ${{ inputs.registry }}/${{ inputs.image_name }}
+          tags: |
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+            type=raw,value=dev,enable=${{ github.ref == 'refs/heads/develop' }}
+            type=sha,format=short
+          labels: |
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+
+      - name: Build and push
+        id: push
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: ${{ inputs.context }}
+          file: ${{ inputs.dockerfile }}
+          platforms: linux/amd64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          provenance: true
+          sbom: true
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Scan the published image
+        # Non-blocking until the first go-live (P6-D12); flip exit-code to 1 on
+        # CRITICAL once the image is actually deployed somewhere.
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: ${{ inputs.registry }}/${{ inputs.image_name }}@${{ steps.push.outputs.digest }}
+          severity: "CRITICAL,HIGH"
+          ignore-unfixed: true
+          exit-code: "0"
+          format: "table"
+
+      - name: Report what was published
+        env:
+          TAGS: ${{ steps.meta.outputs.tags }}
+          DIGEST: ${{ steps.push.outputs.digest }}
+        run: |
+          {
+            echo "### Image published"
+            echo
+            echo '```'
+            printf '%s\n' "$TAGS"
+            echo "digest: $DIGEST"
+            echo "revision: $GITHUB_SHA"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

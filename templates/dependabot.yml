@@ -1,0 +1,67 @@
+# Copy to .github/dependabot.yml in the project. Keep only the package-ecosystem
+# blocks the project actually has, and delete the rest.
+#
+# Dependabot opens its PRs against the target-branch below: develop, never main
+# (CONVENTIONS.md section 7). Its branch names do not follow feat/lot-N, so the
+# branch-naming job accepts the chore/ form it produces via the prefix set here.
+
+version: 2
+
+updates:
+  # --- GitHub Actions: keeps the pinned SHAs current (P5-#9) --------------
+  - package-ecosystem: github-actions
+    directory: "/"
+    target-branch: develop
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: chore
+    labels: [dependencies, ci]
+    open-pull-requests-limit: 5
+
+  # --- backend ------------------------------------------------------------
+  - package-ecosystem: maven
+    directory: "/"
+    target-branch: develop
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: chore
+    labels: [dependencies]
+    open-pull-requests-limit: 5
+    groups:
+      # One PR per family rather than one per artifact: a Spring Boot bump that
+      # arrives in eleven separate PRs is eleven red builds.
+      spring:
+        patterns: ["org.springframework*", "org.springframework.boot*"]
+      test:
+        patterns: ["org.junit*", "org.mockito*", "org.testcontainers*", "org.assertj*"]
+
+  # --- frontend -----------------------------------------------------------
+  - package-ecosystem: npm
+    directory: "/"
+    target-branch: develop
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: chore
+    labels: [dependencies]
+    open-pull-requests-limit: 5
+    groups:
+      minor-and-patch:
+        update-types: [minor, patch]
+    ignore:
+      # Majors are a lot, not a dependency bump: they get a branch and a review.
+      - dependency-name: "*"
+        update-types: [version-update:semver-major]
+
+  # --- container base images ---------------------------------------------
+  - package-ecosystem: docker
+    directory: "/"
+    target-branch: develop
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: chore
+    labels: [dependencies, docker]
+    open-pull-requests-limit: 3

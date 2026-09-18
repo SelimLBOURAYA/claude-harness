@@ -1,0 +1,154 @@
+name: harness-invariants
+
+# Structural invariants of a harnessed repository. Agent-agnostic: this is the
+# only guard that still applies when the work was done by an agent that does not
+# load the plugin (P6-D3).
+
+on:
+  workflow_call:
+    inputs:
+      lots_file:
+        description: "Planning file, must open with a | Lot | Branche | Statut | table"
+        required: false
+        type: string
+        default: "lots.md"
+      conventions_ref:
+        description: "Harness ref holding the CONVENTIONS.md master"
+        required: false
+        type: string
+        default: "main"
+    secrets:
+      harness_token:
+        description: >-
+          Token able to read SelimLBOURAYA/claude-harness. Only needed while the
+          harness repository is private: github.token is scoped to the calling
+          repository and cannot check out another private one.
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  invariants:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout the calling repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Checkout the conventions master
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: SelimLBOURAYA/claude-harness
+          ref: ${{ inputs.conventions_ref }}
+          path: .harness-master
+          token: ${{ secrets.harness_token || github.token }}
+
+      - name: CLAUDE.md and AGENTS.md are byte-identical
+        run: |
+          for f in CLAUDE.md AGENTS.md; do
+            [ -f "$f" ] || { echo "::error::$f is missing (CONVENTIONS.md section 12)"; exit 1; }
+          done
+          if ! cmp -s CLAUDE.md AGENTS.md; then
+            echo "::error::CLAUDE.md and AGENTS.md diverge; they must be byte-identical"
+            diff CLAUDE.md AGENTS.md | head -40
+            exit 1
+          fi
+
+      - name: CONVENTIONS.md matches the harness master
+        run: |
+          [ -f CONVENTIONS.md ] || { echo "::error::CONVENTIONS.md is missing"; exit 1; }
+          master=.harness-master/CONVENTIONS.md
+          if ! cmp -s CONVENTIONS.md "$master"; then
+            echo "::error::CONVENTIONS.md differs from the harness master at ref ${{ inputs.conventions_ref }}."
+            echo "Re-copy it, never hand-edit the local copy (CONVENTIONS.md section 12)."
+            diff CONVENTIONS.md "$master" | head -40
+            exit 1
+          fi
+
+      - name: The marketplace is declared with ref main
+        run: |
+          settings=.claude/settings.json
+          [ -f "$settings" ] || { echo "::error::$settings is missing: the plugin is not declared"; exit 1; }
+          jq -e '.extraKnownMarketplaces["claude-harness"]' "$settings" > /dev/null \
+            || { echo "::error::the claude-harness marketplace is not declared in $settings"; exit 1; }
+          ref=$(jq -r '.extraKnownMarketplaces["claude-harness"].source.ref // ""' "$settings")
+          if [ "$ref" != "main" ]; then
+            echo "::error::the claude-harness marketplace must be declared with \"ref\": \"main\" (found: '${ref:-none}')."
+            echo "Without it Claude Code follows the harness default branch, develop, so every unpromoted merge goes live here."
+            exit 1
+          fi
+          jq -e '.enabledPlugins["claude-harness@claude-harness"] == true' "$settings" > /dev/null \
+            || { echo "::error::the claude-harness plugin is declared but not enabled in $settings"; exit 1; }
+
+      - name: No legacy skill/ directory
+        run: |
+          if [ -d skill ]; then
+            echo "::error::the skill/ directory is never discovered by Claude Code (finding #1)."
+            echo "Project-specific skills go to .claude/skills/; generic ones come from the plugin."
+            exit 1
+          fi
+
+      - name: Gate parameters are declared
+        run: |
+          grep -q '^## Gate parameters' CLAUDE.md \
+            || { echo "::error::CLAUDE.md has no '## Gate parameters' section; the skills have nothing to read"; exit 1; }
+          missing=""
+          for p in Stack "Validation command" "Coverage tool" "Coverage threshold" \
+                   "Coverage exclusions" "Migrations directory" "Lots file" \
+                   "Frontend backend pair" "Health path" "Dist forbidden pattern" "Image name"; do
+            grep -qF "| \`$p\`" CLAUDE.md || missing="$missing\n  - $p"
+          done
+          if [ -n "$missing" ]; then
+            echo "::error::Gate parameters missing (use n/a, never omit the row):"
+            printf "%b\n" "$missing"
+            exit 1
+          fi
+
+      - name: The documents census covers every skill and report
+        run: |
+          status=0
+          for f in $(find .claude/skills -name SKILL.md 2>/dev/null | sort) \
+                   $(find docs/audits -name '*.md' 2>/dev/null | sort); do
+            grep -qF "$f" CLAUDE.md || { echo "::error file=$f::$f is not in the '## Project documents' census of CLAUDE.md"; status=1; }
+          done
+          exit $status
+
+      - name: The lots file opens with a status table
+        run: |
+          lots="${{ inputs.lots_file }}"
+          [ -f "$lots" ] || { echo "::error::the lots file '$lots' does not exist"; exit 1; }
+
+          header=$(grep -n '^|' "$lots" | head -1)
+          [ -n "$header" ] || { echo "::error::$lots contains no table at all"; exit 1; }
+
+          line=${header%%:*}
+          # "In head" means before any narrative: allow a title and a short intro.
+          if [ "$line" -gt 25 ]; then
+            echo "::error::the status table of $lots must come first (found at line $line)"
+            exit 1
+          fi
+          case "${header#*:}" in
+            *Lot*Branche*Statut*) ;;
+            *) echo "::error::the first table of $lots must be | Lot | Branche | Statut |, found: ${header#*:}"; exit 1 ;;
+          esac
+
+          bad=$(awk -v start="$line" 'NR > start + 1 && /^\|/ {
+                  if ($0 !~ /⬜|🔄|✅|⏸️|❄️/) print NR": "$0
+                }
+                NR > start + 1 && !/^\|/ { exit }' "$lots")
+          if [ -n "$bad" ]; then
+            echo "::error::rows of the status table with no status among ⬜ 🔄 ✅ ⏸️ ❄️:"
+            echo "$bad"
+            exit 1
+          fi
+
+      - name: The lots file carries no calendar commitment
+        run: |
+          lots="${{ inputs.lots_file }}"
+          # P6-D5: the order of lots is committed, dates are not.
+          hits=$(grep -nEi '\b(20[0-9]{2}-[01][0-9]-[0-3][0-9])\b.*\b(deadline|echeance|livraison|cible|target)\b|fenetre de (janvier|fevrier|mars|avril|mai|juin|juillet|aout|septembre|octobre|novembre|decembre)' "$lots" || true)
+          if [ -n "$hits" ]; then
+            echo "::error::the lots file states a calendar commitment (P6-D5: no dates, no windows):"
+            echo "$hits"
+            exit 1
+          fi

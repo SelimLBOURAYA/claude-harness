@@ -1,0 +1,115 @@
+name: migrations-immutable
+
+# A migration that has ever been applied is immutable: a branch may only ADD
+# files to the migrations directory (finding #9). A destructive change is the
+# contract half of an expand/contract and must say so (P5-#8).
+
+on:
+  workflow_call:
+    inputs:
+      migrations_dir:
+        description: "Migrations directory, or n/a for a repository without migrations"
+        required: true
+        type: string
+      contract_label:
+        description: "PR label that authorises a contract migration"
+        required: false
+        type: string
+        default: "schema-contract"
+
+permissions:
+  contents: read
+
+jobs:
+  migrations-immutable:
+    if: inputs.migrations_dir != 'n/a' && inputs.migrations_dir != ''
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout with history
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Determine the base
+        id: base
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          if [ "$EVENT" = "pull_request" ] || [ "$EVENT" = "pull_request_target" ]; then
+            echo "sha=$BASE_SHA" >> "$GITHUB_OUTPUT"
+          else
+            git fetch --no-tags origin develop:refs/remotes/origin/develop 2>/dev/null || true
+            echo "sha=$(git merge-base origin/develop "$GITHUB_SHA" 2>/dev/null || true)" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Only additions under the migrations directory
+        env:
+          BASE: ${{ steps.base.outputs.sha }}
+          DIR: ${{ inputs.migrations_dir }}
+        run: |
+          if [ -z "$BASE" ]; then
+            echo "::notice::no comparable base, nothing to diff"
+            exit 0
+          fi
+          # A, M, D, R, C: anything but A is a change to an existing migration.
+          touched=$(git diff --name-status "$BASE" "$GITHUB_SHA" -- "$DIR" || true)
+          if [ -z "$touched" ]; then
+            echo "no migration touched"
+            exit 0
+          fi
+          echo "$touched"
+
+          offending=$(printf '%s\n' "$touched" | grep -vE '^A' || true)
+          if [ -n "$offending" ]; then
+            echo "::error::an existing migration was modified, renamed or deleted:"
+            printf '%s\n' "$offending"
+            echo "A migration already applied anywhere is immutable. Add a new one instead."
+            echo "To change a column in use: expand (add the new one, backfill, dual-write),"
+            echo "then contract (drop the old one) in a later lot."
+            exit 1
+          fi
+
+      - name: A destructive migration is declared as a contract step
+        env:
+          BASE: ${{ steps.base.outputs.sha }}
+          DIR: ${{ inputs.migrations_dir }}
+          LABEL: ${{ inputs.contract_label }}
+          LABELS: ${{ join(github.event.pull_request.labels.*.name, ',') }}
+        run: |
+          [ -n "$BASE" ] || exit 0
+          added=$(git diff --name-only --diff-filter=A "$BASE" "$GITHUB_SHA" -- "$DIR" || true)
+          [ -n "$added" ] || exit 0
+
+          # Liquibase change types and their Flyway SQL equivalents. Every one of
+          # them breaks a reader still running the previous version of the code.
+          destructive='addNotNullConstraint|dropColumn|dropTable|renameColumn|renameTable|ALTER +.*SET +NOT +NULL|DROP +COLUMN|DROP +TABLE|RENAME'
+
+          status=0
+          while IFS= read -r f; do
+            [ -f "$f" ] || continue
+            hits=$(grep -inE "$destructive" "$f" || true)
+            [ -n "$hits" ] || continue
+
+            echo "--- $f"
+            printf '%s\n' "$hits"
+
+            # The marker says the author knows this is the contract half:
+            # "-- contract" in SQL, "comment: contract" in a Liquibase changeset.
+            if ! grep -qiE '(^|[^a-z])(--|#) *contract\b|comment: *contract\b' "$f"; then
+              echo "::error file=$f::destructive change with no contract marker."
+              echo "Add '-- contract' (SQL) or 'comment: contract' (Liquibase) to the changeset,"
+              echo "and only after the expand half has shipped and been backfilled."
+              status=1
+              continue
+            fi
+
+            if printf '%s' ",$LABELS," | grep -qF ",$LABEL,"; then
+              echo "::notice file=$f::contract migration, marked and labelled '$LABEL'"
+            else
+              echo "::error file=$f::contract migration without the '$LABEL' label on the pull request."
+              echo "The label is the human acknowledgement that the expand half is already live."
+              status=1
+            fi
+          done <<< "$added"
+          exit $status

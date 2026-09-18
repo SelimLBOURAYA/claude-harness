@@ -32,9 +32,13 @@ FORCE_FLAGS = {"--force", "-f", "--force-with-lease", "--force-if-includes"}
 UNRESOLVED = re.compile(r"[$`*?]|\$\(")
 
 LOT_BRANCH = re.compile(r"^feat/lot-(\d+[a-z]?)(?:-|$)")
-# A report line still carrying an unresolved Critical finding.
-CRITICAL_LINE = re.compile(r"critical", re.IGNORECASE)
-RESOLVED_MARK = re.compile(r"\b(resolved|fixed|closed|none|0)\b", re.IGNORECASE)
+# A report line still carrying an unresolved Critical finding. The severity must
+# be the row's FIRST cell: the summary table of every report has a "Critical"
+# column header, and that header is not a finding.
+CRITICAL_LINE = re.compile(r"^\|\s*[^|a-zA-Z0-9]*critical\b", re.IGNORECASE)
+RESOLVED_MARK = re.compile(
+    r"\b(resolved|r[eé]solu|fixed|closed|accepted|none|n/a)\b", re.IGNORECASE
+)
 
 
 # --------------------------------------------------------------------------
@@ -401,13 +405,13 @@ def guard_pr_deliverables(cwd):
                 "lot-test -> lot-review -> lot-audit before opening the PR." % lot
             )
         with open(report, encoding="utf-8") as handle:
-            for line in handle:
-                if line.lstrip().startswith("|") and CRITICAL_LINE.search(line):
-                    if not RESOLVED_MARK.search(line):
-                        deny(
-                            "docs/audits/lot-%s.md still carries an unresolved "
-                            "Critical finding: %s" % (lot, line.strip())
-                        )
+            for raw in handle:
+                line = raw.strip()
+                if CRITICAL_LINE.match(line) and not RESOLVED_MARK.search(line):
+                    deny(
+                        "docs/audits/lot-%s.md still carries an unresolved "
+                        "Critical finding: %s" % (lot, line)
+                    )
 
     if (gate_parameter(root, "Stack") or "").lower() == "frontend":
         integration = os.path.join(root, "docs", "audits", "lot-0-integration.md")
