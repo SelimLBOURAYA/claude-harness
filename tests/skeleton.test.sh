@@ -18,8 +18,12 @@ done
 assert_eq "absent" "$([ -f "$SK/CONVENTIONS.md" ] && echo present || echo absent)" \
   "the skeleton does not carry its own CONVENTIONS.md"
 BOOTSTRAP="$REPO_ROOT/plugins/claude-harness/skills/bootstrap-project/SKILL.md"
-assert_ok "the bootstrap skill copies CONVENTIONS.md from the master" -- \
-  grep -qE '\$HARNESS/CONVENTIONS.md" +CONVENTIONS.md' "$BOOTSTRAP"
+# Read from ref main, never from the clone's working tree: harness-invariants.yml
+# compares against main, so a clone on a lot branch would seed a copy CI rejects.
+assert_ok "the bootstrap skill reads CONVENTIONS.md from ref main" -- \
+  grep -qF 'git -C "$HARNESS" show main:CONVENTIONS.md > CONVENTIONS.md' "$BOOTSTRAP"
+assert_eq "" "$(grep -n 'cp "\$HARNESS/CONVENTIONS.md"' "$BOOTSTRAP" || true)" \
+  "the bootstrap skill never copies CONVENTIONS.md from the working tree"
 
 # --- the mirror invariant holds in the skeleton itself -------------------
 assert_ok "the skeleton CLAUDE.md and AGENTS.md are byte-identical" -- \

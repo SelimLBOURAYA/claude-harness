@@ -78,6 +78,24 @@ expect deny "$FEAT" "git branch -rd origin/feat/lot-1-hooks"
 # A local branch deletion is ordinary housekeeping, not a guard concern.
 expect pass "$FEAT" "git branch -D feat/lot-1-hooks"
 
+# --- the guard must see through command wrappers -------------------------
+# `rtk` is the proxy every git call is rewritten through, and `Bash(rtk *)` is
+# allowlisted: a guard blind to it is not a guard at all.
+expect deny "$FEAT" "rtk git push origin main"
+expect deny "$FEAT" "rtk proxy git push origin main"
+expect deny "$FEAT" "sudo git push origin main"
+expect deny "$FEAT" "env FOO=1 git push origin main"
+expect deny "$FEAT" "command git push --force"
+expect deny "$FEAT" "time git push origin main"
+expect deny "$FEAT" "timeout 5s git push origin main"
+expect deny "$FEAT" "nice -n 5 git push origin main"
+expect deny "$FEAT" "sudo bash -c 'git push origin main'"
+expect deny "$FEAT" "rtk gh pr merge 12 --squash"
+# A wrapper around something harmless stays harmless.
+expect pass "$FEAT" "rtk git status"
+expect pass "$FEAT" "rtk gain"
+expect pass "$FEAT" "sudo apt-get install git"
+
 # --- the guard must follow -C, cd and bash -c ----------------------------
 expect deny "$WORK" "git -C $MAIN push"
 expect deny "$WORK" "git -C$MAIN push"
@@ -119,6 +137,10 @@ expect deny "$FEAT" "gh pr create --base develop --title t --body b"
 mkdir -p "$FEAT/docs/audits"
 printf '# Lot 1\n\n| Severity | Finding |\n|---|---|\n| Info | none |\n' \
   > "$FEAT/docs/audits/lot-1.md"
+# lot-review runs before lot-audit; its report is required too, as
+# lot-deliverables.yml requires it.
+expect deny "$FEAT" "gh pr create --base develop --title t --body b"
+printf '# Lot 1 review\n' > "$FEAT/docs/audits/lot-1-review.md"
 expect ask "$FEAT" "gh pr create --base develop --title t --body b"
 expect ask "$FEAT" "gh pr create -B develop --title t --body b"
 
@@ -140,10 +162,30 @@ expect ask "$FEAT" "gh pr create --base develop --title t --body b"
 printf '| ⚠️ Critical | src/y | token in clear | to do |\n' >> "$FEAT/docs/audits/lot-1.md"
 expect deny "$FEAT" "gh pr create --base develop --title t --body b"
 
+# A range branch declares every lot it spans, like lot-deliverables.yml: checking
+# only the first one would pass a PR that CI then rejects.
+RANGE=$(make_repo range-repo feat/lot-0-2-foundation)
+mkdir -p "$RANGE/docs/audits"
+for n in 0 1; do
+  printf '# Lot %s\n' "$n" > "$RANGE/docs/audits/lot-$n.md"
+  printf '# Lot %s review\n' "$n" > "$RANGE/docs/audits/lot-$n-review.md"
+done
+expect deny "$RANGE" "gh pr create --base develop --title t --body b"
+printf '# Lot 2\n' > "$RANGE/docs/audits/lot-2.md"
+printf '# Lot 2 review\n' > "$RANGE/docs/audits/lot-2-review.md"
+expect ask "$RANGE" "gh pr create --base develop --title t --body b"
+# A suffixed lot is one lot, not a range: lot-2b must not be read as 2..b.
+SUFFIX=$(make_repo suffix-repo feat/lot-2b-review-skill)
+mkdir -p "$SUFFIX/docs/audits"
+printf '# Lot 2b\n' > "$SUFFIX/docs/audits/lot-2b.md"
+printf '# Lot 2b review\n' > "$SUFFIX/docs/audits/lot-2b-review.md"
+expect ask "$SUFFIX" "gh pr create --base develop --title t --body b"
+
 # A frontend repo additionally needs its integration report.
 FRONT=$(make_repo front-repo feat/lot-3-list)
 mkdir -p "$FRONT/docs/audits"
 printf '# Lot 3\n' > "$FRONT/docs/audits/lot-3.md"
+printf '# Lot 3 review\n' > "$FRONT/docs/audits/lot-3-review.md"
 printf '## Gate parameters\n\n| Parameter | Value |\n|---|---|\n| `Stack` | `frontend` |\n' \
   > "$FRONT/CLAUDE.md"
 expect deny "$FRONT" "gh pr create --base develop --title t --body b"

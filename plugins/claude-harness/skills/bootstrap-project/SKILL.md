@@ -45,12 +45,18 @@ cp -r "$HARNESS/templates/project/." .
 mkdir -p .github/workflows docs/audits
 cp "$HARNESS/templates/ci-caller.yml"   .github/workflows/ci.yml
 cp "$HARNESS/templates/dependabot.yml"  .github/dependabot.yml
-cp "$HARNESS/CONVENTIONS.md"            CONVENTIONS.md
+git -C "$HARNESS" show main:CONVENTIONS.md > CONVENTIONS.md
 ```
 
 `CONVENTIONS.md` is **copied, never written**. It is a byte-identical copy of the
 harness master, and `harness-invariants.yml` compares the two on every build. The
 same rule applies forever: to change a convention, edit the master and propagate.
+
+It is read from **`main`**, not from the clone's working tree: `harness-invariants.yml`
+compares against ref `main` (`conventions_ref`), so a clone sitting on `develop` or on
+a lot branch would hand the new repository a copy that CI rejects on its first push.
+If `main` does not carry `CONVENTIONS.md` yet, the harness has not been promoted —
+stop and tell the user rather than copying the branch version.
 
 On a **frontend**, delete `Dockerfile` and `compose.ci.yml`. On a **backend**,
 delete the `frontend-dist` job from `ci.yml`.
@@ -99,7 +105,9 @@ say so — never fall back to working on `main`.
 ```bash
 <Validation command>                 # from the Gate parameters just written
 cmp CLAUDE.md AGENTS.md              # silent
-cmp CONVENTIONS.md ~/ENV/projets/claude-harness/CONVENTIONS.md   # silent
+# Against main, not against the clone's working tree: comparing the copy to the
+# file it was copied from is green by construction and proves nothing.
+git -C ~/ENV/projets/claude-harness show main:CONVENTIONS.md | cmp - CONVENTIONS.md
 jq -e '.extraKnownMarketplaces["claude-harness"].source.ref == "main"' .claude/settings.json
 ```
 

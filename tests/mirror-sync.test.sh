@@ -100,6 +100,23 @@ mkdir -p "$D/src/deep"
 fire "$(bash_payload "cp /tmp/x CLAUDE.md" "$D/src/deep")" > /dev/null
 assert_eq "root content" "$(cat "$D/AGENTS.md")" "the pair is found from a subdirectory"
 
+# --- a path containing a space --------------------------------------------
+# The fields used to be read space-separated, so any repository under a
+# directory with a space made the hook exit silently while the pair diverged.
+SPACED="$WORK/my project"
+fixture "$SPACED" "spaced content" "stale"
+out=$(fire "$(edit_payload "$SPACED/CLAUDE.md")")
+assert_eq "spaced content" "$(cat "$SPACED/AGENTS.md")" \
+  "Edit mirrors when the path contains a space"
+assert_contains "$out" "AGENTS.md synced" "the spaced-path sync is reported"
+
+fixture "$SPACED" "from shell" "stale"
+touch -d '2026-01-02 10:00' "$SPACED/CLAUDE.md"
+touch -d '2026-01-01 10:00' "$SPACED/AGENTS.md"
+fire "$(bash_payload "cp /tmp/x '$SPACED/CLAUDE.md'" "$SPACED")" > /dev/null
+assert_eq "from shell" "$(cat "$SPACED/AGENTS.md")" \
+  "a Bash edit mirrors when the cwd contains a space"
+
 # --- malformed input ------------------------------------------------------
 assert_eq "" "$(printf 'not json' | bash "$HOOK" 2>/dev/null)" "garbage input is ignored"
 assert_eq "" "$(printf '{}' | bash "$HOOK" 2>/dev/null)" "an empty payload is ignored"
