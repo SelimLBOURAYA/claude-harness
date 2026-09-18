@@ -1,0 +1,29 @@
+{
+  "name": "claude-harness",
+  "owner": {
+    "name": "SelimLBOURAYA",
+    "url": "https://github.com/SelimLBOURAYA"
+  },
+  "metadata": {
+    "description": "Central agentic harness for the SelimLBOURAYA portfolio: lot gate skills, git guard hooks and reusable CI workflows.",
+    "version": "0.1.0"
+  },
+  "plugins": [
+    {
+      "name": "claude-harness",
+      "source": "./plugins/claude-harness",
+      "description": "Lot gate skills (lot-test, lot-review, lot-audit, lot-ship), git guard and CLAUDE/AGENTS mirror hooks.",
+      "version": "0.1.0",
+      "author": {
+        "name": "SelimLBOURAYA"
+      },
+      "keywords": [
+        "harness",
+        "lot",
+        "gate",
+        "git-guard",
+        "conventions"
+      ]
+    }
+  ]
+}
