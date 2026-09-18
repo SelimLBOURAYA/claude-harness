@@ -12,7 +12,7 @@ SKILLS="$REPO_ROOT/plugins/claude-harness/skills"
 # is to drive a package manager, selected by Stack. i-have-adhd is an output
 # style, generic and unrelated to any gate.
 GATE_SKILLS="lot-test lot-review lot-audit lot-ship harness-sync integration-check"
-ALL_SKILLS="$GATE_SKILLS dep-update i-have-adhd"
+ALL_SKILLS="$GATE_SKILLS dep-update bootstrap-project i-have-adhd"
 
 for skill in $ALL_SKILLS; do
   file="$SKILLS/$skill/SKILL.md"

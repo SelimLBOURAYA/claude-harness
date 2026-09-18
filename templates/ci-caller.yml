@@ -1,4 +1,4 @@
-# Copy to .github/workflows/ci.yml in the project and fill the {{placeholders}}
+# Copy to .github/workflows/ci.yml in the project and fill the {{PLACEHOLDER}} values
 # from the project's "## Gate parameters" table in CLAUDE.md. Every value below
 # has exactly one source of truth: that table. If a value is n/a there, delete
 # the job that consumes it.
@@ -86,14 +86,15 @@ jobs:
         run: "{{VALIDATION_COMMAND}}"       # Gate parameters: Validation command
 
       # P5-#18: the image must embed the artefact the tests actually ran on, so
-      # it is uploaded here and downloaded into the build context below.
-      - name: Upload the tested artefact
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: tested-artifact
-          path: target/*.jar
-          if-no-files-found: error
-          retention-days: 1
+      # it is uploaded here and downloaded into the build context by
+      # image-publish. Uncomment together with the two image jobs below.
+      # - name: Upload the tested artefact
+      #   uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      #   with:
+      #     name: tested-artifact
+      #     path: target/*.jar
+      #     if-no-files-found: error
+      #     retention-days: 1
 
       - name: Upload the test reports
         if: always()
@@ -116,23 +117,30 @@ jobs:
       forbidden_pattern: "{{DIST_FORBIDDEN_PATTERN}}"  # Gate parameters: Dist forbidden pattern
 
   # --- backend only: delete these two jobs on a frontend ------------------
+  # Commented out until the project's image lot (P6-D9): publishing before
+  # there is anything to deploy fills a registry with tags nobody pulls, and a
+  # red smoke job on a service that does not yet boot teaches the team to
+  # ignore red. The image lot uncomments both, in one commit, with the
+  # Dockerfile and compose.ci.yml it adds.
+  #
   # Builds once. On a pull request nothing is pushed and the image travels to
   # the smoke test as an artifact; on main and develop it is published.
-  image-publish:
-    needs: [harness-invariants, validate]
-    uses: SelimLBOURAYA/claude-harness/.github/workflows/image-publish.yml@main
-    with:
-      image_name: "{{IMAGE_NAME}}"          # Gate parameters: Image name
-      artifact_name: tested-artifact
-
-  image-smoke:
-    needs: image-publish
-    if: github.event_name != 'push'
-    uses: SelimLBOURAYA/claude-harness/.github/workflows/image-smoke.yml@main
-    with:
-      image: ${{ needs.image-publish.outputs.image }}
-      image_artifact: ${{ needs.image-publish.outputs.image_artifact }}
-      health_path: "{{HEALTH_PATH}}"        # Gate parameters: Health path
-      # A real database, never an in-memory substitute (section 2.5).
-      compose_file: "compose.ci.yml"
-      port: 8080
+  #
+  # image-publish:
+  #   needs: [harness-invariants, validate]
+  #   uses: SelimLBOURAYA/claude-harness/.github/workflows/image-publish.yml@main
+  #   with:
+  #     image_name: "{{IMAGE_NAME}}"        # Gate parameters: Image name
+  #     artifact_name: tested-artifact
+  #
+  # image-smoke:
+  #   needs: image-publish
+  #   if: github.event_name != 'push'
+  #   uses: SelimLBOURAYA/claude-harness/.github/workflows/image-smoke.yml@main
+  #   with:
+  #     image: ${{ needs.image-publish.outputs.image }}
+  #     image_artifact: ${{ needs.image-publish.outputs.image_artifact }}
+  #     health_path: "{{HEALTH_PATH}}"      # Gate parameters: Health path
+  #     # A real database, never an in-memory substitute (section 2.5).
+  #     compose_file: "compose.ci.yml"
+  #     port: 8080
