@@ -1,0 +1,14 @@
+{
+  "extraKnownMarketplaces": {
+    "claude-harness": {
+      "source": {
+        "source": "github",
+        "repo": "SelimLBOURAYA/claude-harness",
+        "ref": "main"
+      }
+    }
+  },
+  "enabledPlugins": {
+    "claude-harness@claude-harness": true
+  }
+}

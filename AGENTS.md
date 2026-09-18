@@ -74,6 +74,7 @@ with the plugin enabled they are announced as `claude-harness:<name>`.
 | `harness-sync` | harness or docs may have drifted | Detects and fixes drift between docs, skills and reality |
 | `integration-check` | before any front PR | Manual front ↔ real backend smoke, writes `docs/audits/lot-0-integration.md` |
 | `dep-update` | dependency refresh | Patch/minor applied, major proposed |
+| `bootstrap-project` | new repo, or a repo joining the harness | Generates the repository from `templates/project/` and verifies it against `harness-invariants` |
 | `i-have-adhd` | user invokes it | Focus aid, never model-invoked |
 
 **Gate, mandatory in order**: `lot-test → lot-review → lot-audit → lot-ship`.
@@ -93,6 +94,7 @@ Every blocking invariant is also enforced in CI, which is the only agent-agnosti
 | [`CONVENTIONS.md`](CONVENTIONS.md) | **Master** of the cross-cutting conventions (lot 5) |
 | [`README.md`](README.md) | Plugin installation, update, uninstallation, gate parameters contract |
 | [`dev-plan.md`](dev-plan.md) | Remediation plan — lots, decisions, findings matrices (French) |
+| `plugins/claude-harness/skills/bootstrap-project/SKILL.md` | New project generation skill |
 | `plugins/claude-harness/skills/dep-update/SKILL.md` | Dependency refresh skill |
 | `plugins/claude-harness/skills/harness-sync/SKILL.md` | Harness drift detection skill |
 | `plugins/claude-harness/skills/i-have-adhd/SKILL.md` | Focus aid skill |

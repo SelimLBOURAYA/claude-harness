@@ -128,6 +128,7 @@ missing line is a drift that `harness-sync` and `harness-invariants.yml` report.
 | `harness-sync` | Detects and fixes drift between docs, skills and reality |
 | `integration-check` | Manual front ↔ real backend smoke → `docs/audits/lot-0-integration.md` |
 | `dep-update` | Patch/minor applied, major proposed |
+| `bootstrap-project` | Generates a harnessed repository from `templates/project/` |
 | `i-have-adhd` | Focus aid, user-invoked only |
 
 Gate, mandatory in order: `lot-test → lot-review → lot-audit → lot-ship`.
