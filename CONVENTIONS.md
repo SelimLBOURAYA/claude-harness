@@ -313,7 +313,7 @@ Skills contain **detailed checklists, matrices, and procedures** that the summar
 - **Invoke at the trigger moment**: when a skill's trigger condition is met, invoke `Skill` with that skill name **before** doing any of the work the skill covers.
 - **Never skip a gate step**, and never run two of them from one invocation — each is invoked explicitly, so that skipping one is visible.
 - **Skill instructions take precedence**: when a loaded skill contradicts the agent's default approach, the skill wins. The skill file is the procedure; the agent's memory is fallible.
-- **Deliverables are proof**: a gate skill produces a deliverable (`docs/audits/lot-N-review.md`, `docs/audits/lot-N.md`). A missing deliverable means the skill was not invoked — the pre-commit gate (§10 item 6), the git guard hook and `lot-deliverables.yml` all block on it.
+- **Deliverables are proof**: a gate skill produces a deliverable (`docs/audits/lot-N-review.md`, `docs/audits/lot-N.md`). A missing deliverable means the skill was not invoked — the pre-commit gate (§10 item 6) and `lot-deliverables.yml` both block on it. The blocking check lives in CI only: it is the one enforcement point that also covers agents which load no hook.
 
 ---
 

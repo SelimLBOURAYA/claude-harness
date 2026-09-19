@@ -31,8 +31,6 @@ FORCE_FLAGS = {"--force", "-f", "--force-with-lease", "--force-if-includes"}
 # A token we cannot resolve statically: shell expansion, substitution, glob.
 UNRESOLVED = re.compile(r"[$`*?]|\$\(")
 
-LOT_BRANCH = re.compile(r"^feat/lot-(\d+[a-z]?)(?:-(\d+[a-z]?))?(?:-|$)")
-
 # Commands that prefix another command instead of being one. The guard must see
 # through them or it is not a guard: `rtk` is the token-saving proxy every git
 # call in this portfolio is rewritten through (~/.claude/RTK.md), and `Bash(rtk *)`
@@ -46,13 +44,13 @@ COMMAND_WRAPPERS = {
 WRAPPER_SUBCOMMANDS = {"proxy"}
 # A bare duration/priority argument: `timeout 5s git ...`, `nice 10 git ...`.
 WRAPPER_NUMERIC = re.compile(r"^\d+[smhd]?$")
-# A report line still carrying an unresolved Critical finding. The severity must
-# be the row's FIRST cell: the summary table of every report has a "Critical"
-# column header, and that header is not a finding.
-CRITICAL_LINE = re.compile(r"^\|\s*[^|a-zA-Z0-9]*critical\b", re.IGNORECASE)
-RESOLVED_MARK = re.compile(
-    r"\b(resolved|r[eé]solu|fixed|closed|accepted|none|n/a)\b", re.IGNORECASE
-)
+
+# This guard owns destructive commands and the branching model, and nothing else.
+# Gate deliverables (audit reports, review reports, unresolved Critical rows) are
+# checked by lot-deliverables.yml alone: encoding the same rule here in Python and
+# there in sed produced two definitions that drifted apart, and the hook is not a
+# guard for Cursor or DeepClaude anyway. CI is the only agent-agnostic enforcement
+# point, so it is the only one that owns the rule.
 
 
 # --------------------------------------------------------------------------
@@ -201,10 +199,6 @@ def run_git(cwd, *args):
 
 def current_branch(cwd):
     return run_git(cwd, "rev-parse", "--abbrev-ref", "HEAD")
-
-
-def repo_root(cwd):
-    return run_git(cwd, "rev-parse", "--show-toplevel")
 
 
 def known_remotes(cwd):
@@ -409,78 +403,7 @@ def option_value(args, *names):
     return None
 
 
-def gate_parameter(root, name):
-    """Read one `## Gate parameters` value from the repo CLAUDE.md."""
-    path = os.path.join(root, "CLAUDE.md")
-    try:
-        with open(path, encoding="utf-8") as handle:
-            content = handle.read()
-    except OSError:
-        return None
-    match = re.search(
-        r"^\|\s*`?%s`?\s*\|\s*`?([^|`]+)`?\s*\|" % re.escape(name),
-        content,
-        re.MULTILINE,
-    )
-    return match.group(1).strip() if match else None
-
-
-def branch_lots(branch):
-    """Every lot number a branch declares, expanding `feat/lot-0-6-...` to 0..6.
-
-    Same expansion as lot-deliverables.yml: a guard that checked only the first
-    lot of a range would pass a PR that CI then rejects.
-    """
-    match = LOT_BRANCH.match(branch)
-    if not match:
-        return []
-    first, last = match.group(1), match.group(2)
-    if last and first.isdigit() and last.isdigit() and int(last) > int(first):
-        return [str(number) for number in range(int(first), int(last) + 1)]
-    return [first]
-
-
-def guard_pr_deliverables(cwd):
-    root = repo_root(cwd)
-    branch = current_branch(cwd)
-    if root is None or branch is None:
-        ask("Repository state could not be resolved; confirm the PR creation manually.")
-
-    for lot in branch_lots(branch):
-        report = os.path.join(root, "docs", "audits", "lot-%s.md" % lot)
-        if not os.path.isfile(report):
-            deny(
-                "docs/audits/lot-%s.md is missing. Run the gate "
-                "lot-test -> lot-review -> lot-audit before opening the PR." % lot
-            )
-        # lot-review runs before lot-audit, and lot-deliverables.yml requires its
-        # report by default: denying here beats a red PR five minutes later.
-        review = os.path.join(root, "docs", "audits", "lot-%s-review.md" % lot)
-        if not os.path.isfile(review):
-            deny(
-                "docs/audits/lot-%s-review.md is missing: lot-review runs before "
-                "lot-audit (CONVENTIONS.md section 13)." % lot
-            )
-        with open(report, encoding="utf-8") as handle:
-            for raw in handle:
-                line = raw.strip()
-                if CRITICAL_LINE.match(line) and not RESOLVED_MARK.search(line):
-                    deny(
-                        "docs/audits/lot-%s.md still carries an unresolved "
-                        "Critical finding: %s" % (lot, line)
-                    )
-
-    if (gate_parameter(root, "Stack") or "").lower() == "frontend":
-        integration = os.path.join(root, "docs", "audits", "lot-0-integration.md")
-        if not os.path.isfile(integration):
-            deny(
-                "This is a frontend repo and docs/audits/lot-0-integration.md is "
-                "missing: the front has never been validated against the real "
-                "backend. Run the integration-check skill first."
-            )
-
-
-def guard_gh(segment, cwd):
+def guard_gh(segment):
     args = segment[1:]
     if len(args) < 2 or args[0] != "pr":
         return
@@ -508,7 +431,6 @@ def guard_gh(segment, cwd):
             "the user (CONVENTIONS.md section 7)." % (REQUIRED_PR_BASE, base)
         )
 
-    guard_pr_deliverables(cwd)
     ask("Opening a PR publishes the branch for review; confirm before creating it.")
 
 
@@ -550,7 +472,7 @@ def main():
         elif name == "git":
             guard_git(segment, cwd)
         elif name == "gh":
-            guard_gh(segment, cwd)
+            guard_gh(segment)
 
     sys.exit(0)
 
