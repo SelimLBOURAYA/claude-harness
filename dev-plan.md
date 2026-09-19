@@ -288,8 +288,9 @@ Chaque lot d'adoption applique **toute** la checklist, puis les points propres a
 ## LOT 7 — kreadevis-backend ⬜
 
 - **Prérequis lot 6b** : `access_level=user` sur `claude-harness` et `HARNESS_READ_TOKEN` posé,
-  sinon le `ci.yml` écrit par la checklist commune échoue dès le premier push. Et V1, V2, V3
-  exécutées après la promotion `develop` → `main` (`docs/audits/lot-0.md`).
+  sinon le `ci.yml` écrit par la checklist commune échoue dès le premier push. V1, V2, V3
+  exécutées et confirmées le 2026-09-19 (`docs/audits/lot-0.md`) ; **V4 reste à exécuter**
+  avant de démarrer ce lot.
 - Checklist commune.
 - `lot-audit/checklists.md` au census (#22).
 - Suppression des références `skill/` restantes dans `harness-sync` local (remplacé par le plugin).
