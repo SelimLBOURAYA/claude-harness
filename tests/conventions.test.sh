@@ -20,9 +20,16 @@ assert_eq "" "$(grep -n 'coding-conventions.md` is the \*\*master' "$C" || true)
   "the master no longer names the user-level file as the master"
 
 # --- every section a skill or a workflow cites must exist -----------------
-for n in 1 2 2.5 3 4 5 6 7 8 9 10 11 12 13 14; do
+for n in 1 2 2.5 3 4 5 6 7 8 9 10 11 12 13 14 15; do
   assert_ok "section $n exists" -- grep -qE "^## $n[.] |^## $n " "$C"
 done
+
+# A citation that points at a section number the file does not carry is the
+# exact drift this suite exists to catch, and §15 shipped with one (§2.9).
+while IFS= read -r ref; do
+  assert_ok "the section $ref cited in the master exists" -- \
+    grep -qE "^## ${ref}[.] |^## ${ref} " "$C"
+done < <(grep -oE '§[0-9]+(\.[0-9]+)?' "$C" | tr -d '§' | sort -u)
 
 # --- section 2: the stop after the PR, and the history read --------------
 assert_ok "section 2 forbids chaining onto the next lot" -- \

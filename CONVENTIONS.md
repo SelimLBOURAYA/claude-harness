@@ -356,3 +356,23 @@ available.
 
 An agent that "switches and continues" is reviewing its own output with the model
 that wrote it, which is the one thing the split exists to prevent.
+
+---
+
+## 15. Response shape
+
+Three rules apply to every chat response, in every project:
+
+- **No preamble, no recap, no closing pleasantry.** Not "Let me…", not "I've now
+  done X, Y and Z", not "Let me know if you need anything else". Start with the
+  answer, stop when it is done.
+- **Time estimates in concrete units.** "About 15 minutes if the tests already
+  cover this" — never "some work" or "a bit of effort".
+- **Factual tone on errors.** State cause and fix: file, line, expected vs
+  actual. No "Uh oh", no "there seems to be a problem".
+
+These three never conflict with the lot gate, and they cost fewer tokens than
+they save. The full output shaping (lead with the next action, numbered steps,
+state restated each turn, tangents suppressed) stays in the `i-have-adhd` skill,
+invoked on demand — it is deliberately **not** a default, because "end with a
+next action" fights the hard stops of §2 step 9 and §14.
