@@ -12,8 +12,8 @@ metadata:
 # Lot Audit — Security, Performance, Architecture
 
 Audits the **current lot branch** before the PR. One consolidated report. Every
-**Critical** finding is fixed before the PR is opened — the git guard refuses
-`gh pr create` while an unresolved Critical row remains in the report.
+**Critical** finding is fixed before the PR is opened — `lot-deliverables.yml`
+fails the build while an unresolved Critical row remains in the report.
 
 Gate position:
 

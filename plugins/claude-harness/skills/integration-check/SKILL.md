@@ -23,9 +23,9 @@ plan and will eventually replace it.
 
 ## When it is required
 
-`docs/audits/lot-0-integration.md` must exist before **any** frontend PR. Both
-the git guard (`gh pr create` on a repo whose `Stack` is `frontend`) and
-`lot-deliverables.yml` refuse the PR without it.
+`docs/audits/lot-0-integration.md` must exist before **any** frontend PR.
+`lot-deliverables.yml` fails the build of a repo whose `Stack` is `frontend`
+without it.
 
 Re-run this skill, and update the deliverable, whenever:
 

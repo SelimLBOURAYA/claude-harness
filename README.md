@@ -137,7 +137,7 @@ Gate, mandatory in order: `lot-test → lot-review → lot-audit → lot-ship`.
 
 | Hook | Event | Role |
 |---|---|---|
-| `git-guard.py` | `PreToolUse` on `Bash` | Denies pushes to `main`, force pushes, `--no-verify`, `reset --hard`, remote branch deletion, `gh pr create` without `--base develop`, `gh pr merge`, and a lot PR without its audit report. Asks for confirmation on every other push or PR creation, and on anything it cannot parse. |
+| `git-guard.py` | `PreToolUse` on `Bash` | Denies pushes to `main`, force pushes, `--no-verify`, `reset --hard`, remote branch deletion, `gh pr create` without `--base develop`, and `gh pr merge`. Gate deliverables are not its business: `lot-deliverables.yml` owns that rule, and owns it alone. Asks for confirmation on every other push or PR creation, and on anything it cannot parse. |
 | `mirror-sync.sh` | `PostToolUse` on `Edit`, `Write`, `Bash` | Keeps `AGENTS.md` byte-identical to `CLAUDE.md`, including after shell edits (`cp`, `mv`, `sed -i`, redirections). |
 
 The guard is intentionally conservative: an unparseable command produces a
