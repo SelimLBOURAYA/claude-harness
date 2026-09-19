@@ -38,10 +38,14 @@ assert_ok "CLAUDE.md declares its Gate parameters" -- \
 assert_eq "absent" "$([ -d "$REPO_ROOT/skill" ] && echo present || echo absent)" \
   "no legacy skill/ directory"
 
-# Census completeness: every shipped SKILL.md is listed in CLAUDE.md.
-while IFS= read -r skill; do
-  rel=${skill#"$REPO_ROOT/"}
+# Census completeness (CONVENTIONS.md §12). harness-invariants.yml only scans
+# .claude/skills and docs/audits, which is right for a consuming repo and blind
+# here: the harness ships its skills from plugins/ and its skeleton from
+# templates/. Every tracked markdown file must appear in the census, whatever
+# directory it lives in.
+while IFS= read -r doc; do
+  rel=${doc#"$REPO_ROOT/"}
   assert_ok "census lists $rel" -- grep -qF "$rel" "$REPO_ROOT/CLAUDE.md"
-done < <(find "$REPO_ROOT/plugins" -name SKILL.md 2>/dev/null | sort)
+done < <(find "$REPO_ROOT" -name '*.md' -not -path "$REPO_ROOT/.git/*" | sort)
 
 finish
