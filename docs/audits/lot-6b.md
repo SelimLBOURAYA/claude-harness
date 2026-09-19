@@ -1,9 +1,9 @@
 # Lot Audit — Lot 6b — GitHub settings
 
-**Harness ref:** `chore/pre-promotion-fixes`, after `add10d7`
+**Harness ref:** `chore/pre-promotion-fixes`, after `add10d7`; closing update verified at `df57772`
 **Scope:** the repository settings lot 6b makes the user responsible for, verified
 from the GitHub API rather than from the interface
-**Verdict:** ⚠️ 3 of 5 deliverables done. The two that remain both block lot 7.
+**Verdict:** ✅ 5 of 5 deliverables done, verified live on 2026-09-19.
 
 Findings **P5-#3**, P5-#11, P5-#10 ; *(P6)* **A7**, A8, B1.
 
@@ -38,18 +38,18 @@ and `meal-planner-frontend` made private) are **done**, and deliverable 3 is thi
 table. `quarkus-startup` and `test_alten` still default to `main`; neither is part
 of the portfolio and neither is harnessed, so they are out of scope.
 
-## What is still open
+## Closed since the first pass
 
-| # | Setting | State on the API | Why it blocks lot 7 |
+| # | Setting | State on the API, verified 2026-09-19 | Why it blocked lot 7 |
 |---|---|---|---|
-| 4 | Reusable workflow access | `gh api repos/SelimLBOURAYA/claude-harness/actions/permissions/access` returns `{"access_level":"none"}` | A private repository shares its `workflow_call` workflows only above `none`. Every `ci.yml` written by the adoption checklist fails to resolve `SelimLBOURAYA/claude-harness/.github/workflows/*.yml@main` on its first push. This is V4 of lot 0, and the API has now answered it: **negative until the setting changes** |
-| 5 | `HARNESS_READ_TOKEN` | `gh secret list` empty on `claude-harness` and on `kreadevis` | `harness-invariants.yml` checks out the private harness to compare `CONVENTIONS.md`; `github.token` is scoped to the calling repository. The job fails on a checkout error, which reads nothing like the conventions drift it is meant to report |
+| 4 | Reusable workflow access | `gh api repos/SelimLBOURAYA/claude-harness/actions/permissions/access` now returns `{"access_level":"user"}` | A private repository shares its `workflow_call` workflows only above `none`; this was V4 of lot 0, now positive |
+| 5 | `HARNESS_READ_TOKEN` | `gh secret list` lists `HARNESS_READ_TOKEN` on all 8 consuming repos (`kreadevis`, `kreadevis-frontend`, `meal-planner-backend`, `meal-planner-frontend`, `elya`, `elya-frontend`, `summerize-youtube`, `deployment`) | `harness-invariants.yml` checks out the private harness to compare `CONVENTIONS.md`; `github.token` alone is scoped to the calling repository and cannot read a second private repo |
 
-Both are owner actions with a security dimension (§4): widening who may call a
+Both were owner actions with a security dimension (§4): widening who may call a
 private repository's workflows, and issuing a cross-repository read token. The
 commands are in [`README.md`](../../README.md#making-the-harness-consumable);
 `add10d7` makes the caller template pass the secret unconditionally, so a repo
-adopted before the token exists is red rather than silently unchecked.
+adopted before the token existed would have been red rather than silently unchecked.
 
 ## Security
 
@@ -70,13 +70,15 @@ adopted before the token exists is red rather than silently unchecked.
 - [x] Default branch `develop` on the 9 repos, read from the API
 - [x] No portfolio repo is `PUBLIC`
 - [x] This report
-- [ ] `access_level` of `claude-harness` reads `user`
-- [ ] `HARNESS_READ_TOKEN` present on the 8 consuming repos
+- [x] `access_level` of `claude-harness` reads `user`
+- [x] `HARNESS_READ_TOKEN` present on the 8 consuming repos
 
 ## Recommended next steps
 
-1. Merge this PR, then promote `develop` → `main` (PR #8).
-2. Run the two commands in `README.md` § "Making the harness consumable" and tick
-   the last two criteria here.
-3. Run V1, V2, V3 on a throwaway private repo.
+1. ~~Promote `develop` → `main`~~ — done 2026-09-19; `main` now carries the plugin.
+2. ~~Declare the marketplace/plugin in `~/.claude/settings.json`, remove
+   `sync-claude-agents.sh`~~ — done 2026-09-19 (lot 5's deferred user-level item 2),
+   takes effect on the next session restart.
+3. Run V1, V2, V3 on a throwaway private repo, now that the promotion and the
+   settings declaration make them executable.
 4. Only then start lot 7.

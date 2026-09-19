@@ -26,7 +26,7 @@
 | 4 | `feat/lot-0-6-harness-foundation` | A – Harness | Squelette de projet (remplace `prompt-harness.md`) | claude-harness, racine, mpb | ✅ |
 | 5 | `feat/lot-0-6-harness-foundation` | B – Conventions | Master des conventions déplacé dans `claude-harness/CONVENTIONS.md`, réglages user-level, mémoires | claude-harness, `~/.claude` | ✅ |
 | 6 | `feat/lot-0-6-harness-foundation` | B – Conventions | Nettoyage racine `~/ENV/projets` | racine, claude-harness, deployment | ✅ |
-| 6b | – (manuel, GitHub) | B – Conventions | Réglages GitHub : branche par défaut `develop` *(P5)*, passage en privé *(P6-D1)*, accès aux workflows réutilisables, `HARNESS_READ_TOKEN` | GitHub (utilisateur), 9 repos | 🔄 |
+| 6b | – (manuel, GitHub) | B – Conventions | Réglages GitHub : branche par défaut `develop` *(P5)*, passage en privé *(P6-D1)*, accès aux workflows réutilisables, `HARNESS_READ_TOKEN` | GitHub (utilisateur), 9 repos | ✅ |
 | 7 | `chore/harness-adoption` (kb) | C – Adoption | kreadevis-backend (pilote backend) | kb | ⬜ |
 | 8 | `chore/harness-adoption` (kf) | C – Adoption | kreadevis-frontend (pilote frontend) | kf | ⬜ |
 | 9 | `chore/harness-adoption` (mpb) | C – Adoption | meal-planner-backend | mpb | ⬜ |
@@ -211,7 +211,7 @@ Revue de lot et corrections pour l'ensemble de la branche fondation (0 à 6) :
 
 ---
 
-## LOT 6b — Réglages GitHub (manuel, utilisateur) 🔄
+## LOT 6b — Réglages GitHub (manuel, utilisateur) ✅
 
 Constats : **P5-#3**, P5-#11, P5-#10 ; *(P6)* **A7**, A8, B1.
 
@@ -234,21 +234,21 @@ agent : §4, décision avec impact sécurité). Aucun code ; peut être fait ava
 4. *(déplacé au lot 13)* `deployment/CLAUDE.md` § Branching model : une ligne « branche par
    défaut GitHub = `develop` ; tous les repos privés, aucune protection disponible : relecture
    humaine seule ». Édition dans un autre repo, faite dans son lot d'adoption.
-5. **Accès aux workflows réutilisables** — l'API renvoie `access_level: none`, donc aucun repo
-   ne peut appeler les workflows du harnais privé. Commande dans
-   `README.md` § « Making the harness consumable ». **Bloque le lot 7** (c'est la V4 du lot 0,
-   tranchée par l'API : négative tant que le réglage n'est pas fait).
+5. **Accès aux workflows réutilisables** — l'API renvoyait `access_level: none`, donc aucun repo
+   ne pouvait appeler les workflows du harnais privé. Commande dans
+   `README.md` § « Making the harness consumable ». **Fait**, vérifié le 2026-09-19
+   (`access_level` = `user`) — c'était la V4 du lot 0, désormais positive.
 6. **`HARNESS_READ_TOKEN`** — token fine-grained `Contents: Read-only` sur `claude-harness`,
-   posé en secret sur les 8 repos consommateurs. Sans lui, `harness-invariants.yml` échoue au
-   checkout du master des conventions. **Bloque le lot 7.**
+   posé en secret sur les 8 repos consommateurs. **Fait**, vérifié le 2026-09-19
+   (`gh secret list` liste `HARNESS_READ_TOKEN` sur les 8 repos consommateurs).
 
 ### Critères de validation
 
 - [x] Un `gh pr create` sans `--base` depuis une branche `feat/*` cible `develop` sur les 9 repos
 - [x] `gh repo list SelimLBOURAYA --json name,visibility` : aucun repo du portefeuille `PUBLIC`
 - [x] Rapport `docs/audits/lot-6b.md` (sorties `gh api`)
-- [ ] `gh api repos/SelimLBOURAYA/claude-harness/actions/permissions/access` renvoie `user`
-- [ ] `HARNESS_READ_TOKEN` présent sur les 8 repos consommateurs
+- [x] `gh api repos/SelimLBOURAYA/claude-harness/actions/permissions/access` renvoie `user`
+- [x] `HARNESS_READ_TOKEN` présent sur les 8 repos consommateurs
 
 ---
 
@@ -288,8 +288,9 @@ Chaque lot d'adoption applique **toute** la checklist, puis les points propres a
 ## LOT 7 — kreadevis-backend ⬜
 
 - **Prérequis lot 6b** : `access_level=user` sur `claude-harness` et `HARNESS_READ_TOKEN` posé,
-  sinon le `ci.yml` écrit par la checklist commune échoue dès le premier push. Et V1, V2, V3
-  exécutées après la promotion `develop` → `main` (`docs/audits/lot-0.md`).
+  sinon le `ci.yml` écrit par la checklist commune échoue dès le premier push. V1, V2, V3
+  exécutées et confirmées le 2026-09-19 (`docs/audits/lot-0.md`) ; **V4 reste à exécuter**
+  avant de démarrer ce lot.
 - Checklist commune.
 - `lot-audit/checklists.md` au census (#22).
 - Suppression des références `skill/` restantes dans `harness-sync` local (remplacé par le plugin).
