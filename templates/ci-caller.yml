@@ -33,9 +33,13 @@ jobs:
     uses: SelimLBOURAYA/claude-harness/.github/workflows/harness-invariants.yml@main
     with:
       lots_file: "{{LOTS_FILE}}"            # Gate parameters: Lots file
-    # Only while the harness repository is private.
-    # secrets:
-    #   harness_token: ${{ secrets.HARNESS_READ_TOKEN }}
+    secrets:
+      # Required: the harness repository is private, and github.token is scoped
+      # to this repository, so the job cannot check out the CONVENTIONS.md
+      # master without a token that reads claude-harness. Drop these two lines
+      # only if the harness ever becomes public. See README.md, "Making the
+      # harness consumable".
+      harness_token: ${{ secrets.HARNESS_READ_TOKEN }}
 
   commit-format:
     uses: SelimLBOURAYA/claude-harness/.github/workflows/commit-format.yml@main

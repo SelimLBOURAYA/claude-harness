@@ -92,7 +92,7 @@ Every blocking invariant is also enforced in CI, which is the only agent-agnosti
 | [`CLAUDE.md`](CLAUDE.md) | This file — project conventions, gate parameters, census |
 | [`AGENTS.md`](AGENTS.md) | Byte-identical mirror of `CLAUDE.md` |
 | [`CONVENTIONS.md`](CONVENTIONS.md) | **Master** of the cross-cutting conventions (lot 5) |
-| [`README.md`](README.md) | Plugin installation, update, uninstallation, gate parameters contract |
+| [`README.md`](README.md) | Plugin installation, the two owner settings that make the harness consumable, gate parameters contract |
 | [`dev-plan.md`](dev-plan.md) | Remediation plan — lots, decisions, findings matrices (French) |
 | `plugins/claude-harness/skills/bootstrap-project/SKILL.md` | New project generation skill |
 | `plugins/claude-harness/skills/dep-update/SKILL.md` | Dependency refresh skill |

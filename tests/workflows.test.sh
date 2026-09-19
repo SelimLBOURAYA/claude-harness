@@ -242,6 +242,17 @@ assert_ok "the caller template cancels superseded runs per ref" -- \
   grep -q '^concurrency:' "$TPL/ci-caller.yml"
 assert_ok "the caller template never cancels main or develop" -- \
   grep -q "cancel-in-progress: \${{ github.ref != 'refs/heads/main'" "$TPL/ci-caller.yml"
+# The harness repository is private, so harness-invariants cannot check out the
+# conventions master with the caller's own github.token. The secret must be
+# passed for real, not left as a commented-out suggestion.
+assert_ok "the caller template passes the harness read token" -- \
+  grep -qF 'harness_token: ${{ secrets.HARNESS_READ_TOKEN }}' "$TPL/ci-caller.yml"
+assert_eq "" "$(grep -n '# *harness_token:' "$TPL/ci-caller.yml" || true)" \
+  "the harness read token is not commented out"
+assert_ok "the README documents how to issue that token" -- \
+  grep -qF 'HARNESS_READ_TOKEN' "$REPO_ROOT/README.md"
+assert_ok "the README documents the reusable-workflow access level" -- \
+  grep -qF 'access_level=user' "$REPO_ROOT/README.md"
 # Dependabot must not aim at main.
 assert_eq "" "$(grep -n 'target-branch:' "$TPL/dependabot.yml" | grep -v 'develop' || true)" \
   "dependabot targets develop only"
