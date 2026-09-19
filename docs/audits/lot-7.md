@@ -2,8 +2,10 @@
 
 **Harness ref:** `chore/harness-adoption-reports`, from `23aa7be`
 **Target repo:** `kreadevis-backend`, branch `chore/harness-adoption`
-**Commits:** `0c3695b` (kb lot 22), `ee5a40a` (adoption)
+**Commits:** `0c3695b` (kb lot 22), `ee5a40a` (adoption), `2bc9e83` (CI fixes)
 **Verdict:** ✅ checklist complete, validation gate green, no Critical.
+**Merge blocked** by two owner actions, neither a defect of this lot - see
+"Left open".
 
 Scope: the common adoption checklist (items 1 to 14 of `dev-plan.md`), plus the
 kb-specific items, plus kb lot 22 delivered in the same pull request on the
@@ -101,6 +103,18 @@ table makes the gate fail with
 `liquibase.exception.DatabaseException: ERROR: relation "public.quotes_does_not_exist" does not exist`.
 Reverted, not committed.
 
+## What the first real pull request caught
+
+Three red checks on PR #34, none of them a defect in kb. Being the pilot repo,
+this is exactly what lot 7 was for - the seven remaining repos inherit the fixes.
+
+| Check | Cause | Fix |
+|---|---|---|
+| `lint / audit` | OWASP dependency-check 13 builds its database from the NVD API, which now rejects unauthenticated callers (`Invalid API Key, length of 0`). The step aborted before analysing anything, so the "informative" scan reported nothing at all | `lint.yml` takes an optional `nvd_api_key` secret and degrades to an explicit skip without it |
+| `lint / audit` (second defect) | The job carried `continue-on-error: true`, which keeps the *run* green but still publishes the check run with conclusion `failure`. The pull request showed red for a signal declared informative - and §7 says a red pull request is never merged, so an informative red check teaches the reader to ignore red | `continue-on-error` moved from the job to the two scan steps; `tests/workflows.test.sh` now asserts the job carries none |
+| `migrations-immutable` | The `rollback` block added to the merged changeset `005-backfill-created-by` (deployment amendment C3) is a modification of an existing migration. The workflow is right: it cannot know that this particular changeset had never been applied anywhere | Reverted in `2bc9e83`. The C3 rollback is deferred to the lot that reconciles the production schema with the changelog - the one moment the base has applied nothing and the changeset can still be edited |
+| `harness-invariants` | `actions/checkout` of `SelimLBOURAYA/claude-harness` returns **403** with `HARNESS_READ_TOKEN`. The secret exists on kb (set 2026-09-19) but does not grant read on the harness repository - the usual cause is a fine-grained PAT whose repository selection omits it | **Owner action (§4)**, see below |
+
 Harness invariants were replayed locally with the same shell the workflow runs
 (mirror, conventions copy, marketplace ref, no `skill/`, 11 gate parameters,
 census, lots status table): all pass. The workflows themselves are only
@@ -108,6 +122,14 @@ exercisable on the pull request.
 
 ## Left open
 
+- **`HARNESS_READ_TOKEN` (owner)**: re-issue or re-scope it so it can read
+  `SelimLBOURAYA/claude-harness`. Until then `harness-invariants` is red on
+  every adoption pull request, kb's included, and §7 forbids merging them.
+- **Harness promotion (owner)**: the consuming repos pin
+  `...claude-harness/.github/workflows/*.yml@main`, so the `lint.yml` fix above
+  only reaches them once `develop` is promoted to `main`. Adoption PRs stay red
+  on `lint / audit` until then.
+- The C3 `rollback` block on changeset `005`, see the table above.
 - kb lot 17 (image) still ⬜; it uncomments the two image jobs of `ci.yml` with
   the `Dockerfile` and `compose.ci.yml` it adds.
 - Production schema provenance: since Liquibase never ran, whatever schema the

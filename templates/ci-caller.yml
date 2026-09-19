@@ -62,6 +62,11 @@ jobs:
     uses: SelimLBOURAYA/claude-harness/.github/workflows/lint.yml@main
     with:
       stack: "{{STACK}}"
+    secrets:
+      # Optional. Absent, the backend vulnerability scan reports a skip in the
+      # job summary instead of failing - dependency-check cannot build its
+      # database without an NVD key.
+      nvd_api_key: ${{ secrets.NVD_API_KEY }}
 
   # --- the validation gate, section 10 item 4 -----------------------------
   # Inline rather than reusable: the command, the toolchain and the artefact it
