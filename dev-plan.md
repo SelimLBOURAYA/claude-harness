@@ -27,7 +27,7 @@
 | 5 | `feat/lot-0-6-harness-foundation` | B – Conventions | Master des conventions déplacé dans `claude-harness/CONVENTIONS.md`, réglages user-level, mémoires | claude-harness, `~/.claude` | ✅ |
 | 6 | `feat/lot-0-6-harness-foundation` | B – Conventions | Nettoyage racine `~/ENV/projets` | racine, claude-harness, deployment | ✅ |
 | 6b | – (manuel, GitHub) | B – Conventions | Réglages GitHub : branche par défaut `develop` *(P5)*, passage en privé *(P6-D1)*, accès aux workflows réutilisables, `HARNESS_READ_TOKEN` | GitHub (utilisateur), 9 repos | ✅ |
-| 7 | `chore/harness-adoption` (kb) | C – Adoption | kreadevis-backend (pilote backend) | kb | ⬜ |
+| 7 | `chore/harness-adoption` (kb) | C – Adoption | kreadevis-backend (pilote backend) + kb lot 22 | kb | 🔄 |
 | 8 | `chore/harness-adoption` (kf) | C – Adoption | kreadevis-frontend (pilote frontend) | kf | ⬜ |
 | 9 | `chore/harness-adoption` (mpb) | C – Adoption | meal-planner-backend | mpb | ⬜ |
 | 10 | `chore/harness-adoption` (mpf) | C – Adoption | meal-planner-frontend (+ audit rétroactif) | mpf | ⬜ |
@@ -285,7 +285,15 @@ Chaque lot d'adoption applique **toute** la checklist, puis les points propres a
 14. *(P6-D9)* Repos avec image : le lot image appelle `image-publish.yml`, jamais d'étapes
     build/push écrites dans le repo.
 
-## LOT 7 — kreadevis-backend ⬜
+## LOT 7 — kreadevis-backend 🔄
+
+**Livré** sur `kreadevis-backend`, branche `chore/harness-adoption` : `0c3695b`
+(lot 22 kb) et `ee5a40a` (adoption). Rapport : `docs/audits/lot-7.md`.
+Décision utilisateur du 2026-09-19 : le lot 22 kb est livré dans la même PR.
+Constat majeur du lot : `spring-boot-liquibase` était **absent** du graphe de
+dépendances, donc les changesets ne s'appliquaient **nulle part**, production
+comprise. Reste ouvert : la provenance du schéma des bases dev/prod, à trancher
+avant le premier déploiement réel.
 
 - **Prérequis lot 6b** : `access_level=user` sur `claude-harness` et `HARNESS_READ_TOKEN` posé,
   sinon le `ci.yml` écrit par la checklist commune échoue dès le premier push. V1 à V4
