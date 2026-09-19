@@ -123,6 +123,11 @@ assert_eq "2" "$(grep -c '^        continue-on-error: true' "$WF/lint.yml")" \
 # --- P5-#15: the bundle is checked for real ------------------------------
 assert_ok "frontend-dist requires an entry point" -- \
   grep -q "name 'index.html'" "$WF/frontend-dist.yml"
+# Report-only is opt-in and defaults off: a caller that says nothing is gated.
+assert_ok "frontend-dist enforces by default" -- \
+  bash -c "grep -A9 '^      enforce:' '$WF/frontend-dist.yml' | grep -q 'default: true'"
+assert_ok "report-only downgrades the annotation rather than skipping" -- \
+  grep -q 'level=warning' "$WF/frontend-dist.yml"
 
 # --- no gate value hard-coded in a reusable workflow ---------------------
 # The same rule as the skills: the Gate parameters table is the single source.
