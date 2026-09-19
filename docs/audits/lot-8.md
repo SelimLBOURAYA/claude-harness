@@ -108,3 +108,9 @@ table, no calendar commitment): all pass.
   `HARNESS_READ_TOKEN` cannot read the harness (403), and the `lint.yml` and
   `frontend-dist.yml` fixes only reach this repo once `develop` is promoted to
   `main`.
+- **Correction, checked after this report was first written**: runs
+  `35444910757` / `35444911211` on this branch are `startup_failure`, not red
+  jobs. `enforce` and `nvd_api_key` do not exist on the workflows at `main`, and
+  a caller passing an undeclared input or secret is rejected at load time. The
+  pull request therefore carries no check run at all until the promotion. See
+  the amended entry in `docs/audits/lot-7.md`.

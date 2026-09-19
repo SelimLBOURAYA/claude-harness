@@ -127,8 +127,14 @@ exercisable on the pull request.
   every adoption pull request, kb's included, and §7 forbids merging them.
 - **Harness promotion (owner)**: the consuming repos pin
   `...claude-harness/.github/workflows/*.yml@main`, so the `lint.yml` fix above
-  only reaches them once `develop` is promoted to `main`. Adoption PRs stay red
-  on `lint / audit` until then.
+  only reaches them once `develop` is promoted to `main`. Verified after the
+  fact on run `35443941512`: the effect is worse than "red on `lint / audit`".
+  `main`'s `lint.yml` declares **no** `secrets:` block, so a caller that passes
+  `nvd_api_key` is rejected at workflow load and the whole run ends in
+  `startup_failure` in one second — no job, no check run, nothing to read.
+  The same holds for `frontend-dist.yml`'s `enforce` input (lot 8). Every
+  adoption pull request stays in `startup_failure` until the promotion; that
+  single owner action unblocks all of them at once.
 - The C3 `rollback` block on changeset `005`, see the table above.
 - kb lot 17 (image) still ⬜; it uncomments the two image jobs of `ci.yml` with
   the `Dockerfile` and `compose.ci.yml` it adds.
