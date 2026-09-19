@@ -27,6 +27,15 @@ on:
         required: false
         type: string
         default: "."
+      enforce:
+        description: >-
+          false = report the forbidden pattern as a warning instead of failing.
+          For a repository that adopts the harness while a known violation is
+          already tracked in its lots file. The caller states the lot that
+          removes it; there is no dateless exemption.
+        required: false
+        type: boolean
+        default: true
 
 permissions:
   contents: read
@@ -64,6 +73,7 @@ jobs:
         env:
           DIST: ${{ inputs.dist_dir }}
           PATTERN: ${{ inputs.forbidden_pattern }}
+          ENFORCE: ${{ inputs.enforce }}
         run: |
           [ -d "$DIST" ] || { echo "::error::the build produced no '$DIST' directory"; exit 1; }
           # An entry point is the minimum proof the build produced something
@@ -76,13 +86,21 @@ jobs:
 
           hits=$(grep -rlE "$PATTERN" "$DIST" || true)
           if [ -n "$hits" ]; then
-            echo "::error::the production bundle matches the forbidden pattern '$PATTERN':"
+            # The two modes differ only in the annotation level and the exit
+            # code. The evidence printed is the same either way: a report-only
+            # run that prints less than an enforcing one is a run nobody reads.
+            level=error
+            [ "$ENFORCE" = "true" ] || level=warning
+            echo "::${level}::the production bundle matches the forbidden pattern '$PATTERN':"
             for f in $hits; do
               echo "--- $f"
               grep -oE ".{0,40}$PATTERN.{0,40}" "$f" | head -3
             done
             echo "The API base URL must come from the build environment, not from a literal (section 3)."
-            exit 1
+            if [ "$ENFORCE" = "true" ]; then
+              exit 1
+            fi
+            echo "- dist: **report-only**, \`$PATTERN\` still present in the bundle" >> "$GITHUB_STEP_SUMMARY"
           fi
 
       - name: No source map shipped to production
