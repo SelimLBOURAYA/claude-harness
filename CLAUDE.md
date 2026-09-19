@@ -116,6 +116,7 @@ Every blocking invariant is also enforced in CI, which is the only agent-agnosti
 | `docs/audits/lot-0-6-review.md` | Lot review report for the whole foundation branch |
 | `docs/audits/lot-7.md` | Lot 7 report — kreadevis-backend adoption |
 | `docs/audits/lot-8.md` | Lot 8 report — kreadevis-frontend adoption |
+| `docs/audits/lot-9.md` | Lot 9 report — meal-planner-backend adoption |
 | `docs/audits/portfolio/p4-meta-harness-2026-09-17-v2.md` | P4 portfolio audit (supersedes the removed morning v1) |
 | `docs/audits/portfolio/p5-harness-cicd-2026-09-17.md` | P5 CI/CD guards audit |
 | `docs/audits/portfolio/p6-meta-portfolio-2026-09-17.md` | P6 cross-cutting portfolio audit |

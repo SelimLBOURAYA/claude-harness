@@ -29,7 +29,7 @@
 | 6b | – (manuel, GitHub) | B – Conventions | Réglages GitHub : branche par défaut `develop` *(P5)*, passage en privé *(P6-D1)*, accès aux workflows réutilisables, `HARNESS_READ_TOKEN` | GitHub (utilisateur), 9 repos | ✅ |
 | 7 | `chore/harness-adoption` (kb) | C – Adoption | kreadevis-backend (pilote backend) + kb lot 22 | kb | 🔄 |
 | 8 | `chore/harness-adoption` (kf) | C – Adoption | kreadevis-frontend (pilote frontend) | kf | 🔄 |
-| 9 | `chore/harness-adoption` (mpb) | C – Adoption | meal-planner-backend | mpb | ⬜ |
+| 9 | `chore/harness-adoption` (mpb) | C – Adoption | meal-planner-backend | mpb | 🔄 |
 | 10 | `chore/harness-adoption` (mpf) | C – Adoption | meal-planner-frontend (+ audit rétroactif) | mpf | ⬜ |
 | 11 | `chore/harness-adoption` (elya) | C – Adoption | elya | elya | ⬜ |
 | 12 | `chore/harness-adoption` (elya-fe) | C – Adoption | elya-frontend | elya-frontend | ⬜ |
@@ -348,7 +348,16 @@ une ligne `report-only` dans le résumé du job (harnais `acfd9b9`).
   `docs/audits/lot-0-integration.md` n'existe pas (lot 0 kf toujours ⬜, #3). Le lot 0 kf
   lui-même reste dans `kreadevis-frontend/lots.md`, hors de ce plan.
 
-## LOT 9 — meal-planner-backend ⬜
+## LOT 9 — meal-planner-backend 🔄
+
+**Livré** sur `meal-planner-backend`, branche `chore/harness-adoption` : `99824b2`,
+PR #22. Rapport : `docs/audits/lot-9.md`. Constat du lot : la prémisse
+« couverture creuse » ci-dessous est fausse. Les exclusions JaCoCo mesuraient 80 %
+de la seule fraction déjà testée ; périmètre complet rétabli, la couverture réelle
+est **0.8936** (915/1024 lignes, branches 0.7009). Le seuil est donc **monté** de
+`0.80` à `0.88` (ratchet) et les « lots de tests pour remonter vers 0.80 » n'ont
+plus d'objet. Ce que les exclusions cachaient n'était pas des tests manquants,
+c'était une gate sans signification — mesurée sur H2, cf. ci-dessous.
 
 - Checklist commune ; suppression des skills en français (#17) et de `prompt-harness.md`.
 - `.gitignore` : ajout `.env` et `*.local.md` (#14).
@@ -358,8 +367,9 @@ une ligne `report-only` dans le résumé du job (harnais `acfd9b9`).
 - Couverture (#7) : retrait des exclusions `auth/**`, `planning/**`, `shopping/**`, `Recipe`,
   `Ingredient` (`pom.xml:157-161`), mesure, seuil `pom.xml` fixé au niveau mesuré ; `CLAUDE.md`
   corrigé (plus de « coverage ≥ 80 % » faux).
-- Ajout dans `meal-planner-backend/dev-plan.md` (FR) d'un ou plusieurs **lots de tests** pour
-  remonter vers 0.80 par paliers (ratchet) — contenu à valider avec l'utilisateur.
+- ~~Ajout dans `meal-planner-backend/dev-plan.md` (FR) d'un ou plusieurs **lots de tests** pour
+  remonter vers 0.80 par paliers (ratchet)~~ — sans objet : la mesure est au-dessus de 0.88.
+  Le vrai manque est la §2.5 (tests sur H2, Flyway désactivé), déjà porté par le lot 13 mpb.
 - Nommage `lot-XX-slug` → `feat/lot-N-slug` dans `CLAUDE.md` et la CI.
 - *(P5-#1, #7)* `FlywayMigrationIT` tourne aujourd'hui avec `flyway.enabled: false` et
   `ddl-auto: create-drop` (`src/test/resources/application-test.yaml`) : il teste le DDL
@@ -367,8 +377,10 @@ une ligne `report-only` dans le résumé du job (harnais `acfd9b9`).
   `postgres:17` avec Flyway actif ; ce lot d'adoption vérifie que c'est fait ou l'inscrit en
   prérequis, et pose `Health path` `/actuator/health`, `Image name`
   `ghcr.io/selimlbouraya/meal-planner-backend`.
-- *(P5-#6)* `ci.yml` : le job `docker-build` existant (`push: false`) est conservé et enchaîné
-  sur `image-smoke.yml`.
+- *(P5-#6, P6-D9)* `ci.yml` : le job `docker-build` écrit dans le dépôt est **supprimé** plutôt
+  que conservé — P6-D9 interdit les étapes build/push locales. Les appels `image-publish.yml` et
+  `image-smoke.yml` sont posés en commentaire et décommentés par le lot 13 mpb, avec le
+  `compose.ci.yml` dont `image-smoke` a besoin.
 
 ## LOT 10 — meal-planner-frontend ⬜
 
