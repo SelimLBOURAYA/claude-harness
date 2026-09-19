@@ -18,14 +18,14 @@
 
 | Lot | Branche | Vague | Objectif | Repos touchés | Statut |
 |---|---|---|---|---|---|
-| 0 | `feat/lot-0-6-harness-foundation` | A – Harness | Bootstrap du repo `claude-harness` + vérifications techniques bloquantes | claude-harness | 🔄 |
-| 1 | `feat/lot-0-6-harness-foundation` | A – Harness | Hooks : garde git, miroir CLAUDE/AGENTS étendu, exclusion rtk | claude-harness, `~/.claude` | 🔄 |
-| 2 | `feat/lot-0-6-harness-foundation` | A – Harness | Skills génériques extraits de kb/kf et corrigés | claude-harness | 🔄 |
-| 2b | `feat/lot-0-6-harness-foundation` | A – Harness | Skill `lot-review` : revue de code qui annote la PR et applique les corrections, sous profil `claude`, avant l'audit sécurité | claude-harness | 🔄 |
-| 3 | `feat/lot-0-6-harness-foundation` | A – Harness | Workflows CI réutilisables | claude-harness | 🔄 |
-| 4 | `feat/lot-0-6-harness-foundation` | A – Harness | Squelette de projet (remplace `prompt-harness.md`) | claude-harness, racine, mpb | 🔄 |
-| 5 | `feat/lot-0-6-harness-foundation` | B – Conventions | Master des conventions déplacé dans `claude-harness/CONVENTIONS.md`, réglages user-level, mémoires | claude-harness, `~/.claude` | 🔄 |
-| 6 | `feat/lot-0-6-harness-foundation` | B – Conventions | Nettoyage racine `~/ENV/projets` | racine, claude-harness, deployment | 🔄 |
+| 0 | `feat/lot-0-6-harness-foundation` | A – Harness | Bootstrap du repo `claude-harness` + vérifications techniques bloquantes | claude-harness | ✅ |
+| 1 | `feat/lot-0-6-harness-foundation` | A – Harness | Hooks : garde git, miroir CLAUDE/AGENTS étendu, exclusion rtk | claude-harness, `~/.claude` | ✅ |
+| 2 | `feat/lot-0-6-harness-foundation` | A – Harness | Skills génériques extraits de kb/kf et corrigés | claude-harness | ✅ |
+| 2b | `feat/lot-0-6-harness-foundation` | A – Harness | Skill `lot-review` : revue de code qui annote la PR et applique les corrections, sous profil `claude`, avant l'audit sécurité | claude-harness | ✅ |
+| 3 | `feat/lot-0-6-harness-foundation` | A – Harness | Workflows CI réutilisables | claude-harness | ✅ |
+| 4 | `feat/lot-0-6-harness-foundation` | A – Harness | Squelette de projet (remplace `prompt-harness.md`) | claude-harness, racine, mpb | ✅ |
+| 5 | `feat/lot-0-6-harness-foundation` | B – Conventions | Master des conventions déplacé dans `claude-harness/CONVENTIONS.md`, réglages user-level, mémoires | claude-harness, `~/.claude` | ✅ |
+| 6 | `feat/lot-0-6-harness-foundation` | B – Conventions | Nettoyage racine `~/ENV/projets` | racine, claude-harness, deployment | ✅ |
 | 6b | – (manuel, GitHub) | B – Conventions | Réglages GitHub : branche par défaut `develop` *(P5)*, passage en privé de `kreadevis` et `meal-planner-frontend` *(P6-D1)* | GitHub (utilisateur), 9 repos | 🔄 |
 | 7 | `chore/harness-adoption` (kb) | C – Adoption | kreadevis-backend (pilote backend) | kb | ⬜ |
 | 8 | `chore/harness-adoption` (kf) | C – Adoption | kreadevis-frontend (pilote frontend) | kf | ⬜ |
@@ -142,366 +142,72 @@ meal-planner-backend / -frontend, elya-fe = elya-frontend.
 
 ---
 
-## LOT 0 — Bootstrap du repo et vérifications techniques 🔄
+## LOT 0 — Bootstrap du repo et vérifications techniques ✅
 
-### Objectif
-
-Créer le repo avec son socle documentaire §12 et **lever les inconnues techniques** avant
-d'écrire du code. Chaque vérification a un plan B décidé à l'avance.
-
-### Livrables
-
-- `git init`, branches `main` puis `develop` ; `.gitignore` avec `.env` et `*.local.md` (§5, §8).
-- `CLAUDE.md` = `AGENTS.md` (census, gate du repo, structure), `CONVENTIONS.md` (copie du
-  master, qui devient lui-même le master au lot 5, *P6-D2*), `README.md` (installation du plugin, mise à jour, désinstallation), `dev-plan.md`.
-- Manifestes : `.claude-plugin/marketplace.json` et `plugins/claude-harness/.claude-plugin/plugin.json`
-  (structure exacte à confirmer par la vérification V1).
-- `tests/run.sh` (squelette), `docs/audits/.gitkeep`.
-- Création du remote GitHub **après validation explicite** de l'utilisateur.
-
-### Vérifications techniques (bloquantes)
-
-| # | Question | Méthode | Plan B si échec |
-|---|---|---|---|
-| V1 | Syntaxe exacte marketplace/plugin, activation au niveau user **et** projet (`extraKnownMarketplaces`, `enabledPlugins`), suivi de `main`. Points à prouver : (a) avec `"ref": "main"` pointant une branche **sans** `.claude-plugin/marketplace.json`, l'ajout du marketplace échoue avec un message explicite (test sur le repo jetable uniquement : `main` du harness existe déjà) ; (b) après création de `main`, `/plugin marketplace update` ne récupère que les commits de `main`, jamais ceux de `develop` ; (c) accès au repo **privé** par le credential helper git (`gh auth login`), y compris pour la mise à jour automatique en arrière-plan et depuis IntelliJ et Cursor (lien V6) | Documentation Claude Code (agent `claude-code-guide`) + plugin de test minimal installé localement, sur un repo jetable ayant `develop` comme branche par défaut | Skills copiés dans `.claude/skills/` de chaque repo, `harness-sync` vérifie la dérive par `cmp` ; si (c) échoue en arrière-plan : `git config --global url."https://x-access-token:<TOKEN>@github.com/SelimLBOURAYA/claude-harness".insteadOf …` documenté dans `README.md`, jeton hors repo |
-| V2 | Noms des skills de plugin (`claude-harness:lot-test`) et leur découverte en session projet et racine | Session de test | Tables Skills rédigées avec le nom réellement annoncé |
-| V3 | Un hook de plugin `PreToolUse` peut renvoyer **refus** et **confirmation** même si `Bash(git *)` est en allow | Hook de test qui renvoie `ask` sur `git status` | Retirer `Bash(git *)`, `git push *`, `gh pr *` des allow (user + projets) et garder le hook en refus seul |
-| V4 | Workflows réutilisables d'un repo **privé** appelables depuis tes autres repos privés sur un compte **gratuit personnel** (pas une organisation) ; *(P6-D1)* l'appel depuis un repo public est exclu par la doc GitHub, d'où le passage en privé de kb et mpf | Réglage « Access » du repo harness (« Accessible from repositories owned by the user ») + workflow d'essai appelé depuis un repo jetable **privé** | Workflows copiés dans chaque `ci.yml` via le squelette, dérive vérifiée par `harness-sync` |
-| V5 | Moyen d'empêcher rtk de réécrire `git log` et la lecture de la mémoire | `rtk config`, doc rtk | Hook wrapper qui n'appelle `rtk hook claude` que hors motifs exclus |
-| V6 | Sessions IDE (IntelliJ, Cursor) et DeepClaude : plugin chargé, `rtk` et `python3` sur le `PATH`, routage modèle (#audit « Non vérifié ») | Session de test depuis chaque IDE, `echo $PATH` dans un hook de diagnostic ; *(P6-D3)* une session Cursor ou DeepClaude tente `gh pr create` depuis `feat/lot-N-*` sans rapport d'audit : **seule la CI** doit l'arrêter, et l'agent doit trouver les `SKILL.md` par le renvoi du `CLAUDE.md` | Documenter le lancement requis dans `README.md` du harness |
-| V7 *(P6-D2)* | L'import `@coding-conventions.md` de `~/.claude/CLAUDE.md` suit un **lien symbolique** vers `claude-harness/CONVENTIONS.md` (contenu présent en session) | Lien posé sur une copie de test de `~/.claude`, session ouverte, contenu vérifié | Import direct du chemin du clone (`@/home/selim/ENV/projets/claude-harness/CONVENTIONS.md`) dans `~/.claude/CLAUDE.md` |
-
-### Critères de validation
-
-- [ ] V1 à V7 tranchées, résultat et plan retenu consignés dans `docs/audits/lot-0.md`
-- [ ] `cmp CLAUDE.md AGENTS.md` silencieux, `CONVENTIONS.md` identique au master
-- [ ] Plugin vide installable localement
-- [ ] `README.md` du harness : commande d'installation **avec** la ref
-      (`/plugin marketplace add SelimLBOURAYA/claude-harness@main`), bloc
-      `extraKnownMarketplaces` avec `"ref": "main"`, prérequis `gh auth login`
-
-**Après le merge du lot 4** : l'utilisateur promeut `develop` → `main` du repo
-harness. `main` existe déjà (`d7b1438`, plan seul) ; cette promotion est la
-première à y apporter le plugin. Sans elle, un repo qui déclare le marketplace
-avec `ref: main` n'obtient aucun plugin et les lots 5 et 7 sont bloqués.
+Fait : squelette documentaire, manifestes plugin/marketplace, V1 à V7 tranchées.
+Rapport : `docs/audits/lot-0.md`. SHA : `22eaf29`.
 
 ---
 
-## LOT 1 — Hooks 🔄
+## LOT 1 — Hooks ✅
 
-Constats : **#2**, #5, #18 (+ #8, #25 en partie via lot 3).
-
-### Livrables
-
-- `hooks/git-guard` (python3, lecture JSON stdin) :
-  - normalise la commande (découpe `&&`, `;`, `|`, `bash -c`, `git -C`, `-c`), résout la branche
-    courante et la branche cible du push ;
-  - **refus** : push dont la cible est `main` (y compris `HEAD:main`, `refs/heads/main`),
-    `--force`, `-f`, `--force-with-lease`, `+refspec`, `--no-verify`, `-n` sur commit,
-    `core.hooksPath` surchargé, `reset --hard`, `push --delete` / `push origin :branche`,
-    `branch -D` sur branche distante, `gh pr create` sans `--base develop` / `-B develop`,
-    `gh pr merge` ;
-  - **refus** : `gh pr create` depuis `feat/lot-N-*` si `docs/audits/lot-N.md` absent de la
-    branche ou s'il contient une ligne Critical non résolue ;
-  - **refus** : `gh pr create` depuis une branche de repo front (paramètre `Stack` de
-    `## Gate parameters`) si `docs/audits/lot-0-integration.md` est absent ;
-  - **confirmation** : tout autre `git push` et `gh pr create` ;
-  - en cas de commande non analysable : **confirmation**, jamais autorisation silencieuse.
-- `hooks/mirror-sync` : reprise de `~/.claude/hooks/sync-claude-agents.sh`, matcher étendu à
-  `Bash` (détection de `cp`, `mv`, `sed -i`, redirections vers `CLAUDE.md`/`AGENTS.md`) ;
-  vérifie `cmp` après coup et signale la divergence.
-- Exclusion rtk selon V5 (`git log`, lecture des répertoires mémoire `-home-…`).
-- `tests/git-guard.test.sh`, `tests/mirror-sync.test.sh` avec tous les cas piégés listés dans
-  les règles transverses.
-
-### Critères de validation
-
-- [ ] Tous les cas piégés produisent la décision attendue
-- [ ] `git log --first-parent main` sur kb montre `f0189fe` et `b00c534` (merges PR #30, #29)
-- [ ] Ancien hook `~/.claude/hooks/sync-claude-agents.sh` retiré de `settings.json` au lot 5
-      (pas avant : pas de trou de couverture)
+Fait : `hooks/git-guard.py` (refus/confirmation git et gh), `hooks/mirror-sync.sh`,
+exclusion rtk, tests `git-guard.test.sh` et `mirror-sync.test.sh`.
+Rapport : `docs/audits/lot-1.md`. SHA : `063db89`.
 
 ---
 
-## LOT 2 — Skills génériques 🔄
+## LOT 2 — Skills génériques ✅
 
-Constats : **#1**, #6, #16, #17, #3 (en partie), #7 (en partie).
-
-### Livrables
-
-Skills du plugin, en anglais, extraits de la version kb/kf la plus récente et **paramétrés** par
-`## Gate parameters` (aucune commande ni seuil en dur) :
-
-| Skill | Origine | Corrections |
-|---|---|---|
-| `lot-test` | kb + kf | Commande de validation, seuil et outil de couverture lus dans Gate parameters ; matrice de tests unifiée backend/frontend |
-| `lot-review` *(nouveau, demande utilisateur 2026-09-18)* | – | Revue de code du lot : invoque le skill générique `code-review` (`--comment --fix`) sur la PR du lot pour poster les commentaires inline et appliquer les corrections retenues ; **refuse de s'exécuter si le modèle actif n'est pas `claude`** (redirige vers le point d'arrêt fin-de-dev du lot 5) ; s'exécute **avant** `lot-audit` |
-| `lot-audit` + `checklists.md` | kb (identique kf) | Étape 0 *(nouveau)* : exige que `lot-review` ait été exécuté sur la PR courante (commentaires postés, corrections appliquées) avant de poursuivre ; étape 2 (déplacée) : `Skill(security-review)` au lieu du subagent inexistant (#6) ; chemin de checklist corrigé ; **revue des exclusions de couverture** (#7) ; **migrations en `A` uniquement** (#9) ; en-tête du rapport avec SHA du harness |
-| `lot-ship` | kb + kf | Stop après PR ; exige `lot-N.md` sans Critical ; **front : exige `lot-0-integration.md`** (#3) ; PR `--base develop` ; *(P5-#11)* après `gh pr create`, affiche `gh pr checks --watch` et **refuse de déclarer le lot prêt** tant qu'un check est rouge ; *(P5-#14)* toute lecture d'historique passe par `rtk proxy git log` |
-| `harness-sync` | kb | Vérifie : plugin déclaré **avec `"ref": "main"`**, Gate parameters complets, census ⇔ skills, miroir, CONVENTIONS = master, absence de `skill/` et de « Sprint chaining » ; *(P5-#14)* statuts du fichier de lots croisés avec `rtk proxy git log --first-parent` (un lot ✅ dont la mention « PR à ouvrir » subsiste est une dérive) ; *(P6-D10)* tableau de statut présent en tête du fichier de lots ; *(P6-D14)* mémoires `project_*` sans date de vérification ou vérifiées il y a plus de 60 jours signalées ; *(P6-D5)* aucune date ni « fenêtre » dans le fichier de lots ; *(nouveau, lot 2b)* le gate documenté est bien `lot-test → lot-review → lot-audit → lot-ship` (pas d'audit sans revue préalable) |
-| `dep-update` | kb + kf | Paramétré par stack |
-| `i-have-adhd` | identique partout | `disable-model-invocation: true` conservé |
-| `integration-check` (nouveau) | – | Procédure du smoke manuel front ↔ backend réel et gabarit de `lot-0-integration.md` |
-
-- `sprint` **non repris** (décision stop après PR) ; #16 disparaît avec lui.
-- Contrat `## Gate parameters` documenté dans `README.md` du harness :
-  `Stack`, `Validation command`, `Coverage tool`, `Coverage threshold`, `Coverage exclusions`
-  (liste explicite, vide par défaut), `Migrations directory`, `Lots file` (*P6-D10* : fichier
-  commençant par le tableau `| Lot | Branche | Statut |`), `Frontend backend pair`,
-  *(P5)* `Health path` (chemin de santé de l'image, ex. `/actuator/health` ou `/health`),
-  `Dist forbidden pattern` (fronts, ex. `localhost:8080`), `Image name` (ex.
-  `ghcr.io/selimlbouraya/kreadevis-backend`).
-
-### Critères de validation
-
-- [ ] Aucun chemin `skill/`, aucune commande ou seuil en dur dans les skills
-- [ ] Skills découverts en session sur un repo de test (nom confirmé par V2)
-- [ ] Rapport `docs/audits/lot-2.md`
+Fait : `lot-test`, `lot-review`, `lot-audit`, `lot-ship`, `harness-sync`, `dep-update`,
+`i-have-adhd`, `integration-check`, paramétrés par `## Gate parameters`.
+Rapport : `docs/audits/lot-2.md`. SHA : `b890616`.
 
 ---
 
-## LOT 2b — Skill `lot-review` (revue de code avant audit) 🔄
+## LOT 2b — Skill `lot-review` (revue de code avant audit) ✅
 
-Constats : demande utilisateur (2026-09-18, hors constats d'audit) — conséquence directe du test
-du lot 5 : le switch de profil ne change pas le modèle d'une session en cours (voir §4 du master
-et le livrable « Routage revue/code par profil LLM » au lot 5). Le harnais a donc besoin d'un
-skill dédié, exécuté **sous une session déjà démarrée sous le profil `claude`**, qui fait la revue
-de code et applique les corrections **avant** que `lot-audit` ne lance l'audit sécurité.
-
-### Livrables
-
-- Nouveau skill du plugin `lot-review` : invoque le skill générique `code-review` du harnais avec
-  `--comment --fix` sur la PR du lot en cours (cible = la branche `feat/lot-N-*` ouverte par
-  `lot-ship` d'un tour précédent, ou le diff local si la PR n'est pas encore ouverte) — poste les
-  commentaires de revue **en ligne sur la PR** et applique les corrections retenues au working
-  tree, à committer par l'agent comme un commit normal (`fix:`/`refactor:` selon le cas).
-- **Garde-fou modèle** : en tête d'exécution, le skill vérifie le modèle annoncé de la session
-  active. S'il ne s'agit pas de `claude`, il **s'arrête sans lancer la revue** et affiche le
-  rappel du point d'arrêt documenté au lot 5 (« termine cette session, lance
-  `claude-profile claude`, ouvre une nouvelle session, relance `lot-review` »).
-- **Gate mis à jour** : `lot-test → lot-review → lot-audit → lot-ship` (§13 du master, lot 5, et
-  table des skills du lot 2, déjà modifiées ci-dessus). `lot-audit` refuse de démarrer si
-  `lot-review` n'a pas produit son livrable pour la PR courante.
-- Livrable de traçabilité : `docs/audits/lot-N-review.md` (commentaires postés + liste des
-  corrections appliquées + SHA du commit de correction), sur le même modèle que
-  `docs/audits/lot-N.md` produit par `lot-audit`. Ajouté au census de `CLAUDE.md` (§12 du master).
-- `harness-sync` (lot 2) étendu pour vérifier l'ordre du gate et la présence du livrable
-  `lot-N-review.md` avant tout `lot-N.md`.
-
-### Critères de validation
-
-- [ ] Sur une PR de test avec au moins un défaut volontaire, `lot-review` poste un commentaire
-      inline et corrige le défaut avant que `lot-audit` ne soit lançable
-- [ ] `lot-review` lancé depuis une session sous profil `deepseek` s'arrête sans modifier la PR ni
-      le working tree, et affiche l'instruction de nouvelle session
-- [ ] `lot-audit` refuse de démarrer si `docs/audits/lot-N-review.md` est absent pour la PR
-      courante
-- [ ] Rapport `docs/audits/lot-2b.md`
+Fait : skill `lot-review` (garde-fou profil `claude`), gate mis à jour
+`lot-test → lot-review → lot-audit → lot-ship`, livrable `docs/audits/lot-N-review.md`.
+Rapport : `docs/audits/lot-2b.md`. SHA : `148556c`.
 
 ---
 
-## LOT 3 — Workflows CI réutilisables 🔄
+## LOT 3 — Workflows CI réutilisables ✅
 
-Constats : **#9**, #8, #18, #19, #25, #3 (contrôle du livrable) ; *(P5)* **#6, #8, #9, #13, #15, #21**.
-
-### Livrables
-
-`.github/workflows/` du harness, tous en `workflow_call`, `permissions: contents: read`,
-actions épinglées par SHA *(P5-#9)* :
-
-| Workflow | Contrôle | Déclenché sur |
-|---|---|---|
-| `harness-invariants.yml` | `cmp CLAUDE.md AGENTS.md` ; source du marketplace `claude-harness` dans `.claude/settings.json` avec `"ref": "main"` ; `CONVENTIONS.md` = master du harness *(P6-D2)* ; absence de `skill/` ; census ⇔ `.claude/skills/` ; *(P6-D10)* le fichier `Lots file` commence par un tableau `\| Lot \| Branche \| Statut \|` dont chaque statut est ⬜, 🔄, ✅, ⏸️ ou ❄️ | toute PR, tout push |
-| `commit-format.yml` | Commits de la PR : Conventional Commits, titre ASCII sans U+2014 | PR |
-| `branch-naming.yml` | `feat/lot-N-slug`, `fix/…`, `chore/…`, `docs/…` ; PR vers `develop` (ou `main` seulement depuis `develop` ou `fix/…`) | PR |
-| `migrations-immutable.yml` | Tout fichier du répertoire de migrations modifié vs `origin/develop` doit être en `A` ; *(P5-#8)* tout fichier ajouté contenant `addNotNullConstraint`, `dropColumn`, `dropTable`, `renameColumn`, `renameTable` (Liquibase) ou `ALTER … SET NOT NULL`, `DROP COLUMN`, `DROP TABLE`, `RENAME` (SQL Flyway) doit porter le marqueur `contract` (commentaire `-- contract` / `comment: contract`) **et** la PR le label `schema-contract` ; sinon échec avec le rappel expand/contract | PR |
-| `lot-deliverables.yml` | Branche `feat/lot-N-*` : `docs/audits/lot-N.md` présent ; front : `lot-0-integration.md` présent ; *(P5-#13)* la PR n'ajoute qu'**un seul** `docs/audits/lot-*.md` et ne modifie le fichier de lots que sur les lignes de statut (diff limité aux lignes contenant `✅`, `🔄`, `⬜`, `Done`) | PR |
-| `image-smoke.yml` *(P5-#6)* | Entrées : `image` (tag local construit dans le job appelant), `health_path`, `compose_file` optionnel. `docker compose up -d` (image + `postgres:17` si backend), attente `healthy` ≤ `start_period` + 60 s, `curl -f <health_path>`, `docker compose logs` en cas d'échec, `down -v`. Sur PR : construit sans pousser ; sur `main`/`develop` : réutilise le tag poussé | PR, push `develop`/`main` |
-| `frontend-dist.yml` *(P5-#15)* | Après `npm run build` : `! grep -r "<Dist forbidden pattern>" dist/` ; `ls dist/**/index.html` présent | PR, push |
-| `image-publish.yml` *(P6-D9)* | Entrées : `image` (`Image name` des Gate parameters), `context`, `dockerfile`, `health_path`, `artifact_name` optionnel (*P5-#18* : artefact du job de test, par ex. le jar de `./mvnw verify`, téléchargé dans `context` avant le build pour que l'image embarque l'artefact testé). Sur PR : build `linux/amd64` **sans push** puis appel de `image-smoke.yml`. Sur push `develop` : push tags `dev` + `sha-<court>` ; sur push `main` : `latest` + `sha-<court>`. Labels OCI `org.opencontainers.image.revision` et `.source` ; `permissions: packages: write` **au niveau du job de push uniquement** ; `paths-ignore: ['**.md']` documenté dans le gabarit d'appel ; *(P6-D12)* job trivy non bloquant sur l'image construite (bloquant sur CRITICAL après le premier go-live) | PR, push `develop`/`main` |
-| `lint.yml` *(P5-#21)* | Fronts : `prettier --check` (+ `ng lint` si configuré) ; backends : `./mvnw spotless:check` si le plugin est présent, sinon no-op explicite (`echo`, statut `skipped` lisible) | PR |
-
-- Gabarit d'appel `templates/ci-caller.yml` avec `on: push: branches: ["**"]` et `pull_request` (#19),
-  `permissions: contents: read` en tête, `concurrency` par ref (P5-#22), actions par SHA.
-- *(P5-#9)* `templates/dependabot.yml` : écosystèmes `github-actions`, `maven` ou `npm`, `docker`
-  (images de base des Dockerfiles), hebdomadaire, groupé patch/minor ; les PR dependabot suivent
-  le même gate que les lots (`chore(deps)`).
-- *(P6-D2)* La CI compare le `CONVENTIONS.md` du repo appelant au `CONVENTIONS.md` du harness à
-  la ref `main` (master) ; en local, `~/.claude/coding-conventions.md` est un lien symbolique vers
-  le même fichier.
-- *(P6-D12)* `lint.yml` ajoute un job **non bloquant** `npm audit --audit-level=high` (fronts) ou
-  `dependency-check` (backends) ; passage en bloquant sur CRITICAL après le premier go-live.
-
-### Critères de validation
-
-- [ ] Chaque workflow testé sur un repo jetable **privé** : un cas vert, un cas rouge
-- [ ] `image-publish.yml` : sur PR aucune image poussée ; sur `develop` tags `dev` + SHA ; label
-      `revision` = SHA du commit
-- [ ] Rapport `docs/audits/lot-3.md`
+Fait : `harness-invariants.yml`, `commit-format.yml`, `branch-naming.yml`,
+`migrations-immutable.yml`, `lot-deliverables.yml`, `image-smoke.yml`,
+`frontend-dist.yml`, `image-publish.yml`, `lint.yml`, gabarits `ci-caller.yml` et
+`dependabot.yml`.
+Rapport : `docs/audits/lot-3.md`. SHA : `df103aa`.
 
 ---
 
-## LOT 4 — Squelette de projet 🔄
+## LOT 4 — Squelette de projet ✅
 
-Constats : **#10**, #22.
-
-### Livrables
-
-- `templates/project/` : `CLAUDE.md` (sections Stack, Gate parameters, Skills table avec noms
-  plugin, Project documents), `.claude/settings.json` (plugin déclaré), `.gitignore`,
-  `.env.example`, `ci.yml` appelant les workflows du lot 3, *(P5-#9)* `.github/dependabot.yml`.
-- *(P5-#18)* Gabarit de `Dockerfile` backend : le stage build **ne recompile pas** avec
-  `-DskipTests` un jar différent de celui testé ; soit l'image est construite dans le même job
-  après `./mvnw verify` à partir de `target/*.jar` (`COPY target/*.jar`), soit le stage build
-  utilise `./mvnw` (wrapper du repo) et la même version de Maven que la CI.
-- `skills/bootstrap-project` (ou procédure `README.md`) remplaçant `prompt-harness.md`.
-- Suppression de `~/ENV/projets/prompt-harness.md` et de `meal-planner-backend/prompt-harness.md`
-  (la seconde au lot 9, dans la PR du repo) ; mise à jour de la mémoire racine qui les référence.
-- Aucune mention de `skill/`, `lot-XX-slug`, `main` comme base de branche.
-- *(P6-D10)* Gabarit de fichier de lots commençant par le tableau `| Lot | Branche | Statut |`.
-- *(P6-D3)* `CLAUDE.md` du gabarit : section Skills avec le renvoi aux `SKILL.md` du clone local
-  du harness pour les agents non-Claude.
-- *(P6-D9)* `ci.yml` du gabarit : appel de `image-publish.yml` commenté, à activer par le lot image.
-- *(P6-D13)* Suppression de `~/.claude/templates/project-skeleton/` (squelette user-level non
-  conforme : `CLAUDE.md` ≠ `AGENTS.md`, ni Skills, ni Gate parameters, ni census) après
-  validation de `templates/project/`.
-
-### Critères de validation
-
-- [ ] Un repo jetable généré depuis le squelette passe `harness-invariants.yml`
+Fait : `templates/project/`, skill `bootstrap-project`, suppression de
+`prompt-harness.md` et du squelette user-level non conforme.
+Rapport : `docs/audits/lot-4.md`. SHA : `6768179`.
 
 ---
 
-## LOT 5 — Conventions, réglages user-level, mémoires 🔄
+## LOT 5 — Conventions, réglages user-level, mémoires ✅
 
-Constats : **#4**, #5, #13, #21, #15 (mémoire), §12/§13 à réécrire ; *(P6)* A2, A3, A5, A6, B8.
-
-### Livrables
-
-*(P6-D2)* **Déménagement du master** : contenu de `~/.claude/coding-conventions.md` versé dans
-`claude-harness/CONVENTIONS.md` (PR du harness), puis `~/.claude/coding-conventions.md` remplacé
-par un lien symbolique vers le clone local (selon V7, sinon import direct). En-tête du master :
-« Master: `claude-harness/CONVENTIONS.md` ». Les modifications ci-dessous portent sur ce master.
-
-Master des conventions :
-
-- §2 : étape 9 inchangée (stop après PR) et **mention explicite** qu'aucun chaînage de lots
-  n'est autorisé ; étape 1 : `git log` hors rtk.
-- §4 *(demande utilisateur, 2026-09-18, révisé 2026-09-18 après test)* : **exception** au
-  « Ask before doing » pour l'exécution de `/home/selim/.local/bin/claude-profile claude` ou
-  `/home/selim/.local/bin/claude-profile deepseek` — pré-autorisé, sans confirmation à chaque
-  fois. Ces commandes ne rebasculent **pas** le modèle de la session en cours (vérifié : elles ne
-  réécrivent que `settings.json`, lu par les *prochaines* sessions) — voir livrable « Routage
-  revue/code par profil LLM » ci-dessous pour le point d'arrêt imposé en conséquence. Toute autre
-  voie de changement de modèle (édition directe de `settings.json`, autre script) reste soumise à
-  confirmation.
-- §7 : garde git appliquée par le hook du plugin ; rappel « pas de protection de branches (tous les
-  repos sont privés, *P6-D1*) : ne jamais merger une PR à CI rouge » ; *(P5-#3)* branche par défaut
-  GitHub = `develop` (lot 6b) ; *(P5-#8)* règle **expand/contract** pour toute migration
-  (jamais de suppression, renommage ou `NOT NULL` dans la même version que le code qui cesse
-  d'utiliser la colonne ; étape `contract` explicitement marquée, une version plus tard).
-- §9 : 1. **ne pas relire `CONVENTIONS.md` sous Claude Code** (déjà importé) ; 2. lire le
-  **tableau de statut + la section du lot courant** du fichier de lots ; 4. `git log` hors rtk
-  (`rtk proxy git log`, P5-#14).
-- §2.5 *(P5-#1, #7)* : « tests d'intégration » pour un backend = **base réelle** (Testcontainers
-  PostgreSQL) avec migrations actives ; un `@SpringBootTest` sur H2 avec `ddl-auto: create-drop`
-  et Liquibase/Flyway désactivés n'est pas un test d'intégration.
-- §10.1 : les règles issues des `feedback_*` sont **promues dans CONVENTIONS** ; la relecture de
-  la mémoire reste mais n'est plus la seule source.
-- §11 *(P6-D13)* : le squelette de projet de référence est `claude-harness/templates/project/`.
-- §12 : skills génériques **dans le plugin `claude-harness`** ; *(P6-D3)* la phrase « never stored
-  outside the project or shared globally » est **retirée** ; les agents non-Claude lisent les
-  `SKILL.md` du clone local du harness ; tout invariant bloquant est vérifié en CI ; *(P6-D2)*
-  « Master propagation » : le master est `claude-harness/CONVENTIONS.md`, les copies sont mises à
-  jour dans les lots d'adoption et vérifiées par `harness-invariants.yml` ; `.claude/skills/` d'un repo
-  réservé aux skills propres au projet ; `## Gate parameters` obligatoire et au census.
-- §13 : noms des skills du plugin, gate `lot-test → lot-review → lot-audit → lot-ship` (+
-  `integration-check` pour les fronts) ; *(lot 2b)* `lot-review` s'exécute sous profil `claude`
-  uniquement, voir point d'arrêt fin-de-dev ci-dessous.
-- Promotion des feedbacks (#21) : invocation des skills (kb), règles kf (PR vers `develop`,
-  tiret demi-cadratin, signals Angular : ce dernier dans le `CLAUDE.md` des fronts).
-
-Routage revue/code par profil LLM *(demande utilisateur, 2026-09-18, hors constats d'audit)* :
-
-- Script `~/.local/bin/claude-profile {claude|deepseek}` (préexistant, vérifié fonctionnel :
-  `set -euo pipefail`, valide le profil par regex, vérifie l'existence et le JSON de
-  `~/.claude/settings.$PROFILE.json` avant de l'écraser sur `~/.claude/settings.json` par
-  `cp`+`mv` atomique ; notifie via `notify-send`). Deux profils déjà présents :
-  `settings.claude.json` (modèle `claude-fable-5-1[1m]`, agent Claude natif) et
-  `settings.deepseek.json` (modèle `sonnet` routé vers DeepSeek via
-  `ANTHROPIC_BASE_URL=https://api.deepseek.com/anthropic` + `ANTHROPIC_DEFAULT_*_MODEL=deepseek-v4-*`).
-- Convention d'usage *(révisée 2026-09-18 après test)* : le switch de profil en cours de session
-  **ne change pas** le modèle de la session active — vérifié : après `claude-profile deepseek`
-  puis `claude-profile claude`, la session est restée sur `deepseek-v4-pro[1m]` alors que
-  `settings.json` indiquait de nouveau `claude-fable-5-1[1m]`. En conséquence, l'agent **n'effectue
-  aucune bascule de profil en cours de session**. Le harness impose un point d'arrêt en fin de
-  développement d'un lot, **avant** la génération de l'audit (`lot-audit`) et la création de la PR
-  (`lot-ship`) : l'agent s'arrête, indique à l'utilisateur que le développement est terminé, et
-  l'invite à démarrer une **nouvelle session** (après `claude-profile claude` si le profil actif
-  est `deepseek`) pour enchaîner sur l'audit et la PR sous le profil `claude`.
-- §4 du master (ci-dessus) autorise ces deux commandes sans confirmation répétée : les invoquer
-  est en soi la demande explicite de l'utilisateur.
-- ⚠️ Constat relevé en vérifiant ce livrable : `settings.deepseek.json` contient
-  `ANTHROPIC_AUTH_TOKEN` en clair (clé API DeepSeek). Contraire à la règle « secrets hors repo /
-  pas de valeur par défaut en dur » (§5 du master, « Forbidden patterns » §3). Hors périmètre de
-  cette édition (fichier local, non versionné) mais à corriger : déplacer vers un gestionnaire de
-  secrets ou une variable d'environnement chargée au lancement, jamais commitée telle quelle si
-  ce fichier venait à être versionné.
-
-`~/.claude/settings.json` :
-
-- Plugin `claude-harness` activé (user) via `extraKnownMarketplaces` avec `"ref": "main"`
-  (jamais sans ref : la branche par défaut du harness est `develop`) ; ancien hook miroir retiré
-  (remplacé par le plugin). Prérequis : branche `main` du harness créée par la première promotion.
-- Allow `Bash(git *)` réexaminé selon V3.
-
-Mémoires :
-
-- kf `feedback_pr_workflow.md` : « PR to `develop` » (#15).
-- Racine `project-portfolio-state.md` : faits périmés (Angular 21, PR #16, `prompt-harness.md`,
-  copie ROADMAP) corrigés ; *(P6-D14)* squelette elya-frontend désormais commité, audits versionnés
-  dans le harness, repos tous privés. (Remote Bitbucket du legacy : corrigé le 2026-09-17.)
-- *(P6-D14)* Toute mémoire `project_*` porte une ligne « Verified: AAAA-MM-JJ » ; `harness-sync`
-  signale celles de plus de 60 jours.
-
-### Critères de validation
-
-- [ ] Master propagé : `cp` dans le `CONVENTIONS.md` de chaque repo **dans les lots d'adoption**
-      (7 à 14), pas en commit isolé
-- [ ] Aucun « Sprint chaining » dans le master
-- [ ] `readlink ~/.claude/coding-conventions.md` pointe vers le clone du harness ; contenu
-      présent en session (V7)
-- [ ] `claude-profile claude` et `claude-profile deepseek` fonctionnels (script + les deux
-      `settings.$PROFILE.json` valides) ; §4 documente l'exception ; fuite `ANTHROPIC_AUTH_TOKEN`
-      de `settings.deepseek.json` signalée à l'utilisateur (corrigée hors périmètre de ce lot)
-- [ ] Point d'arrêt `lot-dev` → (nouvelle session) → `lot-audit`/`lot-ship` documenté dans le
-      livrable « Routage revue/code par profil LLM » et respecté par l'agent (aucune bascule de
-      profil tentée en cours de session)
+Fait : `CONVENTIONS.md` devient le master (lien symbolique depuis
+`~/.claude/coding-conventions.md`), routage revue/code par profil LLM (§4, §14),
+mémoires promues et datées.
+Rapport : `docs/audits/lot-5.md`. SHA : `cbb7ac2`.
 
 ---
 
-## LOT 6 — Nettoyage de la racine 🔄
+## LOT 6 — Nettoyage de la racine ✅
 
-Constats : **#11**, #23 ; *(P6)* A3, A4.
+Fait : audits transverses déplacés dans `claude-harness/docs/audits/portfolio/`,
+`~/ENV/projets/audit/` supprimé, timer de sauvegarde systemd user.
+Rapport : `docs/audits/lot-6.md`. SHA : `2b30ddc`.
 
-### Livrables
-
-- Suppression de `~/ENV/projets/ROADMAP.md` ; `~/ENV/claude-backup/export-claude-project.sh`
-  lit `deployment/ROADMAP.md` directement.
-- `claude-project-instructions.md` : en-tête « Not for coding agents – claude.ai project
-  instructions » et renvoi au master `deployment/ROADMAP.md`.
-- *(P6-D4, inverse la décision initiale)* `~/ENV/projets/audit/*` (P4 v1 et v2, P5, P6) **déplacé**
-  dans `claude-harness/docs/audits/portfolio/` et inscrit au census du harness ;
-  `deployment/docs/audits/` ne garde que P3 et renvoie au harness pour les autres ; census de
-  `deployment/CLAUDE.md` corrigé (P4 v2, « 8 repos »). Le répertoire `~/ENV/projets/audit/` est
-  supprimé après vérification `cmp` des copies.
-- *(P6-D2)* Timer systemd user hebdomadaire sur `~/ENV/claude-backup/backup-md.sh` (mémoires,
-  réglages user-level), sans dépendance nouvelle.
-
-### Critères de validation
-
-- [ ] Export claude.ai régénéré et `EXPORT-INFO.txt` cohérent
-- [ ] `ls ~/ENV/projets/audit` vide ou absent ; `systemctl --user list-timers` montre le timer de sauvegarde
+Revue de lot et corrections pour l'ensemble de la branche fondation (0 à 6) :
+`docs/audits/lot-0-6-review.md`. SHA des corrections : `ed1bfe6`, `e9b2dc2`, `bf6fc70`, `2852b7b`.
 
 ---
 
