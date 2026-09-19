@@ -30,7 +30,7 @@
 | 7 | `chore/harness-adoption` (kb) | C – Adoption | kreadevis-backend (pilote backend) + kb lot 22 | kb | 🔄 |
 | 8 | `chore/harness-adoption` (kf) | C – Adoption | kreadevis-frontend (pilote frontend) | kf | 🔄 |
 | 9 | `chore/harness-adoption` (mpb) | C – Adoption | meal-planner-backend | mpb | 🔄 |
-| 10 | `chore/harness-adoption` (mpf) | C – Adoption | meal-planner-frontend (+ audit rétroactif) | mpf | ⬜ |
+| 10 | `chore/harness-adoption` (mpf) | C – Adoption | meal-planner-frontend (+ audit rétroactif) | mpf | 🔄 |
 | 11 | `chore/harness-adoption` (elya) | C – Adoption | elya | elya | ⬜ |
 | 12 | `chore/harness-adoption` (elya-fe) | C – Adoption | elya-frontend | elya-frontend | ⬜ |
 | 13 | `chore/harness-adoption` (deployment) | C – Adoption | deployment | deployment | ⬜ |
@@ -382,7 +382,29 @@ c'était une gate sans signification — mesurée sur H2, cf. ci-dessous.
   `image-smoke.yml` sont posés en commentaire et décommentés par le lot 13 mpb, avec le
   `compose.ci.yml` dont `image-smoke` a besoin.
 
-## LOT 10 — meal-planner-frontend ⬜
+## LOT 10 — meal-planner-frontend 🔄
+
+**Livré** sur `meal-planner-frontend`, branche `chore/harness-adoption` : `9422dd7`,
+PR #21. Rapport : `docs/audits/lot-10.md`. Deux consignes ci-dessous étaient fausses :
+
+1. **`enforce: false` comme pour kf** — non : le bundle de production ne contient
+   **pas** `localhost:8080`, parce que `environment.ts` n'est importé que par
+   `AuthService` et les services `core/api`, qu'aucun composant atteignable
+   n'utilise, donc le build les élague (vérifié sur `dist/meal-planner/browser`).
+   Le job tourne en `enforce: true` : il deviendra rouge au commit du lot 11 qui
+   câble ces services, c'est-à-dire exactement celui qui doit ajouter
+   `fileReplacements`. Un job report-only serait resté muet sur le changement
+   qu'il existe pour attraper. Leçon générale : `Dist forbidden pattern` décrit
+   le **bundle**, pas l'arborescence source — greper l'artefact avant de choisir.
+2. **« seuil `lines: 0` remplacé par le niveau mesuré »** — le niveau mesuré est
+   `Lines 100 % (1/1)` : une spec pour 28 fichiers source, et le builder Karma
+   n'instrumente que ce qu'une spec importe. Le seuil reste à 0, avec la raison
+   écrite dans `karma.conf.js`, et un **lot 16** (suite de tests) est créé.
+
+L'audit rétroactif a trouvé un constat critique : le lot 13 mpf a écrit
+`authInterceptor` et `authGuard` sans jamais les enregistrer
+(`provideHttpClient()` nu, aucune route `/login`, aucun `canActivate`), et
+`CLAUDE.md` affirmait le contraire. Le lot 11 mpf porte désormais le branchement.
 
 - Checklist commune ; *(P6-D1)* prérequis : `meal-planner-frontend` passé en privé (lot 6b).
 - *(P6-D8)* Vérifier que le lot de montée Angular 19 → 21 est planifié dans `lots.md` **avant** le
