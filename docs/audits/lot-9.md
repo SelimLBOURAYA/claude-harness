@@ -99,8 +99,11 @@ calendar commitment): all pass.
 - **mpb lot 13** carries three items this audit refuses to pull forward:
   Testcontainers `postgres:17` with Flyway active, ports bound to `127.0.0.1`,
   and uncommenting the two image jobs.
-- The two owner actions of `docs/audits/lot-7.md` apply here identically:
-  `HARNESS_READ_TOKEN` cannot read the harness (403), so `harness-invariants`
-  fails on this pull request for a reason no commit in this repo can fix; and
-  the `lint.yml` fixes only reach this repo once the harness `develop` is
-  promoted to `main`.
+- The two owner actions of `docs/audits/lot-7.md` apply here identically, and
+  the second one is the harder of the two: runs `35445240628` / `35445253073`
+  on this branch end in **`startup_failure` after one second**. `lint.yml` at
+  `main` declares no `secrets:` block, so the `nvd_api_key` this caller passes
+  makes GitHub reject the whole workflow at load time — no job, no check run.
+  PR #22 will only produce a readable result once the harness `develop` is
+  promoted to `main`; then `harness-invariants` will still be red until
+  `HARNESS_READ_TOKEN` can read the harness repository.
