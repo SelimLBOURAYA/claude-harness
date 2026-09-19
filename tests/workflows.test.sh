@@ -108,10 +108,17 @@ assert_eq "" "$(grep -n '|| true' "$WF/lint.yml" || true)" \
 for tool in spotless prettier "npm audit" dependency-check; do
   assert_ok "lint covers $tool" -- grep -qF "$tool" "$WF/lint.yml"
 done
-assert_eq "3" "$(grep -c 'skipped:' "$WF/lint.yml")" \
+# spotless, prettier, eslint, and dependency-check when no NVD key is configured.
+assert_eq "4" "$(grep -c 'skipped:' "$WF/lint.yml")" \
   "each optional lint step reports an explicit skip"
-assert_ok "the dependency audit is non-blocking" -- \
-  grep -q 'continue-on-error: true' "$WF/lint.yml"
+# The audit is non-blocking at the *step* level. On the job, continue-on-error
+# still publishes a check run with conclusion "failure", so the pull request
+# shows a red check for a signal declared informative - and §7 says a red pull
+# request is never merged.
+assert_eq "" "$(grep -n '^    continue-on-error' "$WF/lint.yml" || true)" \
+  "lint carries no job-level continue-on-error"
+assert_eq "2" "$(grep -c '^        continue-on-error: true' "$WF/lint.yml")" \
+  "both audit steps are non-blocking"
 
 # --- P5-#15: the bundle is checked for real ------------------------------
 assert_ok "frontend-dist requires an entry point" -- \

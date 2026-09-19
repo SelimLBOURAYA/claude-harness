@@ -27,6 +27,13 @@ on:
         required: false
         type: string
         default: "."
+    secrets:
+      nvd_api_key:
+        description: >-
+          NVD API key. OWASP dependency-check 13 refuses to build its database
+          without one. Absent, the backend vulnerability scan reports a skip
+          instead of failing - see the audit job.
+        required: false
 
 permissions:
   contents: read
@@ -97,9 +104,14 @@ jobs:
 
   # Non-blocking until the first go-live (P6-D12). It reports, it does not gate:
   # a transitive advisory with no fix available must not stop a lot.
+  #
+  # The non-blocking part is carried by continue-on-error on the two scan steps,
+  # not on the job. A job-level continue-on-error still publishes the check run
+  # with conclusion "failure": the pull request shows a red check that §7 says is
+  # never to be merged, for a signal that was declared informative. An
+  # informative check that renders red teaches the reader to ignore red.
   audit:
     runs-on: ubuntu-latest
-    continue-on-error: true
     defaults:
       run:
         working-directory: ${{ inputs.working_directory }}
@@ -120,7 +132,12 @@ jobs:
 
       - name: npm audit
         if: inputs.stack == 'frontend'
-        run: npm audit --audit-level=high
+        continue-on-error: true
+        run: |
+          npm audit --audit-level=high || {
+            echo "- npm audit: **advisories reported**, see the step log" >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          }
 
       - name: Set up Java
         if: inputs.stack == 'backend'
@@ -132,4 +149,19 @@ jobs:
 
       - name: Dependency vulnerabilities
         if: inputs.stack == 'backend'
-        run: ./mvnw -B -q org.owasp:dependency-check-maven:check -DfailBuildOnCVSS=11
+        continue-on-error: true
+        env:
+          NVD_API_KEY: ${{ secrets.nvd_api_key }}
+        run: |
+          # dependency-check 13 builds its database from the NVD API and that API
+          # now rejects unauthenticated callers outright ("Invalid API Key, length
+          # of 0"). Without a key the plugin does not report zero findings, it
+          # aborts before analysing anything - a skip that says so beats a red
+          # check that says nothing.
+          if [ -z "$NVD_API_KEY" ]; then
+            echo "skipped: no NVD API key configured"
+            echo "- dependency-check: **skipped**, no \`NVD_API_KEY\` secret" >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          ./mvnw -B -q org.owasp:dependency-check-maven:check \
+            -DfailBuildOnCVSS=11 -DnvdApiKey="$NVD_API_KEY"
