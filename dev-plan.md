@@ -26,7 +26,7 @@
 | 4 | `feat/lot-0-6-harness-foundation` | A – Harness | Squelette de projet (remplace `prompt-harness.md`) | claude-harness, racine, mpb | ✅ |
 | 5 | `feat/lot-0-6-harness-foundation` | B – Conventions | Master des conventions déplacé dans `claude-harness/CONVENTIONS.md`, réglages user-level, mémoires | claude-harness, `~/.claude` | ✅ |
 | 6 | `feat/lot-0-6-harness-foundation` | B – Conventions | Nettoyage racine `~/ENV/projets` | racine, claude-harness, deployment | ✅ |
-| 6b | – (manuel, GitHub) | B – Conventions | Réglages GitHub : branche par défaut `develop` *(P5)*, passage en privé de `kreadevis` et `meal-planner-frontend` *(P6-D1)* | GitHub (utilisateur), 9 repos | 🔄 |
+| 6b | – (manuel, GitHub) | B – Conventions | Réglages GitHub : branche par défaut `develop` *(P5)*, passage en privé *(P6-D1)*, accès aux workflows réutilisables, `HARNESS_READ_TOKEN` | GitHub (utilisateur), 9 repos | 🔄 |
 | 7 | `chore/harness-adoption` (kb) | C – Adoption | kreadevis-backend (pilote backend) | kb | ⬜ |
 | 8 | `chore/harness-adoption` (kf) | C – Adoption | kreadevis-frontend (pilote frontend) | kf | ⬜ |
 | 9 | `chore/harness-adoption` (mpb) | C – Adoption | meal-planner-backend | mpb | ⬜ |
@@ -230,15 +230,25 @@ agent : §4, décision avec impact sécurité). Aucun code ; peut être fait ava
    publics éventuels détachés et **restent publics**, GitHub Pages désactivé ; les packages GHCR
    déjà publiés gardent leur visibilité propre (à vérifier, aucun n'est attendu).
 3. Vérification : `gh repo view <repo> --json visibility,defaultBranchRef` = `PRIVATE` et
-   `develop` ×9.
-4. `deployment/CLAUDE.md` § Branching model : une ligne « branche par défaut GitHub = `develop` ;
-   tous les repos privés, aucune protection disponible : relecture humaine seule ».
+   `develop` ×9. **Fait le 2026-09-19**, relevé dans `docs/audits/lot-6b.md`.
+4. *(déplacé au lot 13)* `deployment/CLAUDE.md` § Branching model : une ligne « branche par
+   défaut GitHub = `develop` ; tous les repos privés, aucune protection disponible : relecture
+   humaine seule ». Édition dans un autre repo, faite dans son lot d'adoption.
+5. **Accès aux workflows réutilisables** — l'API renvoie `access_level: none`, donc aucun repo
+   ne peut appeler les workflows du harnais privé. Commande dans
+   `README.md` § « Making the harness consumable ». **Bloque le lot 7** (c'est la V4 du lot 0,
+   tranchée par l'API : négative tant que le réglage n'est pas fait).
+6. **`HARNESS_READ_TOKEN`** — token fine-grained `Contents: Read-only` sur `claude-harness`,
+   posé en secret sur les 8 repos consommateurs. Sans lui, `harness-invariants.yml` échoue au
+   checkout du master des conventions. **Bloque le lot 7.**
 
 ### Critères de validation
 
-- [ ] Un `gh pr create` sans `--base` depuis une branche `feat/*` cible `develop` sur les 9 repos
-- [ ] `gh repo list SelimLBOURAYA --json name,visibility` : aucun repo du portefeuille `PUBLIC`
-- [ ] Rapport `docs/audits/lot-6b.md` (captures ou sorties `gh api`)
+- [x] Un `gh pr create` sans `--base` depuis une branche `feat/*` cible `develop` sur les 9 repos
+- [x] `gh repo list SelimLBOURAYA --json name,visibility` : aucun repo du portefeuille `PUBLIC`
+- [x] Rapport `docs/audits/lot-6b.md` (sorties `gh api`)
+- [ ] `gh api repos/SelimLBOURAYA/claude-harness/actions/permissions/access` renvoie `user`
+- [ ] `HARNESS_READ_TOKEN` présent sur les 8 repos consommateurs
 
 ---
 
@@ -277,6 +287,9 @@ Chaque lot d'adoption applique **toute** la checklist, puis les points propres a
 
 ## LOT 7 — kreadevis-backend ⬜
 
+- **Prérequis lot 6b** : `access_level=user` sur `claude-harness` et `HARNESS_READ_TOKEN` posé,
+  sinon le `ci.yml` écrit par la checklist commune échoue dès le premier push. Et V1, V2, V3
+  exécutées après la promotion `develop` → `main` (`docs/audits/lot-0.md`).
 - Checklist commune.
 - `lot-audit/checklists.md` au census (#22).
 - Suppression des références `skill/` restantes dans `harness-sync` local (remplacé par le plugin).
@@ -379,6 +392,9 @@ Chaque lot d'adoption applique **toute** la checklist, puis les points propres a
 ## LOT 13 — deployment ⬜
 
 - Checklist commune (création de `.claude/` et `.github/workflows/ci.yml`, absents aujourd'hui).
+- *(repris du lot 6b, livrable 4)* `CLAUDE.md` § Branching model : une ligne « branche par défaut
+  GitHub = `develop` ; tous les repos privés, aucune protection disponible : relecture humaine
+  seule ».
 - Validation gate non triviale (#24, P5-#17) : `test -d stacks/core` tant que le lot 1 deployment
   n'est pas livré, **ou** annotation explicite « no-op until LOT 1 » dans Gate parameters
   (à trancher en début de lot, voir P3).
