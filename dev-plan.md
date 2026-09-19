@@ -28,7 +28,7 @@
 | 6 | `feat/lot-0-6-harness-foundation` | B – Conventions | Nettoyage racine `~/ENV/projets` | racine, claude-harness, deployment | ✅ |
 | 6b | – (manuel, GitHub) | B – Conventions | Réglages GitHub : branche par défaut `develop` *(P5)*, passage en privé *(P6-D1)*, accès aux workflows réutilisables, `HARNESS_READ_TOKEN` | GitHub (utilisateur), 9 repos | ✅ |
 | 7 | `chore/harness-adoption` (kb) | C – Adoption | kreadevis-backend (pilote backend) + kb lot 22 | kb | 🔄 |
-| 8 | `chore/harness-adoption` (kf) | C – Adoption | kreadevis-frontend (pilote frontend) | kf | ⬜ |
+| 8 | `chore/harness-adoption` (kf) | C – Adoption | kreadevis-frontend (pilote frontend) | kf | 🔄 |
 | 9 | `chore/harness-adoption` (mpb) | C – Adoption | meal-planner-backend | mpb | ⬜ |
 | 10 | `chore/harness-adoption` (mpf) | C – Adoption | meal-planner-frontend (+ audit rétroactif) | mpf | ⬜ |
 | 11 | `chore/harness-adoption` (elya) | C – Adoption | elya | elya | ⬜ |
@@ -322,7 +322,15 @@ avant le premier déploiement réel.
 - *(P6-D1)* Prérequis : `kreadevis` passé en privé (lot 6b), sinon les workflows du harness ne sont
   pas appelables.
 
-## LOT 8 — kreadevis-frontend ⬜
+## LOT 8 — kreadevis-frontend 🔄
+
+**Livré** sur `kreadevis-frontend`, branche `chore/harness-adoption` : `496860d`.
+Rapport : `docs/audits/lot-8.md`. Constat du lot : la consigne
+`continue-on-error: true` ci-dessous était fausse — un `continue-on-error` de job
+publie quand même le check run en `failure`, donc la PR reste rouge pour un signal
+déclaré informatif, ce que §7 interdit de merger. `frontend-dist.yml` a reçu une
+entrée `enforce` (défaut `true`) : à `false` il annote en `::warning::` et écrit
+une ligne `report-only` dans le résumé du job (harnais `acfd9b9`).
 
 - Checklist commune.
 - `.claude/CLAUDE.md` réduit à « See CLAUDE.md at the project root » (#20) ;
@@ -333,8 +341,9 @@ avant le premier déploiement réel.
   `ghcr.io/selimlbouraya/kreadevis-frontend` ; KF.13 appelle `image-publish.yml` *(P6-D9)*.
 - *(P5-#15)* `ci.yml` appelle `frontend-dist.yml` dès ce lot : il **échouera** tant que
   `environment.ts` porte `localhost:8080` (`angular.json` `fileReplacements` no-op) ; c'est voulu,
-  le correctif est le lot 13 kf (same-origin). Si le lot 13 n'est pas prêt, le job est déclaré
-  `continue-on-error: true` avec un commentaire daté, jamais retiré.
+  le correctif est le lot 13 kf (same-origin). Tant que le lot 13 n'est pas livré, le job est
+  appelé avec `enforce: false` et un commentaire nommant ce lot — jamais une exemption sans lot.
+  Le lot 13 kf porte le livrable « repasser `enforce: true` » dans `kreadevis-frontend/lots.md`.
 - **Conséquence** : le prochain lot fonctionnel kf est bloqué à `gh pr create` tant que
   `docs/audits/lot-0-integration.md` n'existe pas (lot 0 kf toujours ⬜, #3). Le lot 0 kf
   lui-même reste dans `kreadevis-frontend/lots.md`, hors de ce plan.
