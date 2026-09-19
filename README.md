@@ -160,9 +160,43 @@ Called with `workflow_call` from each repo's `.github/workflows/ci.yml`. Start f
 | `frontend-dist.yml` | Production bundle free of the forbidden pattern, `index.html` present |
 | `lint.yml` | Prettier/ng lint or Spotless, plus a non-blocking dependency audit |
 
-Access is granted through **Settings → Actions → General → Access →
-"Accessible from repositories owned by the user"**. All consuming repos must be
-private: GitHub does not let a public repo call a private repo's reusable workflow.
+## Making the harness consumable
+
+Two repository settings decide whether a consuming repo's `ci.yml` runs at all.
+Both are owner actions, done once, before the first adoption. Until they are
+done, every caller fails on its first push — not with a conventions diff, with a
+checkout or a workflow-resolution error.
+
+**1. Let other repositories call these workflows.** A private repo shares its
+reusable workflows only when its access level says so; the default is `none`.
+
+```bash
+gh api -X PUT repos/SelimLBOURAYA/claude-harness/actions/permissions/access \
+  -f access_level=user
+gh api repos/SelimLBOURAYA/claude-harness/actions/permissions/access   # expect "user"
+```
+
+Equivalent in the interface: **Settings → Actions → General → Access →
+"Accessible from repositories owned by the user"**. All consuming repos must
+also be private: GitHub does not let a public repo call a private repo's
+reusable workflow.
+
+**2. Give the callers a token that can read this repo.**
+`harness-invariants.yml` checks out `claude-harness` to compare `CONVENTIONS.md`
+against the master, and `github.token` is scoped to the calling repository only.
+Create a fine-grained personal access token limited to `SelimLBOURAYA/claude-harness`
+with **Contents: Read-only**, then publish it under the name the caller template
+expects:
+
+```bash
+for r in kreadevis kreadevis-frontend meal-planner-backend meal-planner-frontend \
+         elya elya-frontend summerize-youtube deployment; do
+  gh secret set HARNESS_READ_TOKEN --repo "SelimLBOURAYA/$r" --body "$TOKEN"
+done
+```
+
+Set the token's expiry in a calendar reminder: when it lapses, every consuming
+repo goes red at once, on an error that names a checkout rather than a token.
 
 ## Development
 
