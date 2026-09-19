@@ -124,6 +124,10 @@ jobs:
     uses: SelimLBOURAYA/claude-harness/.github/workflows/frontend-dist.yml@main
     with:
       forbidden_pattern: "{{DIST_FORBIDDEN_PATTERN}}"  # Gate parameters: Dist forbidden pattern
+      # Set to false, with the lot that removes the violation named in a
+      # comment, when the repository adopts the harness while the bundle already
+      # carries the pattern. Never left false without that lot.
+      enforce: true
 
   # --- backend only: delete these two jobs on a frontend ------------------
   # Commented out until the project's image lot (P6-D9): publishing before
