@@ -75,8 +75,10 @@ adopted before the token existed would have been red rather than silently unchec
 
 ## Recommended next steps
 
-1. Promote `develop` → `main` (still open, user-only — `main` at `a8aad31`/`f6cbc0b`
-   carries the dev-plan only, no plugin yet).
-2. Run V1, V2, V3 on a throwaway private repo, now that the promotion makes them
-   executable.
-3. Only then start lot 7.
+1. ~~Promote `develop` → `main`~~ — done 2026-09-19; `main` now carries the plugin.
+2. ~~Declare the marketplace/plugin in `~/.claude/settings.json`, remove
+   `sync-claude-agents.sh`~~ — done 2026-09-19 (lot 5's deferred user-level item 2),
+   takes effect on the next session restart.
+3. Run V1, V2, V3 on a throwaway private repo, now that the promotion and the
+   settings declaration make them executable.
+4. Only then start lot 7.
