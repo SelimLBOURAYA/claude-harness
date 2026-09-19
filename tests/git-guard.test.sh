@@ -131,65 +131,17 @@ expect deny "$FEAT" "gh pr create -B main --title t --body b"
 expect deny "$FEAT" "gh pr create --base main --title t --body b"
 expect deny "$FEAT" "gh pr create --base=main --title t --body b"
 
-# On a lot branch, no audit report means no PR.
-expect deny "$FEAT" "gh pr create --base develop --title t --body b"
-
-mkdir -p "$FEAT/docs/audits"
-printf '# Lot 1\n\n| Severity | Finding |\n|---|---|\n| Info | none |\n' \
-  > "$FEAT/docs/audits/lot-1.md"
-# lot-review runs before lot-audit; its report is required too, as
-# lot-deliverables.yml requires it.
-expect deny "$FEAT" "gh pr create --base develop --title t --body b"
-printf '# Lot 1 review\n' > "$FEAT/docs/audits/lot-1-review.md"
+# The branching model is the guard's business; gate deliverables are not. Audit
+# and review reports are checked by lot-deliverables.yml alone, the only guard
+# that also covers Cursor and DeepClaude. The hook asks, and stops there.
 expect ask "$FEAT" "gh pr create --base develop --title t --body b"
 expect ask "$FEAT" "gh pr create -B develop --title t --body b"
 
-# An unresolved Critical row blocks the PR; a resolved one does not.
-printf '| Critical | src/x | secret in logs | fix it |\n' >> "$FEAT/docs/audits/lot-1.md"
-expect deny "$FEAT" "gh pr create --base develop --title t --body b"
-printf '' > "$FEAT/docs/audits/lot-1.md"
-printf '# Lot 1\n\n| Critical | src/x | secret in logs | resolved in 1a2b3c4 |\n' \
-  > "$FEAT/docs/audits/lot-1.md"
-expect ask "$FEAT" "gh pr create --base develop --title t --body b"
-
-# The severity must be the row's FIRST cell. Every report opens with a summary
-# table whose header names a Critical column and whose counts are zero; that
-# header is not a finding and must not block the PR.
-printf '# Lot 1\n\n| Dimension | Critical | Warning | Info |\n|---|---|---|---|\n| Security | 0 | 1 | 1 |\n' \
-  > "$FEAT/docs/audits/lot-1.md"
-expect ask "$FEAT" "gh pr create --base develop --title t --body b"
-# A severity cell prefixed by its emoji still counts as a first-cell Critical.
-printf '| ⚠️ Critical | src/y | token in clear | to do |\n' >> "$FEAT/docs/audits/lot-1.md"
-expect deny "$FEAT" "gh pr create --base develop --title t --body b"
-
-# A range branch declares every lot it spans, like lot-deliverables.yml: checking
-# only the first one would pass a PR that CI then rejects.
-RANGE=$(make_repo range-repo feat/lot-0-2-foundation)
-mkdir -p "$RANGE/docs/audits"
-for n in 0 1; do
-  printf '# Lot %s\n' "$n" > "$RANGE/docs/audits/lot-$n.md"
-  printf '# Lot %s review\n' "$n" > "$RANGE/docs/audits/lot-$n-review.md"
-done
-expect deny "$RANGE" "gh pr create --base develop --title t --body b"
-printf '# Lot 2\n' > "$RANGE/docs/audits/lot-2.md"
-printf '# Lot 2 review\n' > "$RANGE/docs/audits/lot-2-review.md"
-expect ask "$RANGE" "gh pr create --base develop --title t --body b"
-# A suffixed lot is one lot, not a range: lot-2b must not be read as 2..b.
-SUFFIX=$(make_repo suffix-repo feat/lot-2b-review-skill)
-mkdir -p "$SUFFIX/docs/audits"
-printf '# Lot 2b\n' > "$SUFFIX/docs/audits/lot-2b.md"
-printf '# Lot 2b review\n' > "$SUFFIX/docs/audits/lot-2b-review.md"
-expect ask "$SUFFIX" "gh pr create --base develop --title t --body b"
-
-# A frontend repo additionally needs its integration report.
+# No report anywhere, and the guard still only asks: a missing deliverable is
+# CI's verdict to give, not the hook's.
 FRONT=$(make_repo front-repo feat/lot-3-list)
-mkdir -p "$FRONT/docs/audits"
-printf '# Lot 3\n' > "$FRONT/docs/audits/lot-3.md"
-printf '# Lot 3 review\n' > "$FRONT/docs/audits/lot-3-review.md"
 printf '## Gate parameters\n\n| Parameter | Value |\n|---|---|\n| `Stack` | `frontend` |\n' \
   > "$FRONT/CLAUDE.md"
-expect deny "$FRONT" "gh pr create --base develop --title t --body b"
-printf '# Integration\n' > "$FRONT/docs/audits/lot-0-integration.md"
 expect ask "$FRONT" "gh pr create --base develop --title t --body b"
 
 # Other gh commands are none of the guard's business.
