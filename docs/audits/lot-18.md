@@ -1,6 +1,6 @@
 # Lot Audit — Lot 18 — feat/lot-18-reaudit-fixes
 
-**Harness ref:** ac5a470
+**Harness ref:** be99927
 **Scope:** 10 modified files | **Verdict:** Ready for PR
 
 ## Summary
@@ -45,7 +45,7 @@ Examined and cleared:
 
 | Severity | Location | Finding | Action |
 |----------|----------|---------|--------|
-| Warning | `plugins/claude-harness/skills/lot-audit/SKILL.md` (Step 0) | The gate rule "review deliverable present, and stop if its recorded commit is behind HEAD" is unsatisfiable as written: `lot-review` records the SHA it reviewed, then commits its fixes and its own report on top, so the recorded SHA is **always** behind HEAD by the time `lot-audit` runs. The rule's intent is "no *code* landed after the review", which holds here — the two commits after `9f1f871` are the review's own fix and the review report. | Reported, not fixed: outside this lot's stated scope, and it belongs to a skill-wording lot. Recorded here; adding it to `dev-plan.md` awaits the user's approval, as the skill requires for any lots-file enrichment. |
+| Warning | `plugins/claude-harness/skills/lot-audit/SKILL.md` (Step 0) | The gate rule "review deliverable present, and stop if its recorded commit is behind HEAD" is unsatisfiable as written: `lot-review` records the SHA it reviewed, then commits its fixes and its own report on top, so the recorded SHA is **always** behind HEAD by the time `lot-audit` runs. The rule's intent is "no *code* landed after the review", which holds here — the two commits after `4d4e0ac` are the review's own fix and the review report. | Reported, not fixed: outside this lot's stated scope, and it belongs to a skill-wording lot. Recorded here; adding it to `dev-plan.md` awaits the user's approval, as the skill requires for any lots-file enrichment. |
 | Info | `.github/workflows/ci.yml:30` | The harness now calls a reusable workflow on itself with `stack: harness`. That is the first self-call in this repository's CI; the file's header comment, which explains why only some workflows apply to a repo that *is* the harness, was updated in the same commit to say why this one does. | No action. |
 
 Checked against `CONVENTIONS.md` and this repository's `CLAUDE.md`:
