@@ -546,6 +546,40 @@ D="$COVWORK/lint-yaml-broken"; mkdir -p "$D"
 printf 'services:\n  db:\n   image: [unclosed\n' > "$D/compose.yml"
 assert_eq "1" "$(run_lint "$COVWORK/yamlcheck.sh" "$D")" "unparseable YAML fails"
 
+# shellcheck is not in the harness dependency budget, and the interesting half
+# of the step is which files it hands over, not what shellcheck says about them.
+# A stub on PATH records the argument list, so the discovery logic is exercised
+# on every machine: the step that checks nothing is the failure being fixed.
+STUB="$COVWORK/stub-bin"; mkdir -p "$STUB"
+cat > "$STUB/shellcheck" <<'STUBEOF'
+#!/usr/bin/env bash
+for arg in "$@"; do
+  case "$arg" in --*) continue ;; esac
+  printf '%s\n' "$arg"
+done | sort > "$SHELLCHECK_ARGV"
+exit "${SHELLCHECK_EXIT:-0}"
+STUBEOF
+chmod +x "$STUB/shellcheck"
+
+# run_stubbed <dir> <stub exit>  : echoes the step's exit status
+run_stubbed() {
+  ( cd "$1" && PATH="$STUB:$PATH" GITHUB_STEP_SUMMARY="$1/summary.md" \
+      SHELLCHECK_ARGV="$1/argv.txt" SHELLCHECK_EXIT="$2" \
+      bash "$COVWORK/shellcheck.sh" > /dev/null 2>&1; echo $? )
+}
+
+D="$COVWORK/lint-discovery"; mkdir -p "$D/scripts" "$D/.git"
+printf '#!/usr/bin/env bash\ntrue\n' > "$D/scripts/deploy.sh"
+printf '#!/usr/bin/env bash\ntrue\n' > "$D/hook"; chmod +x "$D/hook"
+printf '#!/usr/bin/env python3\n' > "$D/tool.py"; chmod +x "$D/tool.py"
+printf 'plain text\n' > "$D/README.md"
+printf '#!/usr/bin/env bash\ntrue\n' > "$D/.git/hooks-sample.sh"
+assert_eq "0" "$(run_stubbed "$D" 0)" "the step passes when shellcheck is happy"
+assert_eq "./hook
+./scripts/deploy.sh" "$(cat "$D/argv.txt" 2>/dev/null)" \
+  "shellcheck receives the .sh files and the shell entry points, and nothing else"
+assert_eq "1" "$(run_stubbed "$D" 1)" "a shellcheck finding fails the step"
+
 if command -v shellcheck > /dev/null; then
   D="$COVWORK/lint-sh-ok"; mkdir -p "$D"
   printf '#!/usr/bin/env bash\nset -eu\necho "ok"\n' > "$D/good.sh"
