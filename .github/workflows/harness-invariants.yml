@@ -17,6 +17,16 @@ on:
         required: false
         type: string
         default: "main"
+      coverage_infra_packages:
+        description: >-
+          Package name segments a coverage exclusion may legitimately cover:
+          pure configuration and generated code. Anything else excluded is
+          business code, and a threshold measured around it is a fiction
+          (lot 17). A repository that needs another segment names it here, in
+          its own ci.yml, so the exemption lands in a reviewed diff.
+        required: false
+        type: string
+        default: "config,configuration,dto,dtos,mapper,mappers,generated"
     secrets:
       harness_token:
         description: >-
@@ -103,6 +113,116 @@ jobs:
             printf "%b\n" "$missing"
             exit 1
           fi
+
+      - name: The coverage gate has something to measure
+        run: |
+          # Lot 17. elya declared a 0.80 JaCoCo gate whose analysed bundle held
+          # zero classes: its two source files were both covered by an
+          # exclusion, and an empty bundle satisfies every ratio rule there is.
+          # "All coverage checks have been met" then means "nothing was
+          # checked", and the threshold starts gating - silently, on code
+          # written in that very commit - at the first file that escapes the
+          # patterns. This step needs no coverage report and no build: a
+          # threshold above zero must simply have a subject.
+          threshold=$(awk -F'|' '/\| `Coverage threshold`/ {print $3; exit}' CLAUDE.md \
+                      | sed -n 's/[^`]*`\([^`]*\)`.*/\1/p')
+          case "$threshold" in
+            ""|n/a|N/A) echo "no numeric coverage threshold declared, nothing to check"; exit 0 ;;
+          esac
+          case "$threshold" in
+            *[!0-9.]*) echo "::notice::coverage threshold '$threshold' is not a number, skipped"; exit 0 ;;
+          esac
+          # A declared 0 is honest: mpf carries it with the reason written down.
+          if awk -v t="$threshold" 'BEGIN { exit !(t + 0 == 0) }'; then
+            echo "coverage threshold is 0, the repository claims no coverage guarantee"
+            exit 0
+          fi
+
+          stack=$(awk -F'|' '/\| `Stack`/ {print $3; exit}' CLAUDE.md \
+                  | sed -n 's/[^`]*`\([^`]*\)`.*/\1/p')
+          case "$stack" in
+            backend)  sources=$(find src/main/java -name '*.java' 2>/dev/null) ;;
+            frontend) sources=$(find src -name '*.ts' ! -name '*.spec.ts' 2>/dev/null) ;;
+            *) echo "::notice::stack '$stack' has no known source layout, skipped"; exit 0 ;;
+          esac
+          if [ -z "$sources" ]; then
+            echo "::error::CLAUDE.md declares a coverage threshold of $threshold and the repository has no source file to measure."
+            echo "Declare 0 with the reason, as a repository with nothing to cover honestly does, and ratchet it up with the first business code."
+            exit 1
+          fi
+
+          excl=$(awk -F'|' '/\| `Coverage exclusions`/ {print $3; exit}' CLAUDE.md \
+                 | grep -oE '`[^`]+`' | tr -d '`')
+
+          kept=0
+          for f in $sources; do
+            # Compare on the shape the coverage tool uses: JaCoCo excludes class
+            # paths, not file paths.
+            class=${f#src/main/java/}; class=${class%.java}.class
+            rel=${f#src/}
+            covered=0
+            for p in $excl; do
+              glob=${p//\*\*/*}
+              case "$class" in $glob) covered=1; break ;; esac
+              case "$f"     in $glob) covered=1; break ;; esac
+              case "$rel"   in $glob) covered=1; break ;; esac
+            done
+            [ "$covered" -eq 1 ] || kept=$((kept + 1))
+          done
+
+          if [ "$kept" -eq 0 ]; then
+            echo "::error::the coverage threshold is $threshold and every source file is covered by a 'Coverage exclusions' pattern."
+            echo "The gate is applied to an empty scope, so it passes whatever the tests do, and it turns real without warning at the first file outside the patterns."
+            echo "Either narrow the exclusions, or declare the threshold as 0 with the reason until there is code to measure."
+            exit 1
+          fi
+          echo "coverage threshold $threshold applies to $kept source file(s)"
+
+      - name: No coverage exclusion covers a business package
+        env:
+          INFRA: ${{ inputs.coverage_infra_packages }}
+        run: |
+          # Lot 17, the other half. meal-planner-backend declared 0.80 while
+          # excluding auth/**, planning/** and shopping/** - the measurement
+          # said 80 % of whatever happened to be tested, on code already in
+          # production. An exclusion is legitimate for pure configuration and
+          # for generated code; a named single class is auditable on sight. A
+          # whole business package is not.
+          excl=$(awk -F'|' '/\| `Coverage exclusions`/ {print $3; exit}' CLAUDE.md \
+                 | grep -oE '`[^`]+`' | tr -d '`')
+          [ -n "$excl" ] || { echo "no coverage exclusion declared"; exit 0; }
+
+          status=0
+          for p in $excl; do
+            # A pattern naming one class states exactly what it gives up.
+            case "$p" in
+              *.class|*.java|*.ts) continue ;;
+              *'*'*) ;;
+              *) continue ;;
+            esac
+            # The last segment that is a real name, wildcards dropped.
+            seg=""
+            IFS='/' read -ra parts <<< "$p"
+            for part in "${parts[@]}"; do
+              case "$part" in
+                *'*'*|"") ;;
+                *) seg=$part ;;
+              esac
+            done
+            [ -n "$seg" ] || { echo "::error::exclusion '$p' names no package at all"; status=1; continue; }
+            ok=0
+            IFS=',' read -ra allowed <<< "$INFRA"
+            for a in "${allowed[@]}"; do
+              [ "$seg" = "${a// /}" ] && { ok=1; break; }
+            done
+            if [ "$ok" -eq 0 ]; then
+              echo "::error::coverage exclusion '$p' covers the package '$seg', which is not configuration or generated code."
+              echo "A threshold measured around business code reports a number about the code that happened to be tested."
+              echo "Remove the exclusion and let the threshold fall to the real measured level, or name '$seg' in coverage_infra_packages of this repository's ci.yml."
+              status=1
+            fi
+          done
+          exit $status
 
       - name: The documents census covers every skill and report
         run: |
