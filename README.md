@@ -198,6 +198,23 @@ done
 Set the token's expiry in a calendar reminder: when it lapses, every consuming
 repo goes red at once, on an error that names a checkout rather than a token.
 
+A **Dependabot** pull request reads a different secret store, which the command
+above does not fill. Publish the token there too, or the master stays out of
+reach on every dependency PR:
+
+```bash
+for r in kreadevis kreadevis-frontend meal-planner-backend meal-planner-frontend \
+         elya elya-frontend summerize-youtube deployment; do
+  gh secret set HARNESS_READ_TOKEN --app dependabot --repo "SelimLBOURAYA/$r" --body "$TOKEN"
+done
+```
+
+Without it the job no longer fails outright: when the master cannot be read and
+the pull request leaves `CONVENTIONS.md` untouched, the step logs a warning and
+carries over the verification that ran on the base branch. It still fails when
+the change edits `CONVENTIONS.md`, and outside a pull request, where the secret
+was available and its absence is a real fault.
+
 ## Development
 
 ```bash
