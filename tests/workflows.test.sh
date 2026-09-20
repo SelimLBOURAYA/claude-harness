@@ -547,8 +547,10 @@ D="$COVWORK/lint-yaml-broken"; mkdir -p "$D"
 printf 'services:\n  db:\n   image: [unclosed\n' > "$D/compose.yml"
 assert_eq "1" "$(run_lint "$COVWORK/yamlcheck.sh" "$D")" "unparseable YAML fails"
 
-# shellcheck is not in the harness dependency budget, and the interesting half
-# of the step is which files it hands over, not what shellcheck says about them.
+# The ShellCheck binary is not in the harness dependency budget, and the
+# interesting half of the step is which files it hands over, not the findings.
+# (A comment opening with the tool's lowercase name is read as a directive and
+# fails to parse, SC1073 - which is how the CI caught this file.)
 # A stub on PATH records the argument list, so the discovery logic is exercised
 # on every machine: the step that checks nothing is the failure being fixed.
 STUB="$COVWORK/stub-bin"; mkdir -p "$STUB"
@@ -586,15 +588,17 @@ if command -v shellcheck > /dev/null; then
   printf '#!/usr/bin/env bash\nset -eu\necho "ok"\n' > "$D/good.sh"
   assert_eq "0" "$(run_lint "$COVWORK/shellcheck.sh" "$D")" "a clean script passes"
 
-  # SC2086: the unquoted expansion that splits a path with a space.
+  # SC2164, a warning: `cd` with no `|| exit`. It must be a warning-level check
+  # and not SC2086, which is info and is filtered out by --severity=warning -
+  # the fixture that got this wrong passed locally and failed on the runner.
   D="$COVWORK/lint-sh-bad"; mkdir -p "$D"
-  printf '#!/usr/bin/env bash\nf="a b"\ncat $f\n' > "$D/bad.sh"
+  printf '#!/usr/bin/env bash\nunused=1\ncd /tmp\necho done\n' > "$D/bad.sh"
   assert_eq "1" "$(run_lint "$COVWORK/shellcheck.sh" "$D")" "a script with a warning fails"
 
   # A shell entry point without the .sh suffix is still shell: the hooks ship
   # that way, and skipping them is how a lint job checks nothing.
   D="$COVWORK/lint-sh-noext"; mkdir -p "$D"
-  printf '#!/usr/bin/env bash\nf="a b"\ncat $f\n' > "$D/hook"
+  printf '#!/usr/bin/env bash\nunused=1\ncd /tmp\necho done\n' > "$D/hook"
   chmod +x "$D/hook"
   assert_eq "1" "$(run_lint "$COVWORK/shellcheck.sh" "$D")" \
     "an executable shell script without a .sh suffix is checked too"
