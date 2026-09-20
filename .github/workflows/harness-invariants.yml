@@ -45,7 +45,12 @@ jobs:
       - name: Checkout the calling repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
+      # A failure here is not fatal on its own: a Dependabot pull request is not
+      # exposed to the repository secret store, so harness_token is empty there
+      # and github.token cannot read the private harness repository. The step
+      # below is what decides whether that absence is acceptable.
       - name: Checkout the conventions master
+        continue-on-error: true
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: SelimLBOURAYA/claude-harness
@@ -65,11 +70,28 @@ jobs:
           fi
 
       - name: CONVENTIONS.md matches the harness master
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          CONVENTIONS_REF: ${{ inputs.conventions_ref }}
         run: |
           [ -f CONVENTIONS.md ] || { echo "::error::CONVENTIONS.md is missing"; exit 1; }
           master=.harness-master/CONVENTIONS.md
+          if [ ! -f "$master" ]; then
+            # The master is out of reach, so the copy cannot be compared to it.
+            # The only question left is whether this change touches the copy.
+            git fetch --no-tags --depth=1 origin "$BASE_SHA" >/dev/null 2>&1 || true
+            if [ -z "$BASE_SHA" ] || ! git diff --quiet "$BASE_SHA" HEAD -- CONVENTIONS.md; then
+              echo "::error::the conventions master at ref $CONVENTIONS_REF is unreachable, and this change touches CONVENTIONS.md, which therefore cannot be left unverified."
+              echo "Pass a token that reads SelimLBOURAYA/claude-harness as the harness_token secret."
+              exit 1
+            fi
+            echo "::warning::the conventions master at ref $CONVENTIONS_REF is unreachable. CONVENTIONS.md is untouched by this change, so what stands is the verification that ran on the base branch, not a fresh one."
+            echo "Restore a fresh verification by putting the token in the Dependabot secret store too:"
+            echo "  gh secret set HARNESS_READ_TOKEN --app dependabot --repo <owner>/<repo>"
+            exit 0
+          fi
           if ! cmp -s CONVENTIONS.md "$master"; then
-            echo "::error::CONVENTIONS.md differs from the harness master at ref ${{ inputs.conventions_ref }}."
+            echo "::error::CONVENTIONS.md differs from the harness master at ref $CONVENTIONS_REF."
             echo "Re-copy it, never hand-edit the local copy (CONVENTIONS.md section 12)."
             diff CONVENTIONS.md "$master" | head -40
             exit 1
