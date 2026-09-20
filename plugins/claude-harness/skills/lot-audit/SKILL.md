@@ -49,6 +49,24 @@ is running somewhere else (typically in the harness clone while the lot lives in
 an adopted repository), **stop**. Tell the user to reopen the session in the
 audited repository and re-run `lot-audit`.
 
+`AUDIT_REPO` is derived from the session's own directory, so it can never
+contradict itself: the stop condition needs a second, independent signal. Assert
+both, and stop if either fails:
+
+```bash
+git -C "$AUDIT_REPO" branch --show-current | grep -qE '^(feat|fix|chore)/lot-'
+grep -qiE "(^|[^a-z])lot[ -]$N([^0-9]|$)" "$AUDIT_REPO/<Lots file>"
+```
+
+Case-insensitively: the lots files of the portfolio write the heading as
+`## LOT 18`, `## Lot 18` and `## lot 18` depending on the repository, and a
+matcher that fires a false stop on the correct repository is worse than none.
+
+A session sitting in the wrong clone is either not on a lot branch at all, or on
+a branch whose lot number has no section in that repository's `Lots file`. Either
+failure means the lot lives elsewhere — stop rather than audit what is in front
+of you.
+
 There is no workaround. `Skill(security-review)` in step 2 reviews the pending
 changes of the **current working directory** and takes no repository argument: a
 session whose directory is not the audited repository produces a security step

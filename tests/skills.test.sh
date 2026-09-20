@@ -134,6 +134,26 @@ assert_ok "lot-audit scopes its diff to the audited repository" -- \
   grep -qF 'git -C "$AUDIT_REPO" diff develop...HEAD' "$SKILLS/lot-audit/SKILL.md"
 assert_ok "lot-audit writes the report inside the audited repository" -- \
   grep -qF '$AUDIT_REPO/docs/audits/lot-N.md' "$SKILLS/lot-audit/SKILL.md"
+# A path derived from the session's own cwd cannot contradict itself: the stop
+# needs a signal the session does not control, or it is a tautology that never
+# fires and lots 7-13 repeat themselves.
+assert_ok "lot-audit cross-checks the branch against a lot pattern" -- \
+  grep -qE "branch --show-current \| grep -qE .\^\(feat\|fix\|chore\)/lot-" \
+  "$SKILLS/lot-audit/SKILL.md"
+assert_ok "lot-audit cross-checks the lot section in the repo's own lots file" -- \
+  grep -qF '"$AUDIT_REPO/<Lots file>"' "$SKILLS/lot-audit/SKILL.md"
+# The portfolio writes LOT, Lot and lot: a matcher that stops on the *correct*
+# repository is worse than no matcher.
+assert_ok "the lots-file matcher is case-insensitive" -- \
+  grep -qF 'grep -qiE' "$SKILLS/lot-audit/SKILL.md"
+assert_ok "that matcher accepts this repository's own heading" -- \
+  bash -c 'N=18; grep -qiE "(^|[^a-z])lot[ -]$N([^0-9]|$)" "$REPO_ROOT/dev-plan.md"'
+assert_ok "lot-review cross-checks the branch and the lots file too" -- \
+  grep -qF '^(feat|fix|chore)/lot-' "$SKILLS/lot-review/SKILL.md"
+# gh resolves the repository from the cwd, never from a sibling git -C.
+assert_ok "lot-review runs gh inside the reviewed repository" -- \
+  grep -qF '(cd "$REVIEW_REPO" && gh pr view' "$SKILLS/lot-review/SKILL.md"
+
 # lot-review shares the root cause and is worse: --fix writes to that directory.
 assert_ok "lot-review resolves the reviewed repository" -- \
   grep -q 'REVIEW_REPO=$(git rev-parse --show-toplevel)' "$SKILLS/lot-review/SKILL.md"

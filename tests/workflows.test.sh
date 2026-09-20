@@ -109,8 +109,9 @@ for tool in spotless prettier "npm audit" dependency-check; do
   assert_ok "lint covers $tool" -- grep -qF "$tool" "$WF/lint.yml"
 done
 # spotless, prettier, eslint, dependency-check when no NVD key is configured,
-# and the lot 18 branch: shellcheck (no script, not installed) and YAML (no file).
-assert_eq "7" "$(grep -c 'skipped:' "$WF/lint.yml")" \
+# and the lot 18 branch: shellcheck (no script, not installed) and YAML (no
+# file, PyYAML unavailable).
+assert_eq "8" "$(grep -c 'skipped:' "$WF/lint.yml")" \
   "each optional lint step reports an explicit skip"
 # The audit is non-blocking at the *step* level. On the job, continue-on-error
 # still publishes a check run with conclusion "failure", so the pull request
