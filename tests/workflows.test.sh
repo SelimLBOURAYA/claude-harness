@@ -197,7 +197,6 @@ assert_eq "" "$(grep -n 'accepts the chore/ form' "$REPO_ROOT/templates/dependab
   "the dependabot template no longer claims the chore/ prefix renames its branches"
 
 # --- the deliverables workflow expands a lot range the same way ---------
-RANGE_SED=$(sed -n 's/.*sed -nE .\(.*\). *$/\1/p' "$WF/lot-deliverables.yml" | head -1)
 assert_ok "lot-deliverables extracts both ends of a range" -- \
   grep -qF '([0-9]+[a-z]?)(-([0-9]+[a-z]?))?' "$WF/lot-deliverables.yml"
 assert_ok "lot-deliverables treats lot-2b as one lot, not a range" -- \
