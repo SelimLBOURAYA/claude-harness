@@ -35,9 +35,10 @@
 | 12 | `chore/harness-adoption` (elya-fe) | C – Adoption | elya-frontend | elya-frontend | ✅ |
 | 13 | `chore/harness-adoption` (deployment) | C – Adoption | deployment | deployment | ✅ |
 | 14 | `chore/harness-adoption` (summerize) | C – Adoption | summerize-youtube | summerize-youtube | ✅ |
-| 15 | `feat/lot-15-closure` | D – Clôture | Ré-audit de contrôle et checklist de promotion | tous | ⬜ |
+| 15 | `feat/lot-15-closure` | D – Clôture | Ré-audit de contrôle et checklist de promotion | tous | 🔄 |
 | 16 | `feat/lot-16-contract-ci` | Plus tard | Job CI « contract » front ↔ backend réel | claude-harness, kf, mpf, elya-frontend | ⏸️ |
 | 17 | `chore/harness-adoption-reports` | A – Harness | `harness-invariants` refuse un seuil de couverture qui ne mesure rien | claude-harness, les repos adoptés | ✅ |
+| 18 | `feat/lot-18-*` | D – Clôture | Correctifs ouverts par le ré-audit du lot 15 | claude-harness, mpb, deployment | ⬜ |
 
 Légende des statuts *(P6-D10)* : ⬜ à faire · 🔄 en cours (livré sur la branche, PR non
 mergée) · ✅ mergé sur `develop` · ⏸️ planifié mais dormant · ❄️ gelé.
@@ -598,7 +599,7 @@ automatisée.
 
 ---
 
-## LOT 15 — Ré-audit de contrôle et clôture ⬜
+## LOT 15 — Ré-audit de contrôle et clôture 🔄
 
 - Ré-exécution des prompts P4, P5 et P6 sur l'état `develop` des 8 repos + harness ; rapports
   *(P6-D4)* `claude-harness/docs/audits/portfolio/p4-meta-harness-<date>-v3.md`,
@@ -628,6 +629,67 @@ Reports des lots 13 et 14, à traiter dans ce lot :
   lit les `FROM` d'un Dockerfile, pas les `image:` d'un compose (lot 13).
 - *(lot 17, troisième point écarté)* Trancher, tableau des 8 repos en main, si
   la CI doit lire le rapport de couverture lui-même.
+
+**Livré** sur `feat/lot-15-closure`. Rapport :
+`docs/audits/portfolio/control-2026-09-20.md`.
+
+Deux arbitrages utilisateur en début de lot :
+
+1. **Un rapport de contrôle consolidé**, pas trois rapports v3/v2/v2. Les
+   prompts P4, P5 et P6 ne sont pas versionnés — seuls les rapports le sont — et
+   rejouer trois audits complets aurait produit trois fois la même redite sur
+   des repos dont la moitié n'a pas bougé depuis le 2026-09-17. Le rapport
+   statue sur les 56 constats des trois matrices, chaque ligne portant sa
+   preuve : *contrôlé* dans la session, ou *rapport lot N*.
+2. **Constater ici, corriger au lot 18.** Le lot 15 est un lot de clôture : il
+   n'applique aucun correctif, il ouvre le lot 18.
+
+Verdict : 46 fermés, 8 ouverts, 2 dormants. **Le harnais n'est pas promouvable
+en l'état**, pour un constat bloquant découvert par ce contrôle :
+
+**C1** — les 12 PR Dependabot ouvertes du portefeuille sont rouges et le
+resteront. Le lot 14 avait vu le premier étage (`HARNESS_READ_TOKEN` absent du
+magasin *Dependabot* : vérifié, les 8 magasins sont vides). Le second est
+nouveau : l'*updater* Dependabot lui-même n'a pas accès au harnais privé et
+échoue en `403 … Dependabot doesn't have access to it` avant d'ouvrir la PR
+(run `35516280690`, deployment). Poser le secret ne suffira donc pas.
+
+Deux constats majeurs restent ouverts :
+
+- **C2** — `FlywayMigrationIT` de mpb tourne sur H2 avec `flyway.enabled: false`
+  et `ddl-auto: create-drop` : les tables dont il constate l'existence sont
+  celles qu'Hibernate vient de générer. Le lot 9 l'avait relevé et renvoyé au
+  lot 13 de mpb ; le **nom** de la classe, lui, rend le trou plus difficile à
+  voir qu'une absence de test. kb et elya sont conformes (Testcontainers
+  `postgres:17`, migrations actives).
+- **C3** — l'étape sécurité de `lot-audit` et son `git diff` visent le
+  répertoire de la **session**, pas le repo audité. Les lots 7 à 13 n'ont donc
+  eu aucune étape sécurité, sans que rien ne le signale : le skill ne se replie
+  sur la checklist manuelle que s'il est *indisponible*, pas s'il vise à côté.
+
+Deux items du lot n'étaient pas exécutables par l'agent et passent à la
+checklist utilisateur du rapport : la session de test depuis chaque IDE (V6
+rejouée) et la promotion elle-même. Le ménage hors repo hérité du lot 6 (5
+actions) n'a pas été réalisé non plus et y est rappelé.
+
+## LOT 18 — Correctifs ouverts par le ré-audit ⬜
+
+Ouvert par le rapport du lot 15, à réaliser **après** la promotion (les 8 repos
+suivent `main` du harnais).
+
+- **`lot-audit` vise le mauvais dépôt** (C3, majeur) : passer le chemin du repo
+  audité à l'étape sécurité et à `git diff`, puis décider si les lots 7 à 13
+  sont rejoués.
+- **`FlywayMigrationIT` de mpb** (C2, majeur) : Testcontainers `postgres:17`
+  avec Flyway actif, ou renommage de la classe pour qu'elle dise ce qu'elle
+  vérifie. Le passage sur Testcontainers appartient au lot 13 de mpb ; le nom
+  trompeur se corrige tout de suite.
+- **Branche `other` de `lint.yml`** (P5-#21) : shellcheck plus parse YAML, pour
+  que `deployment` et `summerize-youtube` cessent de sortir sans lint.
+- **Pins d'images des composes `deployment`** (lot 13) : Dependabot lit les
+  `FROM` d'un Dockerfile, pas les `image:` d'un compose.
+- **Rapport de couverture lu par la CI** : point écarté du lot 17, tranchable
+  maintenant que les 8 repos sont adoptés.
 
 ## LOT 16 — Job CI « contract » front ↔ backend réel ⏸️
 

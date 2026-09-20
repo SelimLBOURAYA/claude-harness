@@ -125,6 +125,7 @@ Every blocking invariant is also enforced in CI, which is the only agent-agnosti
 | `docs/audits/portfolio/p4-meta-harness-2026-09-17-v2.md` | P4 portfolio audit (supersedes the removed morning v1) |
 | `docs/audits/portfolio/p5-harness-cicd-2026-09-17.md` | P5 CI/CD guards audit |
 | `docs/audits/portfolio/p6-meta-portfolio-2026-09-17.md` | P6 cross-cutting portfolio audit |
+| `docs/audits/portfolio/control-2026-09-20.md` | Lot 15 consolidated control re-audit and promotion checklist |
 | `templates/project/` | Project skeleton generated into a new repo |
 | `templates/project/CLAUDE.md` | Skeleton project conventions, placeholders filled at bootstrap |
 | `templates/project/AGENTS.md` | Byte-identical mirror shipped with the skeleton |
