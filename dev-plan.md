@@ -27,17 +27,17 @@
 | 5 | `feat/lot-0-6-harness-foundation` | B – Conventions | Master des conventions déplacé dans `claude-harness/CONVENTIONS.md`, réglages user-level, mémoires | claude-harness, `~/.claude` | ✅ |
 | 6 | `feat/lot-0-6-harness-foundation` | B – Conventions | Nettoyage racine `~/ENV/projets` | racine, claude-harness, deployment | ✅ |
 | 6b | – (manuel, GitHub) | B – Conventions | Réglages GitHub : branche par défaut `develop` *(P5)*, passage en privé *(P6-D1)*, accès aux workflows réutilisables, `HARNESS_READ_TOKEN` | GitHub (utilisateur), 9 repos | ✅ |
-| 7 | `chore/harness-adoption` (kb) | C – Adoption | kreadevis-backend (pilote backend) + kb lot 22 | kb | 🔄 |
-| 8 | `chore/harness-adoption` (kf) | C – Adoption | kreadevis-frontend (pilote frontend) | kf | 🔄 |
-| 9 | `chore/harness-adoption` (mpb) | C – Adoption | meal-planner-backend | mpb | 🔄 |
-| 10 | `chore/harness-adoption` (mpf) | C – Adoption | meal-planner-frontend (+ audit rétroactif) | mpf | 🔄 |
-| 11 | `chore/harness-adoption` (elya) | C – Adoption | elya | elya | 🔄 |
+| 7 | `chore/harness-adoption` (kb) | C – Adoption | kreadevis-backend (pilote backend) + kb lot 22 | kb | ✅ |
+| 8 | `chore/harness-adoption` (kf) | C – Adoption | kreadevis-frontend (pilote frontend) | kf | ✅ |
+| 9 | `chore/harness-adoption` (mpb) | C – Adoption | meal-planner-backend | mpb | ✅ |
+| 10 | `chore/harness-adoption` (mpf) | C – Adoption | meal-planner-frontend (+ audit rétroactif) | mpf | ✅ |
+| 11 | `chore/harness-adoption` (elya) | C – Adoption | elya | elya | ✅ |
 | 12 | `chore/harness-adoption` (elya-fe) | C – Adoption | elya-frontend | elya-frontend | ⬜ |
 | 13 | `chore/harness-adoption` (deployment) | C – Adoption | deployment | deployment | ⬜ |
 | 14 | `chore/harness-adoption` (summerize) | C – Adoption | summerize-youtube | summerize-youtube | ⬜ |
 | 15 | `feat/lot-15-closure` | D – Clôture | Ré-audit de contrôle et checklist de promotion | tous | ⬜ |
 | 16 | `feat/lot-16-contract-ci` | Plus tard | Job CI « contract » front ↔ backend réel | claude-harness, kf, mpf, elya-frontend | ⏸️ |
-| 17 | `chore/harness-adoption-reports` | A – Harness | `harness-invariants` refuse un seuil de couverture qui ne mesure rien | claude-harness, les repos adoptés | 🔄 |
+| 17 | `chore/harness-adoption-reports` | A – Harness | `harness-invariants` refuse un seuil de couverture qui ne mesure rien | claude-harness, les repos adoptés | ✅ |
 
 Légende des statuts *(P6-D10)* : ⬜ à faire · 🔄 en cours (livré sur la branche, PR non
 mergée) · ✅ mergé sur `develop` · ⏸️ planifié mais dormant · ❄️ gelé.
@@ -286,10 +286,10 @@ Chaque lot d'adoption applique **toute** la checklist, puis les points propres a
 14. *(P6-D9)* Repos avec image : le lot image appelle `image-publish.yml`, jamais d'étapes
     build/push écrites dans le repo.
 
-## LOT 7 — kreadevis-backend 🔄
+## LOT 7 — kreadevis-backend ✅
 
-**Livré** sur `kreadevis-backend`, branche `chore/harness-adoption` : `0c3695b`
-(lot 22 kb) et `ee5a40a` (adoption). Rapport : `docs/audits/lot-7.md`.
+**Mergé** le 2026-09-20 sur `kreadevis-backend` (PR #34, merge `39d3554`),
+branche `chore/harness-adoption` : `0c3695b` (lot 22 kb) et `ee5a40a` (adoption). Rapport : `docs/audits/lot-7.md`.
 Décision utilisateur du 2026-09-19 : le lot 22 kb est livré dans la même PR.
 Constat majeur du lot : `spring-boot-liquibase` était **absent** du graphe de
 dépendances, donc les changesets ne s'appliquaient **nulle part**, production
@@ -323,9 +323,10 @@ avant le premier déploiement réel.
 - *(P6-D1)* Prérequis : `kreadevis` passé en privé (lot 6b), sinon les workflows du harness ne sont
   pas appelables.
 
-## LOT 8 — kreadevis-frontend 🔄
+## LOT 8 — kreadevis-frontend ✅
 
-**Livré** sur `kreadevis-frontend`, branche `chore/harness-adoption` : `496860d`.
+**Mergé** le 2026-09-20 sur `kreadevis-frontend` (PR #24, merge `72d2e08`),
+branche `chore/harness-adoption` : `496860d`.
 Rapport : `docs/audits/lot-8.md`. Constat du lot : la consigne
 `continue-on-error: true` ci-dessous était fausse — un `continue-on-error` de job
 publie quand même le check run en `failure`, donc la PR reste rouge pour un signal
@@ -349,10 +350,10 @@ une ligne `report-only` dans le résumé du job (harnais `acfd9b9`).
   `docs/audits/lot-0-integration.md` n'existe pas (lot 0 kf toujours ⬜, #3). Le lot 0 kf
   lui-même reste dans `kreadevis-frontend/lots.md`, hors de ce plan.
 
-## LOT 9 — meal-planner-backend 🔄
+## LOT 9 — meal-planner-backend ✅
 
-**Livré** sur `meal-planner-backend`, branche `chore/harness-adoption` : `99824b2`,
-PR #22. Rapport : `docs/audits/lot-9.md`. Constat du lot : la prémisse
+**Mergé** le 2026-09-20 sur `meal-planner-backend` (PR #22, merge `61d1edf`),
+branche `chore/harness-adoption` : `99824b2`. Rapport : `docs/audits/lot-9.md`. Constat du lot : la prémisse
 « couverture creuse » ci-dessous est fausse. Les exclusions JaCoCo mesuraient 80 %
 de la seule fraction déjà testée ; périmètre complet rétabli, la couverture réelle
 est **0.8936** (915/1024 lignes, branches 0.7009). Le seuil est donc **monté** de
@@ -383,10 +384,10 @@ c'était une gate sans signification — mesurée sur H2, cf. ci-dessous.
   `image-smoke.yml` sont posés en commentaire et décommentés par le lot 13 mpb, avec le
   `compose.ci.yml` dont `image-smoke` a besoin.
 
-## LOT 10 — meal-planner-frontend 🔄
+## LOT 10 — meal-planner-frontend ✅
 
-**Livré** sur `meal-planner-frontend`, branche `chore/harness-adoption` : `9422dd7`,
-PR #21. Rapport : `docs/audits/lot-10.md`. Deux consignes ci-dessous étaient fausses :
+**Mergé** le 2026-09-20 sur `meal-planner-frontend` (PR #21, merge `f9f9c24`),
+branche `chore/harness-adoption` : `9422dd7`. Rapport : `docs/audits/lot-10.md`. Deux consignes ci-dessous étaient fausses :
 
 1. **`enforce: false` comme pour kf** — non : le bundle de production ne contient
    **pas** `localhost:8080`, parce que `environment.ts` n'est importé que par
@@ -421,9 +422,10 @@ L'audit rétroactif a trouvé un constat critique : le lot 13 mpf a écrit
   `frontend-dist.yml` (même règle `continue-on-error` datée que kf tant que le lot 14 mpf
   n'a pas posé `fileReplacements`).
 
-## LOT 11 — elya 🔄
+## LOT 11 — elya ✅
 
-**Livré** sur `elya`, branche `chore/harness-adoption` : `cc86684`, PR #16.
+**Mergé** le 2026-09-20 sur `elya` (PR #16, merge `4a7bf91`), branche
+`chore/harness-adoption` : `cc86684`.
 Rapport : `docs/audits/lot-11.md`. Première PR d'adoption dont les workflows
 réutilisables passent réellement (16 checks verts) : la promotion `develop` →
 `main` du harnais, absente aux lots 7 à 10, a eu lieu depuis.
@@ -510,9 +512,10 @@ toute la période.
 
 ---
 
-## LOT 17 — Un seuil de couverture qui ne mesure rien 🔄
+## LOT 17 — Un seuil de couverture qui ne mesure rien ✅
 
-**Livré** sur `claude-harness`, branche `chore/harness-adoption-reports`.
+**Mergé** le 2026-09-20 sur `claude-harness` (PR #19, merge `c3c4313`), branche
+`chore/harness-adoption-reports`.
 Origine : rapport `docs/audits/lot-11.md`, section « Recommended lot ».
 
 Trois lots d'adoption d'affilée ont trouvé un chiffre de couverture qui ne
@@ -549,11 +552,12 @@ contrat de nom et de format d'artefact, ou un build en doublon de `validate`.
 tableau complet.
 
 **Conséquence immédiate** : vérifié sur les 5 branches d'adoption, kb (`0.70`,
-62 fichiers), kf (`79`, 43), mpb (`0.88`, 66) et mpf (seuil `0`) passent ; **elya
-échoue**, ce qui est le constat du lot 11. Après la promotion `develop` → `main`
-du harnais, la PR elya #16 deviendra rouge tant que son `Coverage threshold` ne
-sera pas ramené à `0` avec la raison écrite, comme l'a fait mpf, pour être
-remonté au LOT 1.3 elya.
+62 fichiers), kf (`79`, 43), mpb (`0.88`, 66) et mpf (seuil `0`) passent ; elya
+échouait, ce qui est le constat du lot 11. Corrigé sur elya en `97a432f`, sur sa
+PR #16 déjà ouverte : le `<minimum>` du `pom.xml` et la ligne
+`Coverage threshold` tombent à `0` avec la raison écrite dans les deux, et le
+ticket LOT-1.3 d'elya porte désormais le livrable qui mesure le niveau réel et
+le remonte. `./mvnw verify` reste vert et les deux nouvelles étapes passent.
 
 ---
 
