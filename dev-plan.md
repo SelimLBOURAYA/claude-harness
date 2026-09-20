@@ -33,7 +33,7 @@
 | 10 | `chore/harness-adoption` (mpf) | C – Adoption | meal-planner-frontend (+ audit rétroactif) | mpf | ✅ |
 | 11 | `chore/harness-adoption` (elya) | C – Adoption | elya | elya | ✅ |
 | 12 | `chore/harness-adoption` (elya-fe) | C – Adoption | elya-frontend | elya-frontend | ✅ |
-| 13 | `chore/harness-adoption` (deployment) | C – Adoption | deployment | deployment | ⬜ |
+| 13 | `chore/harness-adoption` (deployment) | C – Adoption | deployment | deployment | 🔄 |
 | 14 | `chore/harness-adoption` (summerize) | C – Adoption | summerize-youtube | summerize-youtube | ⬜ |
 | 15 | `feat/lot-15-closure` | D – Clôture | Ré-audit de contrôle et checklist de promotion | tous | ⬜ |
 | 16 | `feat/lot-16-contract-ci` | Plus tard | Job CI « contract » front ↔ backend réel | claude-harness, kf, mpf, elya-frontend | ⏸️ |
@@ -501,7 +501,35 @@ transversale l'y ajoute, premier passage au lot 2.
   `lot-0-integration.md` est bien planifié dans `lots.md` et que le lot 1 elya-fe livre
   `apiBaseUrl: ''` avant tout appel de `frontend-dist.yml`.
 
-## LOT 13 — deployment ⬜
+## LOT 13 — deployment 🔄
+
+**Livré** sur `deployment`, branche `chore/harness-adoption` : `d926051`,
+`8108f4d`, `11e3ac5`, PR #9, 10 checks verts. Rapport : `docs/audits/lot-13.md`.
+
+La validation gate a été tranchée en début de lot, comme le prévoyait la ligne
+ci-dessous : **no-op déclaré**, option retenue par l'utilisateur.
+`scripts/validate-stacks.sh` valide chaque `stacks/*/docker-compose*.yml` avec
+le `.env.example` du stack substitué ; sans aucun compose il écrit
+« no-op until LOT 1 » et sort 0 au lieu de passer en silence. Le LOT 1 la rend
+réelle sans édition.
+
+Trois écarts au gabarit, assumés :
+
+1. **Pas de `paths-ignore`.** Ce repo ne produit pas d'image : ce qu'il livre,
+   ce sont des documents et des composes, et `harness-invariants` contrôle
+   précisément ces fichiers. Avec `paths-ignore: ["**.md"]`, un push cassant le
+   miroir `CLAUDE.md` / `AGENTS.md` ne déclenchait aucun job.
+2. **Pas de job `lint`.** `lint.yml` n'a que des branches `backend` et
+   `frontend` ; appelé avec `stack: "other"` il rend deux checks verts n'ayant
+   rien exécuté — le motif que P5-#17 reproche à ce repo. Une branche `other`
+   (shellcheck + parse YAML) est proposée au lot 15.
+3. **Pas de job `migrations-immutable`.** `Migrations directory` = `n/a`.
+
+Deux points ouverts : les pins d'images des composes ne sont surveillés par
+personne (Dependabot lit les `FROM` d'un Dockerfile, pas les `image:` d'un
+compose) — le LOT 1 tranchera ; et la PR #8 du repo, ouverte, modifie la ligne
+du lot 5b de `LOTS.md` que ce lot restructure en quatre colonnes : une ligne à
+résoudre pour celle des deux qui mergera en second.
 
 - Checklist commune (création de `.claude/` et `.github/workflows/ci.yml`, absents aujourd'hui).
 - *(repris du lot 6b, livrable 4)* `CLAUDE.md` § Branching model : une ligne « branche par défaut

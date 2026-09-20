@@ -120,6 +120,7 @@ Every blocking invariant is also enforced in CI, which is the only agent-agnosti
 | `docs/audits/lot-10.md` | Lot 10 report — meal-planner-frontend adoption |
 | `docs/audits/lot-11.md` | Lot 11 report — elya adoption |
 | `docs/audits/lot-12.md` | Lot 12 report — elya-frontend adoption |
+| `docs/audits/lot-13.md` | Lot 13 report — deployment adoption |
 | `docs/audits/portfolio/p4-meta-harness-2026-09-17-v2.md` | P4 portfolio audit (supersedes the removed morning v1) |
 | `docs/audits/portfolio/p5-harness-cicd-2026-09-17.md` | P5 CI/CD guards audit |
 | `docs/audits/portfolio/p6-meta-portfolio-2026-09-17.md` | P6 cross-cutting portfolio audit |
