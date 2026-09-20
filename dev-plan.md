@@ -32,7 +32,7 @@
 | 9 | `chore/harness-adoption` (mpb) | C – Adoption | meal-planner-backend | mpb | ✅ |
 | 10 | `chore/harness-adoption` (mpf) | C – Adoption | meal-planner-frontend (+ audit rétroactif) | mpf | ✅ |
 | 11 | `chore/harness-adoption` (elya) | C – Adoption | elya | elya | ✅ |
-| 12 | `chore/harness-adoption` (elya-fe) | C – Adoption | elya-frontend | elya-frontend | ⬜ |
+| 12 | `chore/harness-adoption` (elya-fe) | C – Adoption | elya-frontend | elya-frontend | 🔄 |
 | 13 | `chore/harness-adoption` (deployment) | C – Adoption | deployment | deployment | ⬜ |
 | 14 | `chore/harness-adoption` (summerize) | C – Adoption | summerize-youtube | summerize-youtube | ⬜ |
 | 15 | `feat/lot-15-closure` | D – Clôture | Ré-audit de contrôle et checklist de promotion | tous | ⬜ |
@@ -459,7 +459,38 @@ toute la période.
   (base path `/`), `Image name` `ghcr.io/selimlbouraya/elya`. Rappeler dans le rapport que
   la CI est restée rouge du 2026-08-06 au 2026-09-17 avec 3 PR mergées pendant (wrapper Maven).
 
-## LOT 12 — elya-frontend ⬜
+## LOT 12 — elya-frontend 🔄
+
+**Livré** sur `elya-frontend`, branche `chore/harness-adoption` : `1575976`,
+PR #11, 16 checks verts. Rapport : `docs/audits/lot-12.md`.
+
+Trois constats :
+
+1. **Prettier contre les documents du harnais.** `lint.yml` lance
+   `prettier --check .` dès qu'un `.prettierrc` existe, et Prettier veut
+   reformater `CONVENTIONS.md`, `CLAUDE.md`, `AGENTS.md` et `lots.md` — ce que
+   `harness-invariants` interdit. kf avait répondu à ce mur au lot 8 par un
+   `.prettierignore` resté dans son dépôt ; elya-frontend le recopie. Le
+   fichier encode une règle du harnais : sa place est dans
+   `templates/project/`, à trancher au lot 15 ou dans un chore dédié.
+2. **Quatrième seuil de couverture qui ne mesure rien** (mpb, mpf, elya,
+   elya-fe). Le builder `@angular/build:unit-test` n'instrumente que ce qu'un
+   spec importe : le `80` était satisfait par les 2 lignes d'`app.ts`. Ramené à
+   `0` avec la raison écrite ; le lot 1 elya-fe instrumente tout `src/` et
+   remonte le chiffre. `angular.json` refuse toute clé inconnue, donc la raison
+   ne peut pas vivre à côté du chiffre.
+3. **Les invariants du lot 17 n'ont pas tourné sur cette PR** : les callers
+   épinglent `@main`, et `main` est resté à `e87839c`, antérieur au lot 17. Un
+   lot du harnais n'est vraiment testé qu'à l'adoption suivant sa promotion.
+   Les deux étapes ont été rejouées à la main sur l'arbre : elles passent.
+
+Vérification demandée par la consigne : le lot 1 elya-fe portait déjà
+`apiBaseUrl: ''` et le critère `grep -r "localhost:8080" dist/` à blanc. Le
+littéral est bien dans le bundle aujourd'hui (1 occurrence), donc
+`frontend-dist` tourne en `enforce: false` et le lot 1 le repasse en bloquant.
+`lot-0-integration.md` n'était **pas** planifié dans `lots.md` : une règle
+transversale l'y ajoute, premier passage au lot 2.
+
 
 - Checklist commune.
 - `CLAUDE.md:20` : aligné sur le **manifeste** (#12). *(P6-D7)* Le squelette commité est en
