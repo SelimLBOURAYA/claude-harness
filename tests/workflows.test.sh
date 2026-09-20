@@ -296,4 +296,126 @@ else
   echo "  (skipped: PyYAML not installed, YAML syntax not parsed)"
 fi
 
+# --- lot 17: a coverage threshold must measure something -----------------
+# The two steps are exercised for real, not grepped: the shell they run is
+# extracted from the workflow and executed against fixture repositories. A
+# grep would have passed on all three of the repositories whose coverage
+# figure turned out to measure nothing.
+COVWORK=$(mktemp -d)
+trap 'rm -rf "$COVWORK"' EXIT
+
+extract_step() {
+  python3 - "$WF/harness-invariants.yml" "$1" <<'PYEOF'
+import re, sys
+wf = open(sys.argv[1]).read()
+body = re.search(r'\n      - name: ' + re.escape(sys.argv[2]) + r'\n(.*?)(?=\n      - name: |\Z)',
+                 wf, re.S).group(1)
+run = re.search(r'(?:^|\n)        run: \|\n(.*)', body, re.S).group(1)
+print('\n'.join(l[10:] if l.startswith(' ' * 10) else l for l in run.split('\n')))
+PYEOF
+}
+
+extract_step "The coverage gate has something to measure" > "$COVWORK/subject.sh"
+extract_step "No coverage exclusion covers a business package" > "$COVWORK/excl.sh"
+assert_ok "the coverage-subject step has an extractable script" -- test -s "$COVWORK/subject.sh"
+assert_ok "the business-package step has an extractable script" -- test -s "$COVWORK/excl.sh"
+
+# claude_md <dir> <stack> <threshold cell> <exclusions cell>
+claude_md() {
+  mkdir -p "$1"
+  {
+    echo '## Gate parameters'
+    echo ''
+    echo '| Parameter | Value |'
+    echo '|---|---|'
+    echo "| \`Stack\` | $2 |"
+    echo "| \`Coverage threshold\` | $3 |"
+    echo "| \`Coverage exclusions\` | $4 |"
+  } > "$1/CLAUDE.md"
+}
+
+# run_step <script> <dir> [INFRA]  : echoes the exit status
+run_step() {
+  ( cd "$2" && INFRA="${3-config,configuration,dto,dtos,mapper,mappers,generated}" \
+      bash "$1" > /dev/null 2>&1; echo $? )
+}
+
+SUBJ="$COVWORK/subject.sh"
+EXCL="$COVWORK/excl.sh"
+
+# elya's shape: 0.80 declared, every source file covered by an exclusion, so
+# jacoco:check analysed a bundle of zero classes and passed.
+D="$COVWORK/empty-scope"
+claude_md "$D" '`backend`' '`0.80`' '`com/elya/config/**`, `com/elya/ElyaApplication.class`'
+mkdir -p "$D/src/main/java/com/elya/config"
+touch "$D/src/main/java/com/elya/ElyaApplication.java" \
+      "$D/src/main/java/com/elya/config/FlywayConfig.java"
+assert_eq "1" "$(run_step "$SUBJ" "$D")" \
+  "a threshold above zero with every source file excluded fails"
+
+# One class outside the patterns is enough for the gate to mean something.
+mkdir -p "$D/src/main/java/com/elya/journal"
+touch "$D/src/main/java/com/elya/journal/EntryService.java"
+assert_eq "0" "$(run_step "$SUBJ" "$D")" \
+  "a threshold above zero passes as soon as one source file is in scope"
+
+# A declared 0 is honest, not a violation: mpf carries it with its reason.
+D="$COVWORK/zero"
+claude_md "$D" '`frontend`' '`0` lines — see the ratchet note' '(none)'
+assert_eq "0" "$(run_step "$SUBJ" "$D")" "a declared threshold of 0 is accepted"
+
+D="$COVWORK/na"
+claude_md "$D" '`harness`' 'n/a' '(none)'
+assert_eq "0" "$(run_step "$SUBJ" "$D")" "a threshold of n/a is accepted"
+
+# A stack whose source layout the step does not know is skipped, never failed.
+D="$COVWORK/unknown-stack"
+claude_md "$D" '`harness`' '`0.80`' '(none)'
+assert_eq "0" "$(run_step "$SUBJ" "$D")" "an unknown stack is skipped, not failed"
+
+# A repository that declares a real threshold and has no source at all.
+D="$COVWORK/no-source"
+claude_md "$D" '`backend`' '`0.80`' '(none)'
+assert_eq "1" "$(run_step "$SUBJ" "$D")" "a threshold above zero with no source file fails"
+
+# The kb shape: the ratchet parenthesis must not be read as the threshold.
+D="$COVWORK/ratchet"
+claude_md "$D" '`backend`' '`0.70` (ratchet, target `0.80`)' '`com/slim/kb/config/**`'
+mkdir -p "$D/src/main/java/com/slim/kb/quote"
+touch "$D/src/main/java/com/slim/kb/quote/QuoteService.java"
+assert_eq "0" "$(run_step "$SUBJ" "$D")" "the first backticked figure is the threshold"
+
+# --- the exclusions themselves -------------------------------------------
+# meal-planner-backend's shape before lot 9: 0.80 measured around most of the
+# business code.
+D="$COVWORK/business-excluded"
+claude_md "$D" '`backend`' '`0.80`' '`com/mealplanner/auth/**`, `com/mealplanner/**/config/**`'
+assert_eq "1" "$(run_step "$EXCL" "$D")" "excluding a business package fails"
+
+D="$COVWORK/infra-only"
+claude_md "$D" '`backend`' '`0.80`' \
+  '`com/mealplanner/**/config/**`, `com/mealplanner/**/dto/**`, `com/mealplanner/common/ApiError.class`'
+assert_eq "0" "$(run_step "$EXCL" "$D")" \
+  "configuration, dto and a named single class are legitimate exclusions"
+
+# The exemption exists, but it is named in the caller and lands in a diff.
+assert_eq "0" "$(run_step "$EXCL" "$COVWORK/business-excluded" "config,auth")" \
+  "a package named in coverage_infra_packages is accepted"
+
+D="$COVWORK/no-exclusion"
+claude_md "$D" '`frontend`' '`79` lines' '(none declared in `angular.json`)'
+assert_eq "0" "$(run_step "$EXCL" "$D")" "a repository with no exclusion passes"
+
+# The whole application excluded under one wildcard is the same fiction.
+D="$COVWORK/everything"
+claude_md "$D" '`backend`' '`0.80`' '`com/elya/**`'
+assert_eq "1" "$(run_step "$EXCL" "$D")" "excluding the whole application fails"
+
+# The input exists and carries the default the steps rely on.
+assert_ok "harness-invariants declares coverage_infra_packages" -- \
+  grep -q '^      coverage_infra_packages:' "$WF/harness-invariants.yml"
+assert_ok "the caller template documents the coverage exemption input" -- \
+  grep -q 'coverage_infra_packages' "$TPL/ci-caller.yml"
+
+
 finish

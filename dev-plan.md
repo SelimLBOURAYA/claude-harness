@@ -27,16 +27,17 @@
 | 5 | `feat/lot-0-6-harness-foundation` | B – Conventions | Master des conventions déplacé dans `claude-harness/CONVENTIONS.md`, réglages user-level, mémoires | claude-harness, `~/.claude` | ✅ |
 | 6 | `feat/lot-0-6-harness-foundation` | B – Conventions | Nettoyage racine `~/ENV/projets` | racine, claude-harness, deployment | ✅ |
 | 6b | – (manuel, GitHub) | B – Conventions | Réglages GitHub : branche par défaut `develop` *(P5)*, passage en privé *(P6-D1)*, accès aux workflows réutilisables, `HARNESS_READ_TOKEN` | GitHub (utilisateur), 9 repos | ✅ |
-| 7 | `chore/harness-adoption` (kb) | C – Adoption | kreadevis-backend (pilote backend) + kb lot 22 | kb | 🔄 |
-| 8 | `chore/harness-adoption` (kf) | C – Adoption | kreadevis-frontend (pilote frontend) | kf | 🔄 |
-| 9 | `chore/harness-adoption` (mpb) | C – Adoption | meal-planner-backend | mpb | 🔄 |
-| 10 | `chore/harness-adoption` (mpf) | C – Adoption | meal-planner-frontend (+ audit rétroactif) | mpf | 🔄 |
-| 11 | `chore/harness-adoption` (elya) | C – Adoption | elya | elya | ⬜ |
-| 12 | `chore/harness-adoption` (elya-fe) | C – Adoption | elya-frontend | elya-frontend | ⬜ |
+| 7 | `chore/harness-adoption` (kb) | C – Adoption | kreadevis-backend (pilote backend) + kb lot 22 | kb | ✅ |
+| 8 | `chore/harness-adoption` (kf) | C – Adoption | kreadevis-frontend (pilote frontend) | kf | ✅ |
+| 9 | `chore/harness-adoption` (mpb) | C – Adoption | meal-planner-backend | mpb | ✅ |
+| 10 | `chore/harness-adoption` (mpf) | C – Adoption | meal-planner-frontend (+ audit rétroactif) | mpf | ✅ |
+| 11 | `chore/harness-adoption` (elya) | C – Adoption | elya | elya | ✅ |
+| 12 | `chore/harness-adoption` (elya-fe) | C – Adoption | elya-frontend | elya-frontend | 🔄 |
 | 13 | `chore/harness-adoption` (deployment) | C – Adoption | deployment | deployment | ⬜ |
 | 14 | `chore/harness-adoption` (summerize) | C – Adoption | summerize-youtube | summerize-youtube | ⬜ |
 | 15 | `feat/lot-15-closure` | D – Clôture | Ré-audit de contrôle et checklist de promotion | tous | ⬜ |
 | 16 | `feat/lot-16-contract-ci` | Plus tard | Job CI « contract » front ↔ backend réel | claude-harness, kf, mpf, elya-frontend | ⏸️ |
+| 17 | `chore/harness-adoption-reports` | A – Harness | `harness-invariants` refuse un seuil de couverture qui ne mesure rien | claude-harness, les repos adoptés | ✅ |
 
 Légende des statuts *(P6-D10)* : ⬜ à faire · 🔄 en cours (livré sur la branche, PR non
 mergée) · ✅ mergé sur `develop` · ⏸️ planifié mais dormant · ❄️ gelé.
@@ -285,10 +286,10 @@ Chaque lot d'adoption applique **toute** la checklist, puis les points propres a
 14. *(P6-D9)* Repos avec image : le lot image appelle `image-publish.yml`, jamais d'étapes
     build/push écrites dans le repo.
 
-## LOT 7 — kreadevis-backend 🔄
+## LOT 7 — kreadevis-backend ✅
 
-**Livré** sur `kreadevis-backend`, branche `chore/harness-adoption` : `0c3695b`
-(lot 22 kb) et `ee5a40a` (adoption). Rapport : `docs/audits/lot-7.md`.
+**Mergé** le 2026-09-20 sur `kreadevis-backend` (PR #34, merge `39d3554`),
+branche `chore/harness-adoption` : `0c3695b` (lot 22 kb) et `ee5a40a` (adoption). Rapport : `docs/audits/lot-7.md`.
 Décision utilisateur du 2026-09-19 : le lot 22 kb est livré dans la même PR.
 Constat majeur du lot : `spring-boot-liquibase` était **absent** du graphe de
 dépendances, donc les changesets ne s'appliquaient **nulle part**, production
@@ -322,9 +323,10 @@ avant le premier déploiement réel.
 - *(P6-D1)* Prérequis : `kreadevis` passé en privé (lot 6b), sinon les workflows du harness ne sont
   pas appelables.
 
-## LOT 8 — kreadevis-frontend 🔄
+## LOT 8 — kreadevis-frontend ✅
 
-**Livré** sur `kreadevis-frontend`, branche `chore/harness-adoption` : `496860d`.
+**Mergé** le 2026-09-20 sur `kreadevis-frontend` (PR #24, merge `72d2e08`),
+branche `chore/harness-adoption` : `496860d`.
 Rapport : `docs/audits/lot-8.md`. Constat du lot : la consigne
 `continue-on-error: true` ci-dessous était fausse — un `continue-on-error` de job
 publie quand même le check run en `failure`, donc la PR reste rouge pour un signal
@@ -348,10 +350,10 @@ une ligne `report-only` dans le résumé du job (harnais `acfd9b9`).
   `docs/audits/lot-0-integration.md` n'existe pas (lot 0 kf toujours ⬜, #3). Le lot 0 kf
   lui-même reste dans `kreadevis-frontend/lots.md`, hors de ce plan.
 
-## LOT 9 — meal-planner-backend 🔄
+## LOT 9 — meal-planner-backend ✅
 
-**Livré** sur `meal-planner-backend`, branche `chore/harness-adoption` : `99824b2`,
-PR #22. Rapport : `docs/audits/lot-9.md`. Constat du lot : la prémisse
+**Mergé** le 2026-09-20 sur `meal-planner-backend` (PR #22, merge `61d1edf`),
+branche `chore/harness-adoption` : `99824b2`. Rapport : `docs/audits/lot-9.md`. Constat du lot : la prémisse
 « couverture creuse » ci-dessous est fausse. Les exclusions JaCoCo mesuraient 80 %
 de la seule fraction déjà testée ; périmètre complet rétabli, la couverture réelle
 est **0.8936** (915/1024 lignes, branches 0.7009). Le seuil est donc **monté** de
@@ -382,10 +384,10 @@ c'était une gate sans signification — mesurée sur H2, cf. ci-dessous.
   `image-smoke.yml` sont posés en commentaire et décommentés par le lot 13 mpb, avec le
   `compose.ci.yml` dont `image-smoke` a besoin.
 
-## LOT 10 — meal-planner-frontend 🔄
+## LOT 10 — meal-planner-frontend ✅
 
-**Livré** sur `meal-planner-frontend`, branche `chore/harness-adoption` : `9422dd7`,
-PR #21. Rapport : `docs/audits/lot-10.md`. Deux consignes ci-dessous étaient fausses :
+**Mergé** le 2026-09-20 sur `meal-planner-frontend` (PR #21, merge `f9f9c24`),
+branche `chore/harness-adoption` : `9422dd7`. Rapport : `docs/audits/lot-10.md`. Deux consignes ci-dessous étaient fausses :
 
 1. **`enforce: false` comme pour kf** — non : le bundle de production ne contient
    **pas** `localhost:8080`, parce que `environment.ts` n'est importé que par
@@ -420,18 +422,75 @@ L'audit rétroactif a trouvé un constat critique : le lot 13 mpf a écrit
   `frontend-dist.yml` (même règle `continue-on-error` datée que kf tant que le lot 14 mpf
   n'a pas posé `fileReplacements`).
 
-## LOT 11 — elya ⬜
+## LOT 11 — elya ✅
+
+**Mergé** le 2026-09-20 sur `elya` (PR #16, merge `4a7bf91`), branche
+`chore/harness-adoption` : `cc86684`.
+Rapport : `docs/audits/lot-11.md`. Première PR d'adoption dont les workflows
+réutilisables passent réellement (16 checks verts) : la promotion `develop` →
+`main` du harnais, absente aux lots 7 à 10, a eu lieu depuis.
+
+Deux constats de ce lot :
+
+1. **Le seuil JaCoCo `0.80` ne mesure rien** — `jacoco:check` analyse un bundle
+   de **0 classe** : les deux seules classes de `src/main/java` sont couvertes
+   par les exclusions, et un bundle vide satisfait toute règle de ratio. Le
+   seuil entrera en vigueur, sans préavis, au premier commit qui ajoute une
+   classe métier (elya LOT 1.3). Troisième lot d'affilée où le chiffre de
+   couverture ne mesure pas ce qu'il annonce (9, 10, 11) : un lot 17 est proposé
+   dans le rapport, en attente d'arbitrage.
+2. **Item 7 de la checklist non appliqué** par le commit d'adoption :
+   `.claude/settings.local.json` autorisait encore `Bash(git *)` et
+   `Bash(gh pr *)`. Corrigé pendant l'audit ; fichier gitignoré, donc hors diff.
+
+La CI d'elya était rouge **du 2026-07-10 au 2026-09-17**, et non depuis le
+2026-08-06 : 21 runs en échec (URL du wrapper Maven), des PR mergées pendant
+toute la période.
 
 - Checklist commune.
-- Faits de stack (#12) : cible de prod **HP EliteDesk G6** (plus de Raspberry Pi, 3 occurrences),
-  front **Angular 22** ; suppression de la contradiction « Do not start lot N+1 » / Sprint
-  chaining (`CLAUDE.md:62`, `LOTS.md:4`).
+- Faits de stack (#12) : cible de prod **HP EliteDesk 800 G6 Mini** (plus de Raspberry Pi,
+  3 occurrences dans les docs + 1 dans le `README.md`) ; suppression de la contradiction
+  « Do not start lot N+1 » / Sprint chaining (`CLAUDE.md:62`, `LOTS.md:4`).
+  Consigne corrigée : le front est **Angular 21**, pas 22 — le squelette commité
+  d'`elya-frontend` est en 21 et la montée 21 → 22 est un lot de ce dépôt (P6-D7),
+  donc la ligne ne passe à 22 qu'après ce lot (même règle qu'au lot 12).
 - *(P5-#7, #11)* `SchemaMigrationIT` (Testcontainers `postgres:17`) est le modèle des tests
   d'intégration du portefeuille : à **conserver** ; Gate parameters `Health path = /health`
   (base path `/`), `Image name` `ghcr.io/selimlbouraya/elya`. Rappeler dans le rapport que
   la CI est restée rouge du 2026-08-06 au 2026-09-17 avec 3 PR mergées pendant (wrapper Maven).
 
-## LOT 12 — elya-frontend ⬜
+## LOT 12 — elya-frontend 🔄
+
+**Livré** sur `elya-frontend`, branche `chore/harness-adoption` : `1575976`,
+PR #11, 16 checks verts. Rapport : `docs/audits/lot-12.md`.
+
+Trois constats :
+
+1. **Prettier contre les documents du harnais.** `lint.yml` lance
+   `prettier --check .` dès qu'un `.prettierrc` existe, et Prettier veut
+   reformater `CONVENTIONS.md`, `CLAUDE.md`, `AGENTS.md` et `lots.md` — ce que
+   `harness-invariants` interdit. kf avait répondu à ce mur au lot 8 par un
+   `.prettierignore` resté dans son dépôt ; elya-frontend le recopie. Le
+   fichier encode une règle du harnais : sa place est dans
+   `templates/project/`, à trancher au lot 15 ou dans un chore dédié.
+2. **Quatrième seuil de couverture qui ne mesure rien** (mpb, mpf, elya,
+   elya-fe). Le builder `@angular/build:unit-test` n'instrumente que ce qu'un
+   spec importe : le `80` était satisfait par les 2 lignes d'`app.ts`. Ramené à
+   `0` avec la raison écrite ; le lot 1 elya-fe instrumente tout `src/` et
+   remonte le chiffre. `angular.json` refuse toute clé inconnue, donc la raison
+   ne peut pas vivre à côté du chiffre.
+3. **Les invariants du lot 17 n'ont pas tourné sur cette PR** : les callers
+   épinglent `@main`, et `main` est resté à `e87839c`, antérieur au lot 17. Un
+   lot du harnais n'est vraiment testé qu'à l'adoption suivant sa promotion.
+   Les deux étapes ont été rejouées à la main sur l'arbre : elles passent.
+
+Vérification demandée par la consigne : le lot 1 elya-fe portait déjà
+`apiBaseUrl: ''` et le critère `grep -r "localhost:8080" dist/` à blanc. Le
+littéral est bien dans le bundle aujourd'hui (1 occurrence), donc
+`frontend-dist` tourne en `enforce: false` et le lot 1 le repasse en bloquant.
+`lot-0-integration.md` n'était **pas** planifié dans `lots.md` : une règle
+transversale l'y ajoute, premier passage au lot 2.
+
 
 - Checklist commune.
 - `CLAUDE.md:20` : aligné sur le **manifeste** (#12). *(P6-D7)* Le squelette commité est en
@@ -481,6 +540,55 @@ L'audit rétroactif a trouvé un constat critique : le lot 13 mpf a écrit
   login → action métier clé.
 - Nouvelle dépendance (Playwright ou Cypress) : **accord §4 requis** avant démarrage.
 - Remplace à terme le livrable manuel `lot-0-integration.md` comme condition de PR.
+
+---
+
+## LOT 17 — Un seuil de couverture qui ne mesure rien ✅
+
+**Mergé** le 2026-09-20 sur `claude-harness` (PR #19, merge `c3c4313`), branche
+`chore/harness-adoption-reports`.
+Origine : rapport `docs/audits/lot-11.md`, section « Recommended lot ».
+
+Trois lots d'adoption d'affilée ont trouvé un chiffre de couverture qui ne
+mesurait pas ce qu'il annonçait — mpb (exclusions couvrant `auth/**`,
+`planning/**`, `shopping/**` : 0.80 mesuré autour du métier, sur du code déjà en
+production), mpf (`Lines 100 % (1/1)`), elya (bundle de **0 classe**, `jacoco:check`
+vert). `lot-test` §3.1 demande déjà d'ouvrir le rapport de couverture et de le
+regarder : la consigne n'a tenu aucune des trois fois, donc elle passe en CI
+(§12 : la CI est la seule garde agnostique de l'agent).
+
+Deux vérifications statiques ajoutées à `harness-invariants.yml`. Ni build, ni
+rapport de couverture, ni artefact : le job reste un checkout et du shell.
+
+1. **La gate a un sujet** — un `Coverage threshold` numérique et non nul exige
+   au moins un fichier source hors des motifs de `Coverage exclusions`. Un seuil
+   déclaré `0` (mpf) ou `n/a` est accepté : il n'annonce rien. Un `Stack` dont la
+   disposition des sources n'est pas connue est ignoré, jamais mis en échec.
+2. **Aucune exclusion ne couvre un package métier** — un motif se terminant par
+   une classe nommée est accepté (il dit exactement ce qu'il abandonne) ; un
+   motif à joker doit se terminer sur un segment de la liste
+   `coverage_infra_packages` (défaut :
+   `config,configuration,dto,dtos,mapper,mappers,generated`). Un repo qui a
+   besoin d'une autre exemption la nomme dans son propre `ci.yml`, donc dans un
+   diff relu.
+
+Les deux étapes sont exécutées pour de vrai par `tests/workflows.test.sh` — le
+shell est extrait du workflow et joué sur des dépôts fixtures — et non grepées :
+un grep serait passé sur les trois cas qui ont motivé le lot.
+
+**Troisième point écarté** : faire lire le rapport de couverture lui-même
+(JaCoCo XML, `coverage-summary.json`) par la CI. Cela imposerait aux 8 repos un
+contrat de nom et de format d'artefact, ou un build en doublon de `validate`.
+4 repos sur 8 sont adoptés ; la question se tranche au **lot 15**, avec le
+tableau complet.
+
+**Conséquence immédiate** : vérifié sur les 5 branches d'adoption, kb (`0.70`,
+62 fichiers), kf (`79`, 43), mpb (`0.88`, 66) et mpf (seuil `0`) passent ; elya
+échouait, ce qui est le constat du lot 11. Corrigé sur elya en `97a432f`, sur sa
+PR #16 déjà ouverte : le `<minimum>` du `pom.xml` et la ligne
+`Coverage threshold` tombent à `0` avec la raison écrite dans les deux, et le
+ticket LOT-1.3 d'elya porte désormais le livrable qui mesure le niveau réel et
+le remonte. `./mvnw verify` reste vert et les deux nouvelles étapes passent.
 
 ---
 
