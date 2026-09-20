@@ -120,6 +120,26 @@ assert_eq "" "$(grep -n 'subagent_type' "$SKILLS/lot-audit/SKILL.md" || true)" \
 assert_file "$SKILLS/lot-audit/checklists.md" "lot-audit ships its checklists"
 assert_ok "lot-audit links its checklists" -- \
   grep -qF '(checklists.md)' "$SKILLS/lot-audit/SKILL.md"
+# Lot 18 / C3: the skill audited whatever repository the session happened to sit
+# in. `Skill(security-review)` reads the working directory and takes no path, so
+# seven lots got a security step that ran against the harness clone and said
+# nothing about it. The skill must resolve the repository and refuse to guess.
+assert_ok "lot-audit resolves the audited repository" -- \
+  grep -q 'AUDIT_REPO=$(git rev-parse --show-toplevel)' "$SKILLS/lot-audit/SKILL.md"
+assert_ok "lot-audit stops when the session is in another repository" -- \
+  grep -q 'Step 0b' "$SKILLS/lot-audit/SKILL.md"
+assert_ok "lot-audit scopes its history read to the audited repository" -- \
+  grep -qF 'rtk proxy git -C "$AUDIT_REPO" log' "$SKILLS/lot-audit/SKILL.md"
+assert_ok "lot-audit scopes its diff to the audited repository" -- \
+  grep -qF 'git -C "$AUDIT_REPO" diff develop...HEAD' "$SKILLS/lot-audit/SKILL.md"
+assert_ok "lot-audit writes the report inside the audited repository" -- \
+  grep -qF '$AUDIT_REPO/docs/audits/lot-N.md' "$SKILLS/lot-audit/SKILL.md"
+# lot-review shares the root cause and is worse: --fix writes to that directory.
+assert_ok "lot-review resolves the reviewed repository" -- \
+  grep -q 'REVIEW_REPO=$(git rev-parse --show-toplevel)' "$SKILLS/lot-review/SKILL.md"
+assert_ok "lot-review scopes its commit to the reviewed repository" -- \
+  grep -qF 'git -C "$REVIEW_REPO" commit' "$SKILLS/lot-review/SKILL.md"
+
 # Finding #7: exclusions are reviewed, not trusted.
 assert_ok "lot-audit reviews the coverage exclusions" -- \
   grep -q 'Coverage exclusions' "$SKILLS/lot-audit/SKILL.md"
