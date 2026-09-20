@@ -35,7 +35,7 @@
 | 12 | `chore/harness-adoption` (elya-fe) | C – Adoption | elya-frontend | elya-frontend | ✅ |
 | 13 | `chore/harness-adoption` (deployment) | C – Adoption | deployment | deployment | ✅ |
 | 14 | `chore/harness-adoption` (summerize) | C – Adoption | summerize-youtube | summerize-youtube | ✅ |
-| 15 | `feat/lot-15-closure` | D – Clôture | Ré-audit de contrôle et checklist de promotion | tous | 🔄 |
+| 15 | `feat/lot-15-closure` | D – Clôture | Ré-audit de contrôle et checklist de promotion | tous | ✅ |
 | 16 | `feat/lot-16-contract-ci` | Plus tard | Job CI « contract » front ↔ backend réel | claude-harness, kf, mpf, elya-frontend | ⏸️ |
 | 17 | `chore/harness-adoption-reports` | A – Harness | `harness-invariants` refuse un seuil de couverture qui ne mesure rien | claude-harness, les repos adoptés | ✅ |
 | 18 | `feat/lot-18-*` | D – Clôture | Correctifs ouverts par le ré-audit du lot 15 | claude-harness, mpb, deployment | ⬜ |
@@ -599,7 +599,7 @@ automatisée.
 
 ---
 
-## LOT 15 — Ré-audit de contrôle et clôture 🔄
+## LOT 15 — Ré-audit de contrôle et clôture ✅
 
 - Ré-exécution des prompts P4, P5 et P6 sur l'état `develop` des 8 repos + harness ; rapports
   *(P6-D4)* `claude-harness/docs/audits/portfolio/p4-meta-harness-<date>-v3.md`,
@@ -630,7 +630,8 @@ Reports des lots 13 et 14, à traiter dans ce lot :
 - *(lot 17, troisième point écarté)* Trancher, tableau des 8 repos en main, si
   la CI doit lire le rapport de couverture lui-même.
 
-**Livré** sur `feat/lot-15-closure`. Rapport :
+**Mergé** le 2026-09-20 sur `claude-harness` (PR #24, merge `b3f9c73`), branche
+`feat/lot-15-closure`. Rapport :
 `docs/audits/portfolio/control-2026-09-20.md`.
 
 Deux arbitrages utilisateur en début de lot :
