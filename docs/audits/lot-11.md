@@ -172,10 +172,15 @@ Affected files: `.github/workflows/harness-invariants.yml`,
 
 **Consequence for this lot**: the new check was run against the five adoption
 branches. kb (`0.70`, 62 files), kf (`79`, 43), mpb (`0.88`, 66) and mpf
-(threshold `0`) pass; **elya fails**, which is this report's own finding. Once
-the harness is promoted to `main`, elya PR #16 turns red until its
-`Coverage threshold` is set to `0` with the reason written down — what mpf did —
-to be ratcheted up at elya LOT 1.3.
+(threshold `0`) pass; elya failed, which is this report's own finding.
+
+Fixed on elya in `97a432f`, on the same PR #16: the `<minimum>` of `pom.xml` and
+the `Coverage threshold` row both drop to `0` with the reason written in each,
+and elya LOT-1.3 — the first ticket producing classes outside the exclusions —
+now carries the deliverable that measures the real level and raises it. Not a
+relaxation of the ratchet: there was nothing to measure, and an empty bundle
+satisfies every ratio rule. `./mvnw verify` stays green, and both new invariant
+steps now pass on elya.
 
 ## Left open
 
