@@ -64,6 +64,11 @@ elsewhere — typically in the harness clone while the lot lives in an adopted
 repository — **stop**, and tell the user to reopen the session in that
 repository.
 
+`REVIEW_REPO` comes from the session's own directory, so it cannot detect the
+mismatch on its own. Assert the independent signal too — the current branch
+matches `^(feat|fix|chore)/lot-` and that lot's section exists in this
+repository's `Lots file` — and stop if either fails.
+
 `Skill(code-review)` takes no repository argument: it reads the working
 directory, and `--fix` **writes** to it. A session pointed at the wrong
 repository does not produce an empty review, it produces a review of another
@@ -83,7 +88,9 @@ Every `git` and `gh` command below therefore carries `-C "$REVIEW_REPO"` /
 
 ```bash
 git -C "$REVIEW_REPO" rev-parse --show-toplevel   # confirms the target repo
-gh pr view --json number,url,headRefName 2>/dev/null
+# `gh` resolves the repository from the *current* directory, never from a `git
+# -C`: run it inside $REVIEW_REPO, or it answers about another repository's PR.
+(cd "$REVIEW_REPO" && gh pr view --json number,url,headRefName) 2>/dev/null
 rtk proxy git -C "$REVIEW_REPO" log --first-parent develop..HEAD --oneline
 ```
 
