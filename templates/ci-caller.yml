@@ -33,6 +33,12 @@ jobs:
     uses: SelimLBOURAYA/claude-harness/.github/workflows/harness-invariants.yml@main
     with:
       lots_file: "{{LOTS_FILE}}"            # Gate parameters: Lots file
+      # Package segments a coverage exclusion may legitimately cover. The
+      # default is "config,configuration,dto,dtos,mapper,mappers,generated".
+      # Uncomment and extend it only to exempt a package this repository really
+      # needs to exclude: the exemption then lands in a reviewed diff instead of
+      # inflating a coverage figure quietly (lot 17).
+      # coverage_infra_packages: "config,dto,mapper,generated"
     secrets:
       # Required: the harness repository is private, and github.token is scoped
       # to this repository, so the job cannot check out the CONVENTIONS.md

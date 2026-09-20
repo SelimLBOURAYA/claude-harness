@@ -37,6 +37,7 @@
 | 14 | `chore/harness-adoption` (summerize) | C – Adoption | summerize-youtube | summerize-youtube | ⬜ |
 | 15 | `feat/lot-15-closure` | D – Clôture | Ré-audit de contrôle et checklist de promotion | tous | ⬜ |
 | 16 | `feat/lot-16-contract-ci` | Plus tard | Job CI « contract » front ↔ backend réel | claude-harness, kf, mpf, elya-frontend | ⏸️ |
+| 17 | `chore/harness-adoption-reports` | A – Harness | `harness-invariants` refuse un seuil de couverture qui ne mesure rien | claude-harness, les repos adoptés | 🔄 |
 
 Légende des statuts *(P6-D10)* : ⬜ à faire · 🔄 en cours (livré sur la branche, PR non
 mergée) · ✅ mergé sur `develop` · ⏸️ planifié mais dormant · ❄️ gelé.
@@ -506,6 +507,53 @@ toute la période.
   login → action métier clé.
 - Nouvelle dépendance (Playwright ou Cypress) : **accord §4 requis** avant démarrage.
 - Remplace à terme le livrable manuel `lot-0-integration.md` comme condition de PR.
+
+---
+
+## LOT 17 — Un seuil de couverture qui ne mesure rien 🔄
+
+**Livré** sur `claude-harness`, branche `chore/harness-adoption-reports`.
+Origine : rapport `docs/audits/lot-11.md`, section « Recommended lot ».
+
+Trois lots d'adoption d'affilée ont trouvé un chiffre de couverture qui ne
+mesurait pas ce qu'il annonçait — mpb (exclusions couvrant `auth/**`,
+`planning/**`, `shopping/**` : 0.80 mesuré autour du métier, sur du code déjà en
+production), mpf (`Lines 100 % (1/1)`), elya (bundle de **0 classe**, `jacoco:check`
+vert). `lot-test` §3.1 demande déjà d'ouvrir le rapport de couverture et de le
+regarder : la consigne n'a tenu aucune des trois fois, donc elle passe en CI
+(§12 : la CI est la seule garde agnostique de l'agent).
+
+Deux vérifications statiques ajoutées à `harness-invariants.yml`. Ni build, ni
+rapport de couverture, ni artefact : le job reste un checkout et du shell.
+
+1. **La gate a un sujet** — un `Coverage threshold` numérique et non nul exige
+   au moins un fichier source hors des motifs de `Coverage exclusions`. Un seuil
+   déclaré `0` (mpf) ou `n/a` est accepté : il n'annonce rien. Un `Stack` dont la
+   disposition des sources n'est pas connue est ignoré, jamais mis en échec.
+2. **Aucune exclusion ne couvre un package métier** — un motif se terminant par
+   une classe nommée est accepté (il dit exactement ce qu'il abandonne) ; un
+   motif à joker doit se terminer sur un segment de la liste
+   `coverage_infra_packages` (défaut :
+   `config,configuration,dto,dtos,mapper,mappers,generated`). Un repo qui a
+   besoin d'une autre exemption la nomme dans son propre `ci.yml`, donc dans un
+   diff relu.
+
+Les deux étapes sont exécutées pour de vrai par `tests/workflows.test.sh` — le
+shell est extrait du workflow et joué sur des dépôts fixtures — et non grepées :
+un grep serait passé sur les trois cas qui ont motivé le lot.
+
+**Troisième point écarté** : faire lire le rapport de couverture lui-même
+(JaCoCo XML, `coverage-summary.json`) par la CI. Cela imposerait aux 8 repos un
+contrat de nom et de format d'artefact, ou un build en doublon de `validate`.
+4 repos sur 8 sont adoptés ; la question se tranche au **lot 15**, avec le
+tableau complet.
+
+**Conséquence immédiate** : vérifié sur les 5 branches d'adoption, kb (`0.70`,
+62 fichiers), kf (`79`, 43), mpb (`0.88`, 66) et mpf (seuil `0`) passent ; **elya
+échoue**, ce qui est le constat du lot 11. Après la promotion `develop` → `main`
+du harnais, la PR elya #16 deviendra rouge tant que son `Coverage threshold` ne
+sera pas ramené à `0` avec la raison écrite, comme l'a fait mpf, pour être
+remonté au LOT 1.3 elya.
 
 ---
 

@@ -149,15 +149,33 @@ would have caught all three: `harness-invariants.yml` reads the
 coverage run reports an empty or near-empty analysed bundle while declaring a
 non-zero threshold.
 
-Proposed row for `dev-plan.md`, awaiting approval before the file is touched:
+**Approved and delivered on this branch**, in reduced form. Two static checks
+were added to `harness-invariants.yml`, neither of which reads a coverage report
+or runs a build:
 
-| Lot | Branche | Vague | Objectif | Repos touchés | Statut |
-|---|---|---|---|---|---|
-| 17 | `feat/lot-17-coverage-truth` | D – Clôture | `harness-invariants` refuse un seuil de couverture non nul mesuré sur un bundle vide | claude-harness, les 4 repos adoptés | ⬜ |
+1. a numeric, non-zero `Coverage threshold` requires at least one source file
+   outside the `Coverage exclusions` patterns — the elya case;
+2. no exclusion pattern may cover a business package, the segment list being the
+   `coverage_infra_packages` input — the mpb case, the one that did the damage.
+
+Both are exercised for real by `tests/workflows.test.sh`: the shell is extracted
+from the workflow and run against fixture repositories, because a grep would have
+passed on all three of the repositories that motivated the lot.
+
+The third possibility — having CI read the coverage report itself — was set
+aside: it would impose an artefact name and format contract on all 8 repos, or a
+build duplicating `validate`. Four repos of eight are adopted; the question is
+settled at lot 15, with the full picture.
 
 Affected files: `.github/workflows/harness-invariants.yml`,
-`tests/workflows.test.sh`, and the `Coverage threshold` row of each adopted
-repository.
+`templates/ci-caller.yml`, `tests/workflows.test.sh`, `dev-plan.md`.
+
+**Consequence for this lot**: the new check was run against the five adoption
+branches. kb (`0.70`, 62 files), kf (`79`, 43), mpb (`0.88`, 66) and mpf
+(threshold `0`) pass; **elya fails**, which is this report's own finding. Once
+the harness is promoted to `main`, elya PR #16 turns red until its
+`Coverage threshold` is set to `0` with the reason written down — what mpf did —
+to be ratcheted up at elya LOT 1.3.
 
 ## Left open
 
