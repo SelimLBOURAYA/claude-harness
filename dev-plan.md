@@ -38,7 +38,7 @@
 | 15 | `feat/lot-15-closure` | D – Clôture | Ré-audit de contrôle et checklist de promotion | tous | ✅ |
 | 16 | `feat/lot-16-contract-ci` | Plus tard | Job CI « contract » front ↔ backend réel | claude-harness, kf, mpf, elya-frontend | ⏸️ |
 | 17 | `chore/harness-adoption-reports` | A – Harness | `harness-invariants` refuse un seuil de couverture qui ne mesure rien | claude-harness, les repos adoptés | ✅ |
-| 18 | `feat/lot-18-*` | D – Clôture | Correctifs ouverts par le ré-audit du lot 15 | claude-harness, mpb, deployment | ⬜ |
+| 18 | `feat/lot-18-reaudit-fixes` | D – Clôture | Correctifs ouverts par le ré-audit du lot 15 | claude-harness | 🔄 |
 
 Légende des statuts *(P6-D10)* : ⬜ à faire · 🔄 en cours (livré sur la branche, PR non
 mergée) · ✅ mergé sur `develop` · ⏸️ planifié mais dormant · ❄️ gelé.
@@ -689,25 +689,65 @@ checklist utilisateur du rapport : la session de test depuis chaque IDE (V6
 rejouée) et la promotion elle-même. Le ménage hors repo hérité du lot 6 (5
 actions) n'a pas été réalisé non plus et y est rappelé.
 
-## LOT 18 — Correctifs ouverts par le ré-audit ⬜
+## LOT 18 — Correctifs ouverts par le ré-audit 🔄
 
 Ouvert par le rapport du lot 15, à réaliser **après** la promotion (les 8 repos
 suivent `main` du harnais). Cette promotion est faite depuis le 2026-09-20
 (PR #28, merge `23a4df5`) : le lot est exécutable.
 
-- **`lot-audit` vise le mauvais dépôt** (C3, majeur) : passer le chemin du repo
-  audité à l'étape sécurité et à `git diff`, puis décider si les lots 7 à 13
-  sont rejoués.
-- **`FlywayMigrationIT` de mpb** (C2, majeur) : Testcontainers `postgres:17`
-  avec Flyway actif, ou renommage de la classe pour qu'elle dise ce qu'elle
-  vérifie. Le passage sur Testcontainers appartient au lot 13 de mpb ; le nom
-  trompeur se corrige tout de suite.
-- **Branche `other` de `lint.yml`** (P5-#21) : shellcheck plus parse YAML, pour
-  que `deployment` et `summerize-youtube` cessent de sortir sans lint.
-- **Pins d'images des composes `deployment`** (lot 13) : Dependabot lit les
-  `FROM` d'un Dockerfile, pas les `image:` d'un compose.
-- **Rapport de couverture lu par la CI** : point écarté du lot 17, tranchable
-  maintenant que les 8 repos sont adoptés.
+Quatre arbitrages utilisateur en début de lot, qui ramènent le périmètre au
+**seul repo `claude-harness`** :
+
+1. **Lots 7 à 13 non rejoués.** Le skill est corrigé pour la suite ; le trou est
+   consigné ici plutôt que comblé. Les diffs d'adoption sont de la
+   documentation et du YAML de CI, pas du code métier : rejouer sept étapes
+   sécurité dessus achèterait peu pour 1 h 30.
+2. **Rapport de couverture lu par la CI : refusé par écrit** (troisième point
+   écarté du lot 17, renvoyé ici). Le maintien : les deux vérifications
+   statiques du lot 17 ferment déjà le trou — un seuil sans sujet, une exclusion
+   qui couvre du métier. Lire le rapport lui-même imposerait aux 8 repos un
+   contrat de nom et de format d'artefact, ou un build en doublon de `validate`,
+   pour une mesure que `jacoco:check` et le seuil npm font déjà échouer dans
+   `validate`. Point **clos**, pas reporté.
+3. **`FlywayMigrationIT` de mpb : entièrement renvoyé au lot 13 de mpb**, nom
+   compris. Renommer depuis ce lot aurait ouvert une PR dans un second repo pour
+   un commit d'une ligne, que le lot 13 rouvrirait de toute façon en passant la
+   classe sur Testcontainers.
+4. **Pins d'images des composes `deployment` : sans objet à ce jour.** Vérifié le
+   2026-09-20 : `stacks/` du repo `deployment` est **vide**, aucun fichier
+   compose n'existe encore, et son `.github/dependabot.yml` écrit déjà pourquoi
+   (« LOT 1 adds stacks/core/docker-compose.yml and decides then how those pins
+   are refreshed »). L'item appartient au **LOT 1 de `deployment`**, pas ici :
+   il n'y a rien à épingler.
+
+Reste donc, livré dans ce lot :
+
+- **`lot-audit` visait le mauvais dépôt** (C3, majeur) → `fix(18)`. Les deux
+  skills résolvent désormais le dépôt (`AUDIT_REPO` / `REVIEW_REPO`) et
+  s'arrêtent au lieu de deviner ; chaque commande `git` documentée porte `-C`.
+  `lot-review` est corrigé **avec** `lot-audit` : même cause racine, et le cas y
+  est pire — `Skill(code-review) --fix` *écrit* dans le répertoire courant, donc
+  une session mal placée ne produit pas une revue vide, elle modifie les
+  fichiers d'un autre repo.
+- **Branche `other` de `lint.yml`** (P5-#21) → `feat(18)`. shellcheck sur les
+  `*.sh` et sur tout point d'entrée exécutable à shebang shell, plus parse YAML
+  de chaque document. La branche couvre `other` **et** `harness` : ce sont les
+  deux stacks que le workflow acceptait sans exécuter la moindre étape, et leur
+  contenu réel est le même (du shell et du YAML). Un backend Node déclaré
+  `other` (`summerize-youtube`) n'obtient toujours pas eslint : c'est le prix de
+  l'étiquette de stack qu'il a choisie, désormais écrit dans le workflow.
+  Les deux étapes sont **exécutées** par `tests/workflows.test.sh` sur des
+  dépôts fixtures, pas grepées.
+
+**Suite, hors de ce lot** *(à ouvrir comme tickets dans les repos concernés)* :
+
+- `deployment` et `summerize-youtube` ont leur job `lint` **commenté** dans leur
+  `ci.yml` : tant qu'ils ne le décommentent pas, la nouvelle branche ne tourne
+  pas chez eux. Le harnais l'appelle sur lui-même (`stack: harness`), ce qui est
+  aujourd'hui le seul endroit où elle s'exécute pour de vrai.
+- Les lots 7 à 13 restent sans étape sécurité automatisée, par décision. Leurs
+  rapports `docs/audits/lot-N.md` ne sont pas réécrits ; cette ligne est la
+  trace.
 
 ## LOT 16 — Job CI « contract » front ↔ backend réel ⏸️
 
@@ -839,7 +879,7 @@ le remonte. `./mvnw verify` reste vert et les deux nouvelles étapes passent.
 | 18 | mineur | Artefact testé ≠ artefact livré | 4 (gabarit Dockerfile), KB.17, MP.BE.13 |
 | 19 | mineur | Jobs verts sans test (summerize, mpf, mpb) | 9, 10, 14 |
 | 20 | mineur | Docs deployment périmées (README, fiche meal-planner) | corrigé le 2026-09-17 ; 13 |
-| 21 | mineur | Aucun lint/format en CI | 3 (`lint.yml`) |
+| 21 | mineur | Aucun lint/format en CI | 3 (`lint.yml`) ; 18 (branches `other` et `harness`) |
 | 22 | mineur | Dérive de structure CI, elya SB 4.0.6 | 3 ; E.1.3 |
 | 23 | mineur | Hooks dépendants du PATH de l'IDE | 0 (V6) |
 
