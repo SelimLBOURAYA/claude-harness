@@ -654,6 +654,16 @@ nouveau : l'*updater* Dependabot lui-même n'a pas accès au harnais privé et
 échoue en `403 … Dependabot doesn't have access to it` avant d'ouvrir la PR
 (run `35516280690`, deployment). Poser le secret ne suffira donc pas.
 
+**Premier étage traité hors lot** (`fix/dependabot-conventions-master`) : le
+checkout du master dans `harness-invariants.yml` devient non fatal à lui seul, et
+l'étape `CONVENTIONS.md` décide. Master illisible et `CONVENTIONS.md` intouchée
+par la PR → avertissement, la vérification qui fait foi est celle de la branche
+de base. Master illisible et `CONVENTIONS.md` modifiée, ou hors PR → échec, comme
+avant. Le secret Dependabot reste à poser pour retrouver une vérification
+fraîche ; il n'est plus la condition pour qu'une PR de dépendance soit verte.
+Second étage (accès de l'*updater* au harnais privé, écosystème
+`github_actions`) inchangé : action utilisateur.
+
 Deux constats majeurs restent ouverts :
 
 - **C2** — `FlywayMigrationIT` de mpb tourne sur H2 avec `flyway.enabled: false`

@@ -418,4 +418,81 @@ assert_ok "the caller template documents the coverage exemption input" -- \
   grep -q 'coverage_infra_packages' "$TPL/ci-caller.yml"
 
 
+# --- the conventions master when it cannot be read -----------------------
+# A Dependabot pull request is not exposed to the repository secret store, so
+# harness_token is empty and github.token cannot check out the private harness
+# repository: the checkout fails with "repository not found" and every
+# Dependabot PR of the portfolio went red on it (control-2026-09-20.md, C1).
+# The step is run for real against git fixtures, because the whole question is
+# what `git diff` says about a base commit that may or may not be fetched.
+extract_step "CONVENTIONS.md matches the harness master" > "$COVWORK/conv.sh"
+assert_ok "the conventions-master step has an extractable script" -- \
+  test -s "$COVWORK/conv.sh"
+
+# conv_repo <dir> <touches CONVENTIONS.md: yes|no>  : echoes the base SHA
+conv_repo() {
+  mkdir -p "$1"
+  git -C "$1" init -q -b develop
+  git -C "$1" config user.email ci@example.invalid
+  git -C "$1" config user.name CI
+  printf 'master text\n' > "$1/CONVENTIONS.md"
+  git -C "$1" add -A
+  git -C "$1" commit -qm base
+  base=$(git -C "$1" rev-parse HEAD)
+  if [ "$2" = yes ]; then
+    printf 'master text, edited locally\n' > "$1/CONVENTIONS.md"
+  else
+    printf '1.18.48\n' > "$1/pom.xml"
+  fi
+  git -C "$1" add -A
+  git -C "$1" commit -qm head
+  echo "$base"
+}
+
+# with_master <dir> <content>
+with_master() {
+  mkdir -p "$1/.harness-master"
+  printf '%s\n' "$2" > "$1/.harness-master/CONVENTIONS.md"
+}
+
+# run_conv <dir> <base sha>  : echoes the exit status
+run_conv() {
+  ( cd "$1" && BASE_SHA="${2-}" CONVENTIONS_REF=main \
+      bash "$COVWORK/conv.sh" > /dev/null 2>&1; echo $? )
+}
+
+# The nominal path is unchanged: master readable, copy compared to it.
+D="$COVWORK/conv-match"; BASE=$(conv_repo "$D" no)
+with_master "$D" 'master text'
+assert_eq "0" "$(run_conv "$D" "$BASE")" "a copy identical to a readable master passes"
+
+D="$COVWORK/conv-drift"; BASE=$(conv_repo "$D" yes)
+with_master "$D" 'master text'
+assert_eq "1" "$(run_conv "$D" "$BASE")" "a copy that drifted from a readable master fails"
+
+# The Dependabot shape: no master, and a diff that cannot touch CONVENTIONS.md.
+D="$COVWORK/conv-unreadable-untouched"; BASE=$(conv_repo "$D" no)
+assert_eq "0" "$(run_conv "$D" "$BASE")" \
+  "an unreadable master passes when the change leaves CONVENTIONS.md alone"
+
+# The one shape that must still fail: the copy is edited and nothing can check it.
+D="$COVWORK/conv-unreadable-touched"; BASE=$(conv_repo "$D" yes)
+assert_eq "1" "$(run_conv "$D" "$BASE")" \
+  "an unreadable master fails when the change edits CONVENTIONS.md"
+
+# No base SHA means no pull request, so the secret was available and its absence
+# is a real fault, not the Dependabot exemption.
+D="$COVWORK/conv-unreadable-push"; BASE=$(conv_repo "$D" no)
+assert_eq "1" "$(run_conv "$D" "")" \
+  "an unreadable master fails outside a pull request, where no exemption applies"
+
+# The exemption never covers an absent copy.
+D="$COVWORK/conv-missing"; BASE=$(conv_repo "$D" no)
+rm "$D/CONVENTIONS.md"
+assert_eq "1" "$(run_conv "$D" "$BASE")" "a missing CONVENTIONS.md fails whatever the master"
+
+# The checkout must be allowed to fail, or the step above never runs.
+assert_ok "the conventions-master checkout is not fatal on its own" -- \
+  grep -q '^        continue-on-error: true' "$WF/harness-invariants.yml"
+
 finish
