@@ -21,7 +21,7 @@ assert_eq "" "$(grep -n 'coding-conventions.md` is the \*\*master' "$C" || true)
 
 # --- every section a skill or a workflow cites must exist -----------------
 for n in 1 2 2.5 3 4 5 6 7 8 9 10 11 12 13 14 15; do
-  assert_ok "section $n exists" -- grep -qE "^## $n[.] |^## $n " "$C"
+  assert_ok "section $n exists" -- grep -qE "^## ${n}[.] |^## ${n} " "$C"
 done
 
 # A citation that points at a section number the file does not carry is the
