@@ -120,6 +120,46 @@ assert_eq "" "$(grep -n 'subagent_type' "$SKILLS/lot-audit/SKILL.md" || true)" \
 assert_file "$SKILLS/lot-audit/checklists.md" "lot-audit ships its checklists"
 assert_ok "lot-audit links its checklists" -- \
   grep -qF '(checklists.md)' "$SKILLS/lot-audit/SKILL.md"
+# Lot 18 / C3: the skill audited whatever repository the session happened to sit
+# in. `Skill(security-review)` reads the working directory and takes no path, so
+# seven lots got a security step that ran against the harness clone and said
+# nothing about it. The skill must resolve the repository and refuse to guess.
+assert_ok "lot-audit resolves the audited repository" -- \
+  grep -q 'AUDIT_REPO=$(git rev-parse --show-toplevel)' "$SKILLS/lot-audit/SKILL.md"
+assert_ok "lot-audit stops when the session is in another repository" -- \
+  grep -q 'Step 0b' "$SKILLS/lot-audit/SKILL.md"
+assert_ok "lot-audit scopes its history read to the audited repository" -- \
+  grep -qF 'rtk proxy git -C "$AUDIT_REPO" log' "$SKILLS/lot-audit/SKILL.md"
+assert_ok "lot-audit scopes its diff to the audited repository" -- \
+  grep -qF 'git -C "$AUDIT_REPO" diff develop...HEAD' "$SKILLS/lot-audit/SKILL.md"
+assert_ok "lot-audit writes the report inside the audited repository" -- \
+  grep -qF '$AUDIT_REPO/docs/audits/lot-N.md' "$SKILLS/lot-audit/SKILL.md"
+# A path derived from the session's own cwd cannot contradict itself: the stop
+# needs a signal the session does not control, or it is a tautology that never
+# fires and lots 7-13 repeat themselves.
+assert_ok "lot-audit cross-checks the branch against a lot pattern" -- \
+  grep -qE "branch --show-current \| grep -qE .\^\(feat\|fix\|chore\)/lot-" \
+  "$SKILLS/lot-audit/SKILL.md"
+assert_ok "lot-audit cross-checks the lot section in the repo's own lots file" -- \
+  grep -qF '"$AUDIT_REPO/<Lots file>"' "$SKILLS/lot-audit/SKILL.md"
+# The portfolio writes LOT, Lot and lot: a matcher that stops on the *correct*
+# repository is worse than no matcher.
+assert_ok "the lots-file matcher is case-insensitive" -- \
+  grep -qF 'grep -qiE' "$SKILLS/lot-audit/SKILL.md"
+assert_ok "that matcher accepts this repository's own heading" -- \
+  bash -c 'N=18; grep -qiE "(^|[^a-z])lot[ -]$N([^0-9]|$)" "$REPO_ROOT/dev-plan.md"'
+assert_ok "lot-review cross-checks the branch and the lots file too" -- \
+  grep -qF '^(feat|fix|chore)/lot-' "$SKILLS/lot-review/SKILL.md"
+# gh resolves the repository from the cwd, never from a sibling git -C.
+assert_ok "lot-review runs gh inside the reviewed repository" -- \
+  grep -qF '(cd "$REVIEW_REPO" && gh pr view' "$SKILLS/lot-review/SKILL.md"
+
+# lot-review shares the root cause and is worse: --fix writes to that directory.
+assert_ok "lot-review resolves the reviewed repository" -- \
+  grep -q 'REVIEW_REPO=$(git rev-parse --show-toplevel)' "$SKILLS/lot-review/SKILL.md"
+assert_ok "lot-review scopes its commit to the reviewed repository" -- \
+  grep -qF 'git -C "$REVIEW_REPO" commit' "$SKILLS/lot-review/SKILL.md"
+
 # Finding #7: exclusions are reviewed, not trusted.
 assert_ok "lot-audit reviews the coverage exclusions" -- \
   grep -q 'Coverage exclusions' "$SKILLS/lot-audit/SKILL.md"

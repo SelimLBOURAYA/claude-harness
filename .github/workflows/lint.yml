@@ -102,6 +102,94 @@ jobs:
             echo "- lint: **skipped**, no script" >> "$GITHUB_STEP_SUMMARY"
           fi
 
+      # P5-#21: `other` and `harness` accepted this workflow and ran no check at
+      # all, so `deployment` and `summerize-youtube` were linted by nothing. What
+      # those repositories actually hold is shell and YAML, and that is what the
+      # two steps below check. A Node backend declared `other` (summerize-youtube)
+      # gets no eslint here - it is the price of the stack label it chose, and it
+      # is written down rather than discovered.
+      - name: ShellCheck
+        if: inputs.stack == 'other' || inputs.stack == 'harness'
+        run: |
+          # .git and the usual vendored trees: a lint job that fails on code the
+          # repository does not own teaches the reader to ignore it.
+          prune=( -name .git -o -name node_modules -o -name vendor
+                  -o -name .venv -o -name target -o -name dist )
+          # -print0/-d '' so a path with a space is one argument, not two.
+          mapfile -d '' -t scripts < <(
+            find . \( "${prune[@]}" \) -prune -o -type f -name '*.sh' -print0
+          )
+          # An associative index, not a space-joined string: two paths whose
+          # names differ only by where a space falls would otherwise collide,
+          # and the second one would be silently dropped from the lint.
+          declare -A seen=()
+          if [ "${#scripts[@]}" -gt 0 ]; then
+            for s in "${scripts[@]}"; do seen["$s"]=1; done
+          fi
+          # A shell script without the .sh suffix is the common case for a hook
+          # or a CLI entry point: take anything executable whose shebang is a
+          # shell, which is how the harness ships hooks/mirror-sync.sh's siblings.
+          while IFS= read -r -d '' f; do
+            head -c 2 "$f" | grep -q '#!' || continue
+            head -1 "$f" | grep -qE '^#!.*\b(bash|sh|dash|ksh)\b' || continue
+            if [ -n "${seen[$f]-}" ]; then continue; fi
+            seen["$f"]=1
+            scripts+=("$f")
+          done < <(find . \( "${prune[@]}" \) -prune -o -type f -perm -u+x -print0)
+
+          if [ "${#scripts[@]}" -eq 0 ]; then
+            echo "skipped: no shell script found"
+            echo "- shellcheck: **skipped**, no shell script" >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          if ! command -v shellcheck > /dev/null; then
+            echo "skipped: shellcheck not installed on this runner"
+            echo "- shellcheck: **skipped**, not installed" >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          printf 'shellcheck: %d script(s)\n' "${#scripts[@]}"
+          shellcheck --severity=warning "${scripts[@]}"
+
+      - name: YAML syntax
+        if: inputs.stack == 'other' || inputs.stack == 'harness'
+        run: |
+          prune=( -name .git -o -name node_modules -o -name vendor
+                  -o -name .venv -o -name target -o -name dist )
+          mapfile -d '' -t docs < <(
+            find . \( "${prune[@]}" \) -prune -o -type f \( -name '*.yml' -o -name '*.yaml' \) -print0
+          )
+          if [ "${#docs[@]}" -eq 0 ]; then
+            echo "skipped: no YAML file found"
+            echo "- yaml: **skipped**, no YAML file" >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          if ! python3 -c 'import yaml' 2>/dev/null; then
+            # Installing beats skipping here: an unparseable compose file is
+            # exactly the failure this branch exists to catch. But a runner
+            # without pip, or an externally-managed interpreter (PEP 668), must
+            # report a missing linter as a skip - not as a red check that reads
+            # like a YAML error.
+            if ! python3 -m pip install --quiet --disable-pip-version-check pyyaml; then
+              echo "skipped: PyYAML is unavailable and could not be installed"
+              echo "- yaml: **skipped**, PyYAML unavailable" >> "$GITHUB_STEP_SUMMARY"
+              exit 0
+            fi
+          fi
+          printf 'yaml: %d document(s)\n' "${#docs[@]}"
+          python3 - "${docs[@]}" <<'PYEOF'
+          import sys, yaml
+          failed = []
+          for path in sys.argv[1:]:
+              try:
+                  with open(path) as handle:
+                      list(yaml.safe_load_all(handle))
+              except yaml.YAMLError as error:
+                  failed.append(f"{path}: {error}")
+          for line in failed:
+              print(line, file=sys.stderr)
+          sys.exit(1 if failed else 0)
+          PYEOF
+
   # Non-blocking until the first go-live (P6-D12). It reports, it does not gate:
   # a transitive advisory with no fix available must not stop a lot.
   #

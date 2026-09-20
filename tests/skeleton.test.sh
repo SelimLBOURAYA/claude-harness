@@ -148,10 +148,10 @@ assert_ok "the bootstrap skill checks that no placeholder survives" -- \
 
 # --- the skeleton parses --------------------------------------------------
 if python3 -c 'import yaml' 2>/dev/null; then
-  for f in "$SK/compose.ci.yml"; do
-    assert_ok "$(basename "$f") parses as YAML" -- \
-      python3 -c 'import sys,yaml; yaml.safe_load(open(sys.argv[1]))' "$f"
-  done
+  # One file, so no loop: a double-quoted single-element `for` runs once anyway
+  # and reads as if it iterated (SC2066).
+  assert_ok "compose.ci.yml parses as YAML" -- \
+    python3 -c 'import sys,yaml; yaml.safe_load(open(sys.argv[1]))' "$SK/compose.ci.yml"
 fi
 
 finish

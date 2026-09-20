@@ -6,7 +6,7 @@ description: >-
   lot-review, at the end of a lot, or when the user asks for an audit, a
   security review or an architecture review of lot work.
 metadata:
-  version: "2.0"
+  version: "2.1"
 ---
 
 # Lot Audit — Security, Performance, Architecture
@@ -33,9 +33,59 @@ head of the branch:
 
 Auditing unreviewed code produces a report about the wrong version of the lot.
 
+## Step 0b — The audited repository is the session's repository
+
+Every command below reads a repository. Resolve **which** one, first, and refuse
+to guess:
+
+```bash
+AUDIT_REPO=$(git rev-parse --show-toplevel)
+git -C "$AUDIT_REPO" branch --show-current
+```
+
+`$AUDIT_REPO` must be the repository that holds the lot branch — the one whose
+`CLAUDE.md`, `Lots file` and `docs/audits/` this audit is about. If the session
+is running somewhere else (typically in the harness clone while the lot lives in
+an adopted repository), **stop**. Tell the user to reopen the session in the
+audited repository and re-run `lot-audit`.
+
+`AUDIT_REPO` is derived from the session's own directory, so it can never
+contradict itself: the stop condition needs a second, independent signal. Assert
+both, and stop if either fails:
+
+```bash
+git -C "$AUDIT_REPO" branch --show-current | grep -qE '^(feat|fix|chore)/lot-'
+grep -qiE "(^|[^a-z])lot[ -]$N([^0-9]|$)" "$AUDIT_REPO/<Lots file>"
+```
+
+Case-insensitively: the lots files of the portfolio write the heading as
+`## LOT 18`, `## Lot 18` and `## lot 18` depending on the repository, and a
+matcher that fires a false stop on the correct repository is worse than none.
+
+A session sitting in the wrong clone is either not on a lot branch at all, or on
+a branch whose lot number has no section in that repository's `Lots file`. Either
+failure means the lot lives elsewhere — stop rather than audit what is in front
+of you.
+
+There is no workaround. `Skill(security-review)` in step 2 reviews the pending
+changes of the **current working directory** and takes no repository argument: a
+session whose directory is not the audited repository produces a security step
+about the wrong code, and says nothing about it. That is exactly what happened
+to lots 7 to 13, whose security step audited the harness clone instead of the
+adopted repository — an audit that ran, reported nothing, and was wrong.
+
+Consequences for the rest of the skill:
+
+- Every `git` invocation carries `-C "$AUDIT_REPO"`, so a mistaken directory
+  fails loudly instead of describing another repository's diff.
+- Every path (`CLAUDE.md`, the `Lots file`, `docs/audits/lot-N.md`) resolves
+  **inside** `$AUDIT_REPO`, including the report written in step 7.
+- The one deliberate exception is the harness ref of step 7, read from the
+  harness clone with its own explicit `-C`.
+
 ## Prerequisites
 
-1. Read the repository's `CLAUDE.md` / `AGENTS.md`, its `## Gate parameters`, and
+1. Read `$AUDIT_REPO`'s `CLAUDE.md` / `AGENTS.md`, its `## Gate parameters`, and
    the active lot section in the `Lots file`.
 2. Identify the lot from the branch name (`feat/lot-N-slug`) or from the context.
 3. Scope the diff to the **branch changes** vs `develop`.
@@ -45,6 +95,7 @@ Auditing unreviewed code produces a report about the wrong version of the lot.
 ```
 Task Progress:
 - [ ] Step 0 — lot-review deliverable present and current
+- [ ] Step 0b — the session runs in the audited repository
 - [ ] Step 1 — Context (lot, diff, touched files)
 - [ ] Step 2 — Security audit
 - [ ] Step 3 — Performance audit
@@ -56,9 +107,10 @@ Task Progress:
 
 ### Step 1 — Context
 
-- `rtk proxy git log --first-parent develop..HEAD --oneline` — the lot's commits.
-  Always `rtk proxy` for history: the rtk filter hides merge commits (P5-#14).
-- `git diff develop...HEAD --stat` — the modified files.
+- `rtk proxy git -C "$AUDIT_REPO" log --first-parent develop..HEAD --oneline` —
+  the lot's commits. Always `rtk proxy` for history: the rtk filter hides merge
+  commits (P5-#14).
+- `git -C "$AUDIT_REPO" diff develop...HEAD --stat` — the modified files.
 - Identify the lot's specific risks from its section in the `Lots file`
   (credentials, authorisation, export, file paths, payment, migrations).
 - Read only the files touched by the lot and their direct dependencies.
@@ -75,9 +127,10 @@ This replaces the `security-review` **subagent**, which does not exist (finding
 #6): earlier versions of this skill launched a subagent type that silently
 failed, so the security step was never actually performed.
 
-Give it the repository path, the diff scope (`branch changes vs develop`) and
-custom instructions built from the repo's `CLAUDE.md`: stack, the secrets it
-handles, the routes it exposes, and the lot's specific risks.
+It reviews the working directory, which step 0b established is `$AUDIT_REPO`.
+Give it the diff scope (`branch changes vs develop`) and custom instructions
+built from that repository's `CLAUDE.md`: stack, the secrets it handles, the
+routes it exposes, and the lot's specific risks.
 
 If the skill is unavailable, fall back to the manual checklist in
 [checklists.md](checklists.md) and say so in the report — a skipped step is
@@ -106,7 +159,8 @@ produced by excluding the code that matters is not a measurement.
 Only when `Migrations directory` is not `n/a`:
 
 - Every file of the migrations directory touched by the lot must be in status
-  `A` (added) versus `origin/develop`. A modified merged migration is a
+  `A` (added) versus `origin/develop`
+  (`git -C "$AUDIT_REPO" diff --name-status origin/develop...HEAD`). A modified merged migration is a
   **Critical** finding — it has already run on other environments.
 - **Expand/contract** (§7 of `CONVENTIONS.md`, P5-#8): a migration that drops a
   column or table, renames, or adds a `NOT NULL` constraint must never ship in
@@ -117,7 +171,7 @@ Only when `Migrations directory` is not `n/a`:
 
 ### Step 7 — Consolidated report
 
-Write the report to **`docs/audits/lot-N.md`**, in English:
+Write the report to **`$AUDIT_REPO/docs/audits/lot-N.md`**, in English:
 
 ```markdown
 # Lot Audit — Lot N — [branch name]
@@ -204,6 +258,9 @@ the `Lots file`**.
 - Empty diff → one sentence: nothing to audit.
 - Never modify the `Lots file` without explicit approval (status column excepted).
 - All history reads go through `rtk proxy git log` (P5-#14).
+- Every repository read is scoped by `-C "$AUDIT_REPO"`; a step that cannot be
+  scoped, `Skill(security-review)` included, requires the session to run in that
+  repository (step 0b).
 - Remind at the end: the `Validation command` must be green before the PR.
 
 ## Resources

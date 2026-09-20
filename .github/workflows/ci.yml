@@ -26,6 +26,14 @@ jobs:
   branch-naming:
     uses: ./.github/workflows/branch-naming.yml
 
+  # The harness is the one repository that can exercise the `harness` branch of
+  # lint.yml on real code today: `deployment` and `summerize-youtube` still have
+  # their lint job commented out, and re-enabling it there is their own change.
+  lint:
+    uses: ./.github/workflows/lint.yml
+    with:
+      stack: harness
+
   validate:
     runs-on: ubuntu-latest
     steps:

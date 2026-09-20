@@ -122,6 +122,8 @@ Every blocking invariant is also enforced in CI, which is the only agent-agnosti
 | `docs/audits/lot-12.md` | Lot 12 report — elya-frontend adoption |
 | `docs/audits/lot-13.md` | Lot 13 report — deployment adoption |
 | `docs/audits/lot-14.md` | Lot 14 report — summerize-youtube adoption |
+| `docs/audits/lot-18-review.md` | Lot 18 code-review report |
+| `docs/audits/lot-18.md` | Lot 18 audit report — security, performance, architecture |
 | `docs/audits/portfolio/p4-meta-harness-2026-09-17-v2.md` | P4 portfolio audit (supersedes the removed morning v1) |
 | `docs/audits/portfolio/p5-harness-cicd-2026-09-17.md` | P5 CI/CD guards audit |
 | `docs/audits/portfolio/p6-meta-portfolio-2026-09-17.md` | P6 cross-cutting portfolio audit |

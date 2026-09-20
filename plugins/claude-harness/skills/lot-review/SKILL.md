@@ -6,7 +6,7 @@ description: >-
   only under the claude profile. Use after lot-test and before lot-audit, or
   when the user asks for a code review of the lot.
 metadata:
-  version: "1.0"
+  version: "1.1"
 ---
 
 # Lot Review — Code review before the audit
@@ -52,6 +52,33 @@ own output with the model that wrote it.
 
 **Never attempt the switch yourself.** The stop is the deliverable of this step.
 
+## Step 0b — The reviewed repository is the session's repository
+
+```bash
+REVIEW_REPO=$(git rev-parse --show-toplevel)
+git -C "$REVIEW_REPO" branch --show-current
+```
+
+`$REVIEW_REPO` must be the repository holding the lot branch. If the session runs
+elsewhere — typically in the harness clone while the lot lives in an adopted
+repository — **stop**, and tell the user to reopen the session in that
+repository.
+
+`REVIEW_REPO` comes from the session's own directory, so it cannot detect the
+mismatch on its own. Assert the independent signal too — the current branch
+matches `^(feat|fix|chore)/lot-` and that lot's section exists in this
+repository's `Lots file` — and stop if either fails.
+
+`Skill(code-review)` takes no repository argument: it reads the working
+directory, and `--fix` **writes** to it. A session pointed at the wrong
+repository does not produce an empty review, it produces a review of another
+repository's diff and edits that repository's files. Same root cause as the
+`lot-audit` defect of lot 18 (C3), where the security step silently audited the
+harness clone for seven lots.
+
+Every `git` and `gh` command below therefore carries `-C "$REVIEW_REPO"` /
+`--repo`, and the deliverable is written inside `$REVIEW_REPO`.
+
 ## Step 1 — Identify the target
 
 | Situation | Target |
@@ -60,8 +87,11 @@ own output with the model that wrote it.
 | No PR yet | The local diff `develop...HEAD` |
 
 ```bash
-gh pr view --json number,url,headRefName 2>/dev/null
-rtk proxy git log --first-parent develop..HEAD --oneline
+git -C "$REVIEW_REPO" rev-parse --show-toplevel   # confirms the target repo
+# `gh` resolves the repository from the *current* directory, never from a `git
+# -C`: run it inside $REVIEW_REPO, or it answers about another repository's PR.
+(cd "$REVIEW_REPO" && gh pr view --json number,url,headRefName) 2>/dev/null
+rtk proxy git -C "$REVIEW_REPO" log --first-parent develop..HEAD --oneline
 ```
 
 Read the lot's section in the `Lots file` so the review is against the lot's
@@ -92,8 +122,8 @@ change, not the tool's.
 
 ```bash
 <Validation command>          # from Gate parameters, green before committing
-git diff --stat
-git commit -m "fix(N): apply the lot review findings"
+git -C "$REVIEW_REPO" diff --stat
+git -C "$REVIEW_REPO" commit -m "fix(N): apply the lot review findings"
 ```
 
 Use `fix(N)` for a defect and `refactor(N)` for a cleanup with no behaviour
@@ -149,3 +179,4 @@ that skipping one is visible.
 - `<Validation command>` green before the fix commit.
 - Do not open, merge or close a PR here — that belongs to `lot-ship`.
 - History reads through `rtk proxy git log` (P5-#14).
+- Every repository read or write is scoped to `$REVIEW_REPO` (step 0b).
