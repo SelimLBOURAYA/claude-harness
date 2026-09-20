@@ -31,7 +31,7 @@
 | 8 | `chore/harness-adoption` (kf) | C – Adoption | kreadevis-frontend (pilote frontend) | kf | 🔄 |
 | 9 | `chore/harness-adoption` (mpb) | C – Adoption | meal-planner-backend | mpb | 🔄 |
 | 10 | `chore/harness-adoption` (mpf) | C – Adoption | meal-planner-frontend (+ audit rétroactif) | mpf | 🔄 |
-| 11 | `chore/harness-adoption` (elya) | C – Adoption | elya | elya | ⬜ |
+| 11 | `chore/harness-adoption` (elya) | C – Adoption | elya | elya | 🔄 |
 | 12 | `chore/harness-adoption` (elya-fe) | C – Adoption | elya-frontend | elya-frontend | ⬜ |
 | 13 | `chore/harness-adoption` (deployment) | C – Adoption | deployment | deployment | ⬜ |
 | 14 | `chore/harness-adoption` (summerize) | C – Adoption | summerize-youtube | summerize-youtube | ⬜ |
@@ -420,12 +420,37 @@ L'audit rétroactif a trouvé un constat critique : le lot 13 mpf a écrit
   `frontend-dist.yml` (même règle `continue-on-error` datée que kf tant que le lot 14 mpf
   n'a pas posé `fileReplacements`).
 
-## LOT 11 — elya ⬜
+## LOT 11 — elya 🔄
+
+**Livré** sur `elya`, branche `chore/harness-adoption` : `cc86684`, PR #16.
+Rapport : `docs/audits/lot-11.md`. Première PR d'adoption dont les workflows
+réutilisables passent réellement (16 checks verts) : la promotion `develop` →
+`main` du harnais, absente aux lots 7 à 10, a eu lieu depuis.
+
+Deux constats de ce lot :
+
+1. **Le seuil JaCoCo `0.80` ne mesure rien** — `jacoco:check` analyse un bundle
+   de **0 classe** : les deux seules classes de `src/main/java` sont couvertes
+   par les exclusions, et un bundle vide satisfait toute règle de ratio. Le
+   seuil entrera en vigueur, sans préavis, au premier commit qui ajoute une
+   classe métier (elya LOT 1.3). Troisième lot d'affilée où le chiffre de
+   couverture ne mesure pas ce qu'il annonce (9, 10, 11) : un lot 17 est proposé
+   dans le rapport, en attente d'arbitrage.
+2. **Item 7 de la checklist non appliqué** par le commit d'adoption :
+   `.claude/settings.local.json` autorisait encore `Bash(git *)` et
+   `Bash(gh pr *)`. Corrigé pendant l'audit ; fichier gitignoré, donc hors diff.
+
+La CI d'elya était rouge **du 2026-07-10 au 2026-09-17**, et non depuis le
+2026-08-06 : 21 runs en échec (URL du wrapper Maven), des PR mergées pendant
+toute la période.
 
 - Checklist commune.
-- Faits de stack (#12) : cible de prod **HP EliteDesk G6** (plus de Raspberry Pi, 3 occurrences),
-  front **Angular 22** ; suppression de la contradiction « Do not start lot N+1 » / Sprint
-  chaining (`CLAUDE.md:62`, `LOTS.md:4`).
+- Faits de stack (#12) : cible de prod **HP EliteDesk 800 G6 Mini** (plus de Raspberry Pi,
+  3 occurrences dans les docs + 1 dans le `README.md`) ; suppression de la contradiction
+  « Do not start lot N+1 » / Sprint chaining (`CLAUDE.md:62`, `LOTS.md:4`).
+  Consigne corrigée : le front est **Angular 21**, pas 22 — le squelette commité
+  d'`elya-frontend` est en 21 et la montée 21 → 22 est un lot de ce dépôt (P6-D7),
+  donc la ligne ne passe à 22 qu'après ce lot (même règle qu'au lot 12).
 - *(P5-#7, #11)* `SchemaMigrationIT` (Testcontainers `postgres:17`) est le modèle des tests
   d'intégration du portefeuille : à **conserver** ; Gate parameters `Health path = /health`
   (base path `/`), `Image name` `ghcr.io/selimlbouraya/elya`. Rappeler dans le rapport que
