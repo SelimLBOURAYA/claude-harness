@@ -34,7 +34,7 @@
 | 11 | `chore/harness-adoption` (elya) | C – Adoption | elya | elya | ✅ |
 | 12 | `chore/harness-adoption` (elya-fe) | C – Adoption | elya-frontend | elya-frontend | ✅ |
 | 13 | `chore/harness-adoption` (deployment) | C – Adoption | deployment | deployment | 🔄 |
-| 14 | `chore/harness-adoption` (summerize) | C – Adoption | summerize-youtube | summerize-youtube | ⬜ |
+| 14 | `chore/harness-adoption` (summerize) | C – Adoption | summerize-youtube | summerize-youtube | 🔄 |
 | 15 | `feat/lot-15-closure` | D – Clôture | Ré-audit de contrôle et checklist de promotion | tous | ⬜ |
 | 16 | `feat/lot-16-contract-ci` | Plus tard | Job CI « contract » front ↔ backend réel | claude-harness, kf, mpf, elya-frontend | ⏸️ |
 | 17 | `chore/harness-adoption-reports` | A – Harness | `harness-invariants` refuse un seuil de couverture qui ne mesure rien | claude-harness, les repos adoptés | ✅ |
@@ -544,7 +544,52 @@ résoudre pour celle des deux qui mergera en second.
 - Skills applicables : `lot-audit`, `lot-ship`, `harness-sync` ; `lot-test` remplacé par la
   validation des fichiers compose.
 
-## LOT 14 — summerize-youtube ⬜
+## LOT 14 — summerize-youtube 🔄
+
+**Livré** sur `summerize-youtube`, branche `chore/harness-adoption` : `8de293c`,
+`8ba257e`, `16e12b9`. Rapport : `docs/audits/lot-14.md`.
+
+Dernière adoption de la vague C. Le repo est gelé avant son lot 00 : ni
+`package.json`, ni `src/`, ni image. Ce qu'il portait encore, c'était la dernière
+copie de l'ancien harnais — sept `SKILL.md` sous `skill/`, répertoire que Claude
+Code n'a jamais scanné, dont le skill `sprint` supprimé partout ailleurs.
+
+Deux paramètres ont été arbitrés avec l'utilisateur en début de lot :
+
+1. **`Stack` = `other`**, pas `backend`. Le vocabulaire du harnais entend Java
+   par `backend` et npm par `frontend` ; c'est un backend Node, qu'aucun des deux
+   ne décrit. Appelé avec `frontend`, `lot-deliverables` exigerait un rapport
+   `integration-check` d'un service sans frontend. Pas de job `lint`, donc —
+   deuxième repo à sortir par `other` faute de branche dans `lint.yml`.
+2. **`Coverage threshold` = `0`**, pas `0.80`. Aucun fichier source à mesurer :
+   c'est exactement ce que le lot 17 refuse. Le lot 00 le remonte à `0.80` dans
+   le commit du premier code. À noter : `harness-invariants` n'aurait **pas**
+   attrapé la fiction ici, son contrôle lot 17 sortant sur notice quand `Stack`
+   vaut `other`.
+
+Trois écarts au gabarit, tous commentés dans `ci.yml` : pas de `paths-ignore`
+(même raison qu'au lot 13), pas de job `lint`, et une gate de validation gardée
+par la présence de `package.json` qui écrit le skip dans le résumé du job au lieu
+de sortir 0 en silence.
+
+**Constat critique, portée portefeuille, découvert par cet audit** :
+`HARNESS_READ_TOKEN` n'existe que dans le magasin de secrets *Actions*, pas dans
+celui de *Dependabot*. Sur une PR ouverte par Dependabot le secret vaut la chaîne
+vide, `harness-invariants` retombe sur `github.token` et ne peut pas cloner le
+harnais privé : `fatal: repository … not found`, exit 128. Vérifié en production —
+`kreadevis-backend` PR #39, run `35505459702` : `harness-invariants` rouge, cinq
+PR Dependabot ouvertes dans cet état, magasin Dependabot vide sur les cinq repos
+contrôlés. La PR hebdomadaire de dépendances est donc **structurellement rouge**
+dans un portefeuille dont le seul verrou de merge est « ne jamais merger une PR
+rouge ». Correctif : `gh secret set HARNESS_READ_TOKEN --app dependabot` sur les
+huit repos — réglage GitHub utilisateur, de la même forme que le lot 6b, porté
+en **prérequis bloquant du lot 15**.
+
+Deux autres constats pour le lot 15 : `lint.yml` n'a toujours pas de branche pour
+les deux tiers des stacks qu'il accepte, et l'étape sécurité de `lot-audit`
+collecte son diff dans le répertoire de la session, pas dans le repo audité — les
+lots 7 à 13 doivent donc être considérés comme n'ayant eu aucune étape sécurité
+automatisée.
 
 - Checklist commune (repo gelé : adoption minimale, aucune évolution fonctionnelle).
 - Vérifier « table Skills ⇔ répertoire » désormais satisfait (#22).
