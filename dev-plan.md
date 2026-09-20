@@ -615,8 +615,10 @@ Reports des lots 13 et 14, à traiter dans ce lot :
 - **Prérequis bloquant, utilisateur** : `HARNESS_READ_TOKEN` dans le magasin de
   secrets *Dependabot* des 8 repos (`gh secret set HARNESS_READ_TOKEN --app
   dependabot`). Sans lui, `harness-invariants` est rouge sur **toute** PR
-  Dependabot (lot 14). Vérifié le 2026-09-20 : les 8 magasins Dependabot sont
-  vides, aucune PR Dependabot ne peut donc être verte.
+  Dependabot (lot 14). **Fait** le 2026-09-20 : `gh secret list --app dependabot`
+  liste `HARNESS_READ_TOKEN` sur les 8 repos consommateurs (kreadevis,
+  kreadevis-frontend, meal-planner-backend, meal-planner-frontend, elya,
+  elya-frontend, deployment, summerize-youtube).
 - `lint.yml` n'a de branche que pour `backend` et `frontend` ; `deployment` et
   `summerize-youtube` sortent par `stack: other` faute de branche (lots 13 et
   14). Ajouter une branche `other` (shellcheck + parse YAML) ou assumer le trou
@@ -645,13 +647,17 @@ Deux arbitrages utilisateur en début de lot :
 2. **Constater ici, corriger au lot 18.** Le lot 15 est un lot de clôture : il
    n'applique aucun correctif, il ouvre le lot 18.
 
-Verdict : 46 fermés, 8 ouverts, 2 dormants. **Le harnais n'est pas promouvable
-en l'état**, pour un constat bloquant découvert par ce contrôle :
+Verdict à la clôture du lot : 46 fermés, 8 ouverts, 2 dormants, et **le harnais
+n'était pas promouvable en l'état** pour un constat bloquant découvert par ce
+contrôle. Depuis, le premier étage de ce constat a été traité hors lot (voir
+plus bas) et **la promotion a eu lieu** : PR #28 `develop` → `main`, mergée le
+2026-09-20 (`23a4df5`). `main` porte donc le plugin, et les 8 repos consomment
+cet état.
 
 **C1** — les 12 PR Dependabot ouvertes du portefeuille sont rouges et le
 resteront. Le lot 14 avait vu le premier étage (`HARNESS_READ_TOKEN` absent du
-magasin *Dependabot* : vérifié, les 8 magasins sont vides). Le second est
-nouveau : l'*updater* Dependabot lui-même n'a pas accès au harnais privé et
+magasin *Dependabot* : le secret a depuis été posé sur les 8 repos, le
+2026-09-20). Le second est nouveau : l'*updater* Dependabot lui-même n'a pas accès au harnais privé et
 échoue en `403 … Dependabot doesn't have access to it` avant d'ouvrir la PR
 (run `35516280690`, deployment). Poser le secret ne suffira donc pas.
 
@@ -686,7 +692,8 @@ actions) n'a pas été réalisé non plus et y est rappelé.
 ## LOT 18 — Correctifs ouverts par le ré-audit ⬜
 
 Ouvert par le rapport du lot 15, à réaliser **après** la promotion (les 8 repos
-suivent `main` du harnais).
+suivent `main` du harnais). Cette promotion est faite depuis le 2026-09-20
+(PR #28, merge `23a4df5`) : le lot est exécutable.
 
 - **`lot-audit` vise le mauvais dépôt** (C3, majeur) : passer le chemin du repo
   audité à l'étape sécurité et à `git diff`, puis décider si les lots 7 à 13
@@ -771,7 +778,12 @@ le remonte. `./mvnw verify` reste vert et les deux nouvelles étapes passent.
 - PR `lot-12-themealdb-fr` mpb (#16) et branches distantes obsolètes : état à relever avant
   le lot 9 (suppression de branches distantes = décision utilisateur, §4).
 - **Lot 15** : `HARNESS_READ_TOKEN` posé dans le magasin de secrets *Dependabot*
-  des 8 repos (réglage GitHub utilisateur, voir la section du lot 15).
+  des 8 repos (réglage GitHub utilisateur, voir la section du lot 15) — **fait**
+  le 2026-09-20.
+- **Promotion `develop` → `main` du harnais** : **faite** le 2026-09-20 (PR #28,
+  merge `23a4df5`). `main` contient le plugin, les workflows réutilisables et le
+  squelette ; c'est l'état que suivent les 8 repos. Le lot 18 est donc
+  débloqué.
 
 ## Matrice constats → lots
 
