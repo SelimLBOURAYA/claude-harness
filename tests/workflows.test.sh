@@ -108,8 +108,9 @@ assert_eq "" "$(grep -n '|| true' "$WF/lint.yml" || true)" \
 for tool in spotless prettier "npm audit" dependency-check; do
   assert_ok "lint covers $tool" -- grep -qF "$tool" "$WF/lint.yml"
 done
-# spotless, prettier, eslint, and dependency-check when no NVD key is configured.
-assert_eq "4" "$(grep -c 'skipped:' "$WF/lint.yml")" \
+# spotless, prettier, eslint, dependency-check when no NVD key is configured,
+# and the lot 18 branch: shellcheck (no script, not installed) and YAML (no file).
+assert_eq "7" "$(grep -c 'skipped:' "$WF/lint.yml")" \
   "each optional lint step reports an explicit skip"
 # The audit is non-blocking at the *step* level. On the job, continue-on-error
 # still publishes a check run with conclusion "failure", so the pull request
@@ -304,16 +305,26 @@ fi
 COVWORK=$(mktemp -d)
 trap 'rm -rf "$COVWORK"' EXIT
 
-extract_step() {
-  python3 - "$WF/harness-invariants.yml" "$1" <<'PYEOF'
+extract_step_from() {
+  python3 - "$1" "$2" <<'PYEOF'
 import re, sys
 wf = open(sys.argv[1]).read()
 body = re.search(r'\n      - name: ' + re.escape(sys.argv[2]) + r'\n(.*?)(?=\n      - name: |\Z)',
                  wf, re.S).group(1)
 run = re.search(r'(?:^|\n)        run: \|\n(.*)', body, re.S).group(1)
-print('\n'.join(l[10:] if l.startswith(' ' * 10) else l for l in run.split('\n')))
+# The block scalar ends at the first line indented less than its own body, which
+# is how a step that is the last one of its job stops before the next job's
+# header instead of swallowing it.
+lines = []
+for line in run.split('\n'):
+    if line.strip() and not line.startswith(' ' * 10):
+        break
+    lines.append(line[10:] if line.startswith(' ' * 10) else line)
+print('\n'.join(lines))
 PYEOF
 }
+
+extract_step() { extract_step_from "$WF/harness-invariants.yml" "$1"; }
 
 extract_step "The coverage gate has something to measure" > "$COVWORK/subject.sh"
 extract_step "No coverage exclusion covers a business package" > "$COVWORK/excl.sh"
@@ -494,5 +505,66 @@ assert_eq "1" "$(run_conv "$D" "$BASE")" "a missing CONVENTIONS.md fails whateve
 # The checkout must be allowed to fail, or the step above never runs.
 assert_ok "the conventions-master checkout is not fatal on its own" -- \
   grep -q '^        continue-on-error: true' "$WF/harness-invariants.yml"
+
+
+# --- lot 18: lint.yml has a branch for `other` and `harness` -------------
+# P5-#21: both stacks were accepted by this workflow and matched no step, so
+# `deployment` and `summerize-youtube` ran a lint job that checked nothing. The
+# two steps are extracted and executed, for the same reason as the coverage
+# ones: a grep cannot tell a check that runs from a check that matches no file.
+assert_ok "lint runs shellcheck on other and harness" -- \
+  grep -q "if: inputs.stack == 'other' || inputs.stack == 'harness'" "$WF/lint.yml"
+assert_eq "2" "$(grep -c "if: inputs.stack == 'other' || inputs.stack == 'harness'" "$WF/lint.yml")" \
+  "both new steps carry the stack condition"
+assert_ok "the harness CI exercises its own lint branch" -- \
+  grep -q 'uses: ./.github/workflows/lint.yml' "$REPO_ROOT/.github/workflows/ci.yml"
+
+extract_step_from "$WF/lint.yml" "ShellCheck" > "$COVWORK/shellcheck.sh"
+extract_step_from "$WF/lint.yml" "YAML syntax" > "$COVWORK/yamlcheck.sh"
+assert_ok "the shellcheck step has an extractable script" -- test -s "$COVWORK/shellcheck.sh"
+assert_ok "the YAML step has an extractable script" -- test -s "$COVWORK/yamlcheck.sh"
+
+# run_lint <script> <dir>  : echoes the exit status
+run_lint() {
+  ( cd "$2" && GITHUB_STEP_SUMMARY="$2/summary.md" bash "$1" > /dev/null 2>&1; echo $? )
+}
+
+# A repository with nothing to check skips, it does not fail: `deployment`
+# before its stacks are written is exactly that shape.
+D="$COVWORK/lint-empty"; mkdir -p "$D"
+assert_eq "0" "$(run_lint "$COVWORK/yamlcheck.sh" "$D")" "no YAML file is a skip"
+assert_eq "0" "$(run_lint "$COVWORK/shellcheck.sh" "$D")" "no shell script is a skip"
+
+D="$COVWORK/lint-yaml-ok"; mkdir -p "$D/stacks"
+printf 'services:\n  db:\n    image: postgres:17\n' > "$D/stacks/compose.yml"
+printf 'a: 1\n---\nb: 2\n' > "$D/multi.yaml"
+assert_eq "0" "$(run_lint "$COVWORK/yamlcheck.sh" "$D")" \
+  "valid YAML passes, multi-document files included"
+
+# The failure this branch exists to catch: a compose file nobody can parse.
+D="$COVWORK/lint-yaml-broken"; mkdir -p "$D"
+printf 'services:\n  db:\n   image: [unclosed\n' > "$D/compose.yml"
+assert_eq "1" "$(run_lint "$COVWORK/yamlcheck.sh" "$D")" "unparseable YAML fails"
+
+if command -v shellcheck > /dev/null; then
+  D="$COVWORK/lint-sh-ok"; mkdir -p "$D"
+  printf '#!/usr/bin/env bash\nset -eu\necho "ok"\n' > "$D/good.sh"
+  assert_eq "0" "$(run_lint "$COVWORK/shellcheck.sh" "$D")" "a clean script passes"
+
+  # SC2086: the unquoted expansion that splits a path with a space.
+  D="$COVWORK/lint-sh-bad"; mkdir -p "$D"
+  printf '#!/usr/bin/env bash\nf="a b"\ncat $f\n' > "$D/bad.sh"
+  assert_eq "1" "$(run_lint "$COVWORK/shellcheck.sh" "$D")" "a script with a warning fails"
+
+  # A shell entry point without the .sh suffix is still shell: the hooks ship
+  # that way, and skipping them is how a lint job checks nothing.
+  D="$COVWORK/lint-sh-noext"; mkdir -p "$D"
+  printf '#!/usr/bin/env bash\nf="a b"\ncat $f\n' > "$D/hook"
+  chmod +x "$D/hook"
+  assert_eq "1" "$(run_lint "$COVWORK/shellcheck.sh" "$D")" \
+    "an executable shell script without a .sh suffix is checked too"
+else
+  echo "  (skipped: shellcheck not installed, the shell lint is not executed)"
+fi
 
 finish
