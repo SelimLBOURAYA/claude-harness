@@ -32,7 +32,7 @@
 | 9 | `chore/harness-adoption` (mpb) | C – Adoption | meal-planner-backend | mpb | ✅ |
 | 10 | `chore/harness-adoption` (mpf) | C – Adoption | meal-planner-frontend (+ audit rétroactif) | mpf | ✅ |
 | 11 | `chore/harness-adoption` (elya) | C – Adoption | elya | elya | ✅ |
-| 12 | `chore/harness-adoption` (elya-fe) | C – Adoption | elya-frontend | elya-frontend | 🔄 |
+| 12 | `chore/harness-adoption` (elya-fe) | C – Adoption | elya-frontend | elya-frontend | ✅ |
 | 13 | `chore/harness-adoption` (deployment) | C – Adoption | deployment | deployment | ⬜ |
 | 14 | `chore/harness-adoption` (summerize) | C – Adoption | summerize-youtube | summerize-youtube | ⬜ |
 | 15 | `feat/lot-15-closure` | D – Clôture | Ré-audit de contrôle et checklist de promotion | tous | ⬜ |
@@ -459,10 +459,10 @@ toute la période.
   (base path `/`), `Image name` `ghcr.io/selimlbouraya/elya`. Rappeler dans le rapport que
   la CI est restée rouge du 2026-08-06 au 2026-09-17 avec 3 PR mergées pendant (wrapper Maven).
 
-## LOT 12 — elya-frontend 🔄
+## LOT 12 — elya-frontend ✅
 
 **Livré** sur `elya-frontend`, branche `chore/harness-adoption` : `1575976`,
-PR #11, 16 checks verts. Rapport : `docs/audits/lot-12.md`.
+PR #11 **mergée**, 16 checks verts. Rapport : `docs/audits/lot-12.md`.
 
 Trois constats :
 
