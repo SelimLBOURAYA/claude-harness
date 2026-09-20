@@ -33,8 +33,8 @@
 | 10 | `chore/harness-adoption` (mpf) | C – Adoption | meal-planner-frontend (+ audit rétroactif) | mpf | ✅ |
 | 11 | `chore/harness-adoption` (elya) | C – Adoption | elya | elya | ✅ |
 | 12 | `chore/harness-adoption` (elya-fe) | C – Adoption | elya-frontend | elya-frontend | ✅ |
-| 13 | `chore/harness-adoption` (deployment) | C – Adoption | deployment | deployment | 🔄 |
-| 14 | `chore/harness-adoption` (summerize) | C – Adoption | summerize-youtube | summerize-youtube | 🔄 |
+| 13 | `chore/harness-adoption` (deployment) | C – Adoption | deployment | deployment | ✅ |
+| 14 | `chore/harness-adoption` (summerize) | C – Adoption | summerize-youtube | summerize-youtube | ✅ |
 | 15 | `feat/lot-15-closure` | D – Clôture | Ré-audit de contrôle et checklist de promotion | tous | ⬜ |
 | 16 | `feat/lot-16-contract-ci` | Plus tard | Job CI « contract » front ↔ backend réel | claude-harness, kf, mpf, elya-frontend | ⏸️ |
 | 17 | `chore/harness-adoption-reports` | A – Harness | `harness-invariants` refuse un seuil de couverture qui ne mesure rien | claude-harness, les repos adoptés | ✅ |
@@ -501,10 +501,11 @@ transversale l'y ajoute, premier passage au lot 2.
   `lot-0-integration.md` est bien planifié dans `lots.md` et que le lot 1 elya-fe livre
   `apiBaseUrl: ''` avant tout appel de `frontend-dist.yml`.
 
-## LOT 13 — deployment 🔄
+## LOT 13 — deployment ✅
 
-**Livré** sur `deployment`, branche `chore/harness-adoption` : `d926051`,
-`8108f4d`, `11e3ac5`, PR #9, 10 checks verts. Rapport : `docs/audits/lot-13.md`.
+**Mergé** le 2026-09-20 sur `deployment` (PR #9, merge `28f26e7`), branche
+`chore/harness-adoption` : `d926051`, `8108f4d`, `11e3ac5`, 10 checks verts.
+Rapport : `docs/audits/lot-13.md`.
 
 La validation gate a été tranchée en début de lot, comme le prévoyait la ligne
 ci-dessous : **no-op déclaré**, option retenue par l'utilisateur.
@@ -544,10 +545,11 @@ résoudre pour celle des deux qui mergera en second.
 - Skills applicables : `lot-audit`, `lot-ship`, `harness-sync` ; `lot-test` remplacé par la
   validation des fichiers compose.
 
-## LOT 14 — summerize-youtube 🔄
+## LOT 14 — summerize-youtube ✅
 
-**Livré** sur `summerize-youtube`, branche `chore/harness-adoption` : `8de293c`,
-`8ba257e`, `16e12b9`. Rapport : `docs/audits/lot-14.md`.
+**Mergé** le 2026-09-20 sur `summerize-youtube` (PR #5, merge `917d92e`), branche
+`chore/harness-adoption` : `8de293c`, `8ba257e`, `16e12b9`.
+Rapport : `docs/audits/lot-14.md`.
 
 Dernière adoption de la vague C. Le repo est gelé avant son lot 00 : ni
 `package.json`, ni `src/`, ni image. Ce qu'il portait encore, c'était la dernière
@@ -606,6 +608,26 @@ automatisée.
 - **Checklist de promotion** remise à l'utilisateur (non exécutée par l'agent) : ordre
   conseillé harness `develop → main` d'abord, puis *(P6-D6)* kb, kf, elya, elya-fe, mpb, mpf,
   deployment, summerize.
+
+Reports des lots 13 et 14, à traiter dans ce lot :
+
+- **Prérequis bloquant, utilisateur** : `HARNESS_READ_TOKEN` dans le magasin de
+  secrets *Dependabot* des 8 repos (`gh secret set HARNESS_READ_TOKEN --app
+  dependabot`). Sans lui, `harness-invariants` est rouge sur **toute** PR
+  Dependabot (lot 14). Vérifié le 2026-09-20 : les 8 magasins Dependabot sont
+  vides, aucune PR Dependabot ne peut donc être verte.
+- `lint.yml` n'a de branche que pour `backend` et `frontend` ; `deployment` et
+  `summerize-youtube` sortent par `stack: other` faute de branche (lots 13 et
+  14). Ajouter une branche `other` (shellcheck + parse YAML) ou assumer le trou
+  par écrit.
+- L'étape sécurité de `lot-audit` collecte son diff dans le répertoire de la
+  session, pas dans le repo audité : **les lots 7 à 13 n'ont eu aucune étape
+  sécurité automatisée** (lot 14). Corriger le skill, puis décider si les lots
+  concernés sont rejoués.
+- Pins d'images des composes `deployment` surveillés par personne — Dependabot
+  lit les `FROM` d'un Dockerfile, pas les `image:` d'un compose (lot 13).
+- *(lot 17, troisième point écarté)* Trancher, tableau des 8 repos en main, si
+  la CI doit lire le rapport de couverture lui-même.
 
 ## LOT 16 — Job CI « contract » front ↔ backend réel ⏸️
 
@@ -675,6 +697,8 @@ le remonte. `./mvnw verify` reste vert et les deux nouvelles étapes passent.
   lots 5 et 7** (voir décision « Version du plugin »).
 - PR `lot-12-themealdb-fr` mpb (#16) et branches distantes obsolètes : état à relever avant
   le lot 9 (suppression de branches distantes = décision utilisateur, §4).
+- **Lot 15** : `HARNESS_READ_TOKEN` posé dans le magasin de secrets *Dependabot*
+  des 8 repos (réglage GitHub utilisateur, voir la section du lot 15).
 
 ## Matrice constats → lots
 
