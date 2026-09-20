@@ -82,7 +82,14 @@ under test. Two consequences worth recording:
    scripts — it is absent from the dependency budget and from this machine, so
    `tests/workflows.test.sh` skips its three real-binary assertions and verifies
    discovery through a stub instead. `bash -n` passes on all 10 files. The PR
-   run is the first real shellcheck, and a finding there is fixed before merge.
+   run was the first real shellcheck, and it found four errors: SC2066 in
+   `skeleton.test.sh`, SC1087 in `conventions.test.sh` and SC2034 in
+   `workflows.test.sh`, all three older than this lot, plus SC1073 on a comment
+   of this lot that opened with the tool's own lowercase name and was therefore
+   read as a directive. Two stub fixtures also asserted a failure on SC2086,
+   which is info level and filtered out by `--severity=warning`: they passed
+   locally and failed on a runner that has the binary. All fixed on the branch
+   (`ab85a18`, `2a7f97b`); the run is green.
 
 ## Recommended next steps
 
