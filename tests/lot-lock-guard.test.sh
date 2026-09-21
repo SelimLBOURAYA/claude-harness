@@ -89,6 +89,11 @@ expect deny "symlink into another repository judged against its target" \
 expect deny "a new file in a new directory of the other repository" \
   "$LOT" Write "$OTHER/src/deep/new/C.java"
 
+# --- the git directory is never written by a tool -------------------------
+expect deny "unlocked lot branch: .git/HEAD denied" "$LOT" Write "$LOT/.git/HEAD"
+expect deny "unlocked lot branch: .git/config denied" "$LOT" Edit ".git/config"
+expect deny "even with a matching lock: .git/hooks denied" "$LOT" Write "$LOT/.git/hooks/pre-commit"
+
 # --- develop and main: ask ------------------------------------------------
 DEV=$(make_repo dev-repo develop)
 expect ask "develop: every write asks" "$DEV" Write "$DEV/src/App.java"
@@ -99,6 +104,7 @@ expect ask "main: every write asks" "$DEV" Edit "$DEV/src/App.java"
 # --- outside the guard's business ----------------------------------------
 PLAIN=$(make_repo plain-repo feat/lot-5-x no)
 expect pass "repository without Gate parameters: silence" "$PLAIN" Write "$PLAIN/src/App.java"
+expect pass "not harnessed: .git left to the normal flow" "$PLAIN" Write "$PLAIN/.git/config"
 CHORE=$(make_repo chore-repo chore/tidy)
 expect pass "chore/* branch: no lock required" "$CHORE" Write "$CHORE/src/App.java"
 expect pass "outside any repository: silence" "$WORK" Write "$WORK/scratch.txt"
