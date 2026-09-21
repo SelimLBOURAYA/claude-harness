@@ -38,7 +38,7 @@
 | 15 | `feat/lot-15-closure` | D – Clôture | Ré-audit de contrôle et checklist de promotion | tous | ✅ |
 | 16 | `feat/lot-16-contract-ci` | Plus tard | Job CI « contract » front ↔ backend réel | claude-harness, kf, mpf, elya-frontend | ⏸️ |
 | 17 | `chore/harness-adoption-reports` | A – Harness | `harness-invariants` refuse un seuil de couverture qui ne mesure rien | claude-harness, les repos adoptés | ✅ |
-| 18 | `feat/lot-18-reaudit-fixes` | D – Clôture | Correctifs ouverts par le ré-audit du lot 15 | claude-harness | 🔄 |
+| 18 | `feat/lot-18-reaudit-fixes` | D – Clôture | Correctifs ouverts par le ré-audit du lot 15 | claude-harness | ✅ |
 
 Légende des statuts *(P6-D10)* : ⬜ à faire · 🔄 en cours (livré sur la branche, PR non
 mergée) · ✅ mergé sur `develop` · ⏸️ planifié mais dormant · ❄️ gelé.
@@ -689,7 +689,11 @@ checklist utilisateur du rapport : la session de test depuis chaque IDE (V6
 rejouée) et la promotion elle-même. Le ménage hors repo hérité du lot 6 (5
 actions) n'a pas été réalisé non plus et y est rappelé.
 
-## LOT 18 — Correctifs ouverts par le ré-audit 🔄
+## LOT 18 — Correctifs ouverts par le ré-audit ✅
+
+**Mergé** le 2026-09-20 sur `claude-harness` (PR #29, merge `5d4691f`), branche
+`feat/lot-18-reaudit-fixes`. Rapports : `docs/audits/lot-18-review.md`,
+`docs/audits/lot-18.md`.
 
 Ouvert par le rapport du lot 15, à réaliser **après** la promotion (les 8 repos
 suivent `main` du harnais). Cette promotion est faite depuis le 2026-09-20
