@@ -101,6 +101,13 @@ branch, do not pick a lot, do not edit the table to make the stop go away. This
 is the exact failure of the 2026-09-21 incident: the table said « Lot 2 ⬜ »,
 LOT-2.1 was merged, and the agent decided alone and redid it.
 
+Once the user has answered, record the answer in the lots file (the rows the
+merge completed, and a note citing the merge or commit SHA in backticks, e.g.
+merge `abc1234`), and commit it with the sync in Part B. A cited SHA is reconciled:
+the script no longer raises a stop on it, so the same question is never asked
+twice. Recording the user's answer is not arbitrating; editing the table without
+asking is.
+
 Exit 2 means the repository is not harnessed, has no status table, or has no
 develop: report the error and stop.
 

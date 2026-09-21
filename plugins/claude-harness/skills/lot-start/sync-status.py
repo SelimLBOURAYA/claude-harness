@@ -18,6 +18,10 @@ shared by several open rows), a lot marked done with no trace on develop, a
 lot-shaped merge with no row, or merged commits already carrying the candidate's
 scope.
 
+A merge or a scoped commit whose SHA the lots file already cites in backticks
+(`abc1234`, as in the `**Mergé**` notes this script writes) is reconciled: the
+user's answer to a stop is recorded that way, and the stop does not come back.
+
 --apply writes the updates, and nothing at all while a stop is pending.
 --start <lot> also marks that lot in progress, after the user confirmed it.
 The script never commits: the skill commits `docs: sync lots file status` only
@@ -39,6 +43,7 @@ sys.path.insert(0, os.path.normpath(HOOKS))
 sys.dont_write_bytecode = True  # no __pycache__ inside the plugin tree
 import lotfile  # noqa: E402  (path set above: the module ships with the hooks)
 
+CITED_SHA = re.compile(r"`([0-9a-f]{7,40})`")
 MERGE_PR = re.compile(r"^Merge pull request #(\d+) from [^/\s]+/(\S+)")
 MERGE_BRANCH = re.compile(r"^Merge (?:remote-tracking )?branch '([^']+)'")
 SCOPE = re.compile(r"^[a-z]+\(([^)]*)\)!?:")
@@ -57,16 +62,21 @@ def develop_ref(root):
 
 
 def history(root, ref):
-    """First-parent commits of develop, oldest first: (sha, date, subject)."""
+    """First-parent commits of develop, oldest first: (sha, date, subject, full)."""
     out = lotfile.run_git(
-        root, "log", "--first-parent", "--reverse", "--format=%h%x09%cs%x09%s", ref
+        root, "log", "--first-parent", "--reverse", "--format=%h%x09%cs%x09%H%x09%s", ref
     )
     commits = []
     for line in (out or "").splitlines():
-        parts = line.split("\t", 2)
-        if len(parts) == 3:
-            commits.append(tuple(parts))
+        parts = line.split("\t", 3)
+        if len(parts) == 4:
+            commits.append((parts[0], parts[1], parts[3], parts[2]))
     return commits
+
+
+def reconciled(full_sha, cited):
+    """True when the lots file already cites this commit (a recorded answer)."""
+    return any(full_sha.startswith(token) for token in cited)
 
 
 def merged_branch(subject):
@@ -161,12 +171,13 @@ def main():
     for row in rows:
         row["status_col"] = table["status_col"]
     commits = history(root, ref)
+    cited = set(CITED_SHA.findall(text))
 
     stops = []
     updates = []
     claimed = set()
 
-    for sha, date, subject in commits:
+    for sha, date, subject, full in commits:
         branch, pr = merged_branch(subject)
         if not branch:
             continue
@@ -193,7 +204,7 @@ def main():
                 }
             )
             continue
-        if not open_rows:
+        if not open_rows or reconciled(full, cited):
             continue
         ambiguous = len(candidates) > 1 or (
             by_pattern and has_sub_lots(text, candidates[0]["id"])
@@ -221,7 +232,7 @@ def main():
             continue
         if row["id"] in claimed:
             continue
-        if any(scope_covers(subject, row["id"]) for _, _, subject in commits):
+        if any(scope_covers(subject, row["id"]) for _, _, subject, _ in commits):
             continue
         stops.append(
             {
@@ -237,8 +248,8 @@ def main():
     if candidate is not None:
         carried = [
             "%s %s" % (sha, subject)
-            for sha, _, subject in commits
-            if scope_covers(subject, candidate)
+            for sha, _, subject, full in commits
+            if scope_covers(subject, candidate) and not reconciled(full, cited)
         ]
         if carried:
             stops.append(
