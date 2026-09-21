@@ -11,7 +11,7 @@ SKILLS="$REPO_ROOT/plugins/claude-harness/skills"
 # Gate parameters. dep-update is excluded from the command check: its whole job
 # is to drive a package manager, selected by Stack. i-have-adhd is an output
 # style, generic and unrelated to any gate.
-GATE_SKILLS="lot-test lot-review lot-audit lot-ship harness-sync integration-check"
+GATE_SKILLS="lot-start lot-test lot-review lot-audit lot-ship harness-sync integration-check"
 ALL_SKILLS="$GATE_SKILLS dep-update bootstrap-project i-have-adhd"
 
 for skill in $ALL_SKILLS; do
@@ -190,6 +190,33 @@ assert_ok "harness-sync checks memory freshness" -- \
 # The marketplace ref is the single most dangerous thing to omit.
 assert_ok "harness-sync requires the marketplace ref main" -- \
   grep -q '"ref": "main"' "$SKILLS/harness-sync/SKILL.md"
+# --- lot 19: the start of a lot is locked like its end -------------------
+START="$SKILLS/lot-start/SKILL.md"
+assert_file "$SKILLS/lot-start/sync-status.py" "lot-start ships its sync script"
+assert_ok "lot-start resolves the repository like lot-audit" -- \
+  grep -q 'LOT_REPO=$(git rev-parse --show-toplevel)' "$START"
+assert_ok "lot-start syncs the table before choosing" -- grep -q 'sync-status.py' "$START"
+assert_ok "lot-start reads history through rtk proxy" -- grep -q 'rtk proxy git' "$START"
+assert_ok "lot-start stops on every sync stop" -- grep -q 'Any stop ends the turn' "$START"
+assert_ok "lot-start asks in one batch" -- grep -q 'one batch' "$START"
+assert_ok "lot-start says no ambiguity explicitly" -- grep -q 'no ambiguity' "$START"
+assert_ok "lot-start ends on the confirmation phrase" -- \
+  grep -qF 'confirmer avec `lot-start confirm N`' "$START"
+assert_ok "lot-start never writes the lock" -- grep -q 'Never write `.claude/current-lot`' "$START"
+assert_ok "lot-start commits the sync first and alone" -- \
+  grep -q 'docs: sync lots file status' "$START"
+assert_ok "lot-start forbids an empty commit" -- grep -q 'Never create an empty one' "$START"
+assert_ok "lot-start documents the Bash limit" -- grep -q 'not a write made through' "$START"
+assert_ok "lot-start documents the extended gate" -- \
+  grep -qF '[lot-start]  →  development  →  lot-test' "$START"
+assert_ok "CONVENTIONS section 13 carries the extended gate" -- \
+  grep -qF 'lot-start  →  development  →  lot-test  →  lot-review  →  lot-audit  →  lot-ship' \
+  "$REPO_ROOT/CONVENTIONS.md"
+assert_ok "CONVENTIONS section 9 sends to lot-start" -- \
+  grep -qF '**Starting a lot is mechanical, not prose.**' "$REPO_ROOT/CONVENTIONS.md"
+assert_ok "harness-sync propagates the lock to .gitignore" -- \
+  grep -qF '.claude/current-lot' "$SKILLS/harness-sync/SKILL.md"
+
 # i-have-adhd stays user-invoked only.
 assert_ok "i-have-adhd is never model-invoked" -- \
   grep -q '^disable-model-invocation: true' "$SKILLS/i-have-adhd/SKILL.md"

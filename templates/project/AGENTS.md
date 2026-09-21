@@ -69,6 +69,7 @@ Claude Code session with the plugin enabled they are announced as
 
 | Skill | Trigger | Role |
 |---|---|---|
+| `lot-start` | before any lot development, and on `lot-start confirm N` | Syncs the status table with develop, asks every ambiguity, creates the branch; the user's `lot-start confirm N` opens writes |
 | `lot-test` | lot code complete | Tests written and green, coverage at the threshold above |
 | `lot-review` | after `lot-test` | Code review of the lot, inline PR comments and applied fixes; **requires the `claude` profile** |
 | `lot-audit` | after `lot-review` | Security, performance and architecture audit; writes `docs/audits/lot-N.md` |
@@ -78,7 +79,8 @@ Claude Code session with the plugin enabled they are announced as
 | `dep-update` | dependency refresh | Patch/minor applied, major proposed |
 | `i-have-adhd` | user invokes it | Focus aid, never model-invoked |
 
-**Gate, mandatory in order**: `lot-test → lot-review → lot-audit → lot-ship`.
+**Gate, mandatory in order**: `lot-test → lot-review → lot-audit → lot-ship`,
+opened by `lot-start` before any development.
 Each lot gets its own invocation of every gate skill.
 
 **Non-Claude agents** (Cursor, DeepClaude/OpenRouter, any agent that does not load

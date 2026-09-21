@@ -21,6 +21,35 @@ assert_eq "1" "$(jq -r '.plugins | length' "$mk")" "exactly one plugin is publis
 src=$(jq -r '.plugins[0].source' "$mk")
 assert_file "$REPO_ROOT/${src#./}/.claude-plugin/plugin.json" "declared plugin source resolves"
 
+# Hook wiring (lot 1, lot 19): every hook script is wired, and every wired
+# script exists.
+hj="$REPO_ROOT/plugins/claude-harness/hooks/hooks.json"
+assert_ok "hooks.json is valid JSON" -- jq -e . "$hj"
+wired() { # wired <event> <matcher> <script>
+  jq -e --arg e "$1" --arg m "$2" --arg s "$3" \
+    '.hooks[$e] | any(.[]; (.matcher // "") == $m and any(.hooks[]; .command | contains($s)))' "$hj"
+}
+assert_ok "git guard on PreToolUse Bash" -- wired PreToolUse Bash git-guard.py
+assert_ok "lot write lock on PreToolUse writes" -- \
+  wired PreToolUse "Edit|Write|MultiEdit|NotebookEdit" lot-lock-guard.py
+assert_ok "lot confirmation on UserPromptSubmit" -- wired UserPromptSubmit "" lot-confirm.sh
+assert_ok "state re-injection on SessionStart" -- \
+  wired SessionStart "startup|resume|clear|compact" session-context.sh
+assert_ok "mirror on PostToolUse" -- wired PostToolUse "Edit|Write|MultiEdit|Bash" mirror-sync.sh
+while IFS= read -r script; do
+  assert_file "$REPO_ROOT/plugins/claude-harness/hooks/$script" "wired hook $script exists"
+done < <(jq -r '.hooks[][].hooks[].command' "$hj" | grep -oE 'hooks/[a-z-]+\.(py|sh)' | sed 's#hooks/##' | sort -u)
+for script in "$REPO_ROOT"/plugins/claude-harness/hooks/*.py "$REPO_ROOT"/plugins/claude-harness/hooks/*.sh; do
+  name=$(basename "$script")
+  [ "$name" = lotfile.py ] && continue  # a library, imported by the hooks
+  assert_ok "hook script $name is wired" -- grep -qF "hooks/$name" "$hj"
+done
+
+# The lock is local state: never versioned, here or in a generated repository.
+assert_ok "this repository ignores the lot lock" -- grep -qx '\.claude/current-lot' "$REPO_ROOT/.gitignore"
+assert_ok "the skeleton ignores the lot lock" -- \
+  grep -qx '\.claude/current-lot' "$REPO_ROOT/templates/project/.gitignore"
+
 # Mandatory document set (CONVENTIONS.md §12).
 for doc in CLAUDE.md AGENTS.md CONVENTIONS.md README.md dev-plan.md; do
   assert_file "$REPO_ROOT/$doc" "$doc is present"

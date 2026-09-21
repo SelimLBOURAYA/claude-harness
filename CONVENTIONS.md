@@ -186,6 +186,14 @@ Then summarize in **exactly 3 lines**:
 
 Do not start the user's request before this sequence completes.
 
+**Starting a lot is mechanical, not prose.** Before any lot development, invoke
+the `lot-start` skill: it synchronises the status table with develop (§2 item 1),
+stops on any ambiguous mapping instead of deciding, asks every question in one
+batch (§2 item 2) and creates the branch. On a `feat/lot-N-*` branch, the plugin
+denies every file write until the **user** types `lot-start confirm N`, and a
+`SessionStart` hook re-injects this state at startup and after every compaction:
+a compaction summary is never a source of truth.
+
 **Do not include a build/compile** in this sequence — it is expensive at every session start for uncertain benefit. Build runs on demand, or via the validation gate before commit. If a project genuinely needs a project-specific startup check, it adds it in its project `AGENTS.md`.
 
 ---
@@ -290,10 +298,11 @@ When a project defines **skills** in its `CLAUDE.md` (typically in a "Skills" ta
 ### The lot gate
 
 ```
-lot-test  →  lot-review  →  lot-audit  →  lot-ship
+lot-start  →  development  →  lot-test  →  lot-review  →  lot-audit  →  lot-ship
 ```
 
-Mandatory, in that order, once per lot. A green `lot-audit` on lot 15 does not
+Mandatory, in that order, once per lot. `lot-start` opens the lot (§9); the four
+others close it. A green `lot-audit` on lot 15 does not
 excuse skipping it on lot 16. On a **frontend**, `integration-check` runs before
 `lot-ship` and its report is required by the PR.
 
