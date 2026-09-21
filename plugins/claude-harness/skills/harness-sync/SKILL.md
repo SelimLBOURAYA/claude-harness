@@ -61,9 +61,10 @@ Run each of these. Each failure is a drift row in the Step 3 report.
 | 9 | Review before audit | For each `docs/audits/lot-N.md`, a `docs/audits/lot-N-review.md` exists. A report without its review means `lot-review` was skipped |
 | 10 | Lots file status table | The `Lots file` **starts** with a `\| Lot \| Branche \| Statut \|` table whose every status is one of ⬜ 🔄 ✅ ⏸️ ❄️ |
 | 11 | Statuses match history | Cross-check each ✅ row against `rtk proxy git log --first-parent`. A lot marked ✅ whose section still says "PR to open", or whose branch was never merged, is a drift. Always `rtk proxy`: the rtk filter hides merge commits (P5-#14) |
-| 12 | No dates in the lots file | No date and no "window" in the `Lots file` — the order of lots is committed, calendar dates are not |
+| 12 | No dates in the lots file | No planned date and no "window" in the `Lots file` — the order of lots is committed, calendar dates are not. The `**Mergé** le <date>` line `lot-start` writes under a merged lot records history, not a plan: not a drift |
 | 13 | Memory freshness | Every `project_*` memory carries a `Verified: YYYY-MM-DD` line. Report any missing line, and any date older than **60 days** |
 | 14 | Branch naming | Branches follow `feat/lot-N-slug`, `fix/…`, `chore/…`, `docs/…`; no `lot-XX-slug`, no branch from `main` |
+| 15 | Lot lock ignored | `.gitignore` carries `.claude/current-lot`, the local lock `lot-confirm.sh` writes (lot 19). Missing line: add it |
 
 ### Step 3 — Drift report
 

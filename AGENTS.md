@@ -41,8 +41,12 @@ every consuming repo carries the same section in its own `CLAUDE.md`.
 .claude-plugin/marketplace.json      marketplace manifest (this repo = marketplace)
 plugins/claude-harness/
   .claude-plugin/plugin.json         plugin manifest
-  hooks/hooks.json                   hook wiring (PreToolUse git guard, PostToolUse mirror)
+  hooks/hooks.json                   hook wiring (SessionStart, UserPromptSubmit, PreToolUse, PostToolUse)
   hooks/git-guard.py                 git/gh command guard
+  hooks/lot-lock-guard.py            write lock: no development before the user confirmed the lot
+  hooks/lot-confirm.sh               writes .claude/current-lot on the user's `lot-start confirm N`
+  hooks/session-context.sh           re-injects the repository state at start and after compaction
+  hooks/lotfile.py                   shared readers: gate parameters, status table, lock
   hooks/mirror-sync.sh               CLAUDE.md <-> AGENTS.md mirror
   skills/<name>/SKILL.md             generic skills shared by every repo
 .github/workflows/*.yml              reusable workflows called by every repo
@@ -67,6 +71,7 @@ with the plugin enabled they are announced as `claude-harness:<name>`.
 
 | Skill | Trigger | Role |
 |---|---|---|
+| `lot-start` | before any lot development, and on `lot-start confirm N` | Syncs the status table with develop, asks every ambiguity, creates the branch; the user's `lot-start confirm N` writes the lock that opens writes |
 | `lot-test` | lot code complete | Tests written and green, coverage gate at the repo threshold |
 | `lot-review` | after `lot-test` | Code review of the lot, inline PR comments and applied fixes; **requires the `claude` profile** |
 | `lot-audit` | after `lot-review` | Security, performance and architecture audit; writes `docs/audits/lot-N.md` |
@@ -77,7 +82,8 @@ with the plugin enabled they are announced as `claude-harness:<name>`.
 | `bootstrap-project` | new repo, or a repo joining the harness | Generates the repository from `templates/project/` and verifies it against `harness-invariants` |
 | `i-have-adhd` | user invokes it | Focus aid, never model-invoked |
 
-**Gate, mandatory in order**: `lot-test → lot-review → lot-audit → lot-ship`.
+**Gate, mandatory in order**: `lot-test → lot-review → lot-audit → lot-ship`,
+opened by `lot-start` before any development.
 Each lot gets its own invocation of every gate skill.
 
 **Non-Claude agents** (Cursor, DeepClaude/OpenRouter, any agent that does not load
@@ -103,7 +109,9 @@ Every blocking invariant is also enforced in CI, which is the only agent-agnosti
 | `plugins/claude-harness/skills/lot-audit/checklists.md` | Detailed audit checklists |
 | `plugins/claude-harness/skills/lot-review/SKILL.md` | Lot code-review skill |
 | `plugins/claude-harness/skills/lot-ship/SKILL.md` | Lot delivery skill |
+| `plugins/claude-harness/skills/lot-start/SKILL.md` | Lot start skill: status sync, questions, branch, confirmation (lot 19) |
 | `plugins/claude-harness/skills/lot-test/SKILL.md` | Lot test and coverage skill |
+| `plugins/claude-harness/rules/deepseek.json` | Imperative rules card for the `deepseek` profile, injected at session start (lot 19) |
 | `docs/audits/lot-0.md` | Lot 0 report — technical verifications V1 to V7 |
 | `docs/audits/lot-1.md` | Lot 1 report — hooks |
 | `docs/audits/lot-2.md` | Lot 2 report — generic skills |
@@ -124,6 +132,8 @@ Every blocking invariant is also enforced in CI, which is the only agent-agnosti
 | `docs/audits/lot-14.md` | Lot 14 report — summerize-youtube adoption |
 | `docs/audits/lot-18-review.md` | Lot 18 code-review report |
 | `docs/audits/lot-18.md` | Lot 18 audit report — security, performance, architecture |
+| `docs/audits/lot-19-review.md` | Lot 19 code-review report |
+| `docs/audits/lot-19.md` | Lot 19 audit report — security, performance, architecture |
 | `docs/audits/portfolio/p4-meta-harness-2026-09-17-v2.md` | P4 portfolio audit (supersedes the removed morning v1) |
 | `docs/audits/portfolio/p5-harness-cicd-2026-09-17.md` | P5 CI/CD guards audit |
 | `docs/audits/portfolio/p6-meta-portfolio-2026-09-17.md` | P6 cross-cutting portfolio audit |

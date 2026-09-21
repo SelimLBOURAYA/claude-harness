@@ -137,7 +137,7 @@ jobs:
           if [ -f "$LOTS_FILE" ]; then
             body_changes=$(git diff -U0 "$BASE" "$GITHUB_SHA" -- "$LOTS_FILE" \
               | grep -E '^[+-][^+-]' \
-              | grep -vE '⬜|🔄|✅|⏸️|❄️|Done|Fait' || true)
+              | grep -vE '⬜|🔄|✅|⏸️|❄️|Done|Fait|Mergé' || true)
             if [ -n "$body_changes" ]; then
               echo "::warning file=$LOTS_FILE::$LOTS_FILE changed outside its status lines:"
               printf '%s\n' "$body_changes" | head -30

@@ -23,3 +23,5 @@ coverage/
 
 # Claude Code: the project settings are versioned, the local override is not.
 .claude/settings.local.json
+# Lot lock written by the lot-confirm hook on the user's confirmation (lot 19).
+.claude/current-lot
