@@ -104,6 +104,7 @@ Every blocking invariant is also enforced in CI, which is the only agent-agnosti
 | `plugins/claude-harness/skills/lot-review/SKILL.md` | Lot code-review skill |
 | `plugins/claude-harness/skills/lot-ship/SKILL.md` | Lot delivery skill |
 | `plugins/claude-harness/skills/lot-test/SKILL.md` | Lot test and coverage skill |
+| `plugins/claude-harness/rules/deepseek.json` | Imperative rules card for the `deepseek` profile, injected at session start (lot 19) |
 | `docs/audits/lot-0.md` | Lot 0 report — technical verifications V1 to V7 |
 | `docs/audits/lot-1.md` | Lot 1 report — hooks |
 | `docs/audits/lot-2.md` | Lot 2 report — generic skills |
