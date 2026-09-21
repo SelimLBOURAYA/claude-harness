@@ -5,3 +5,6 @@
 
 # IntelliJ IDEA project files
 .idea/
+
+# Lot lock written by the lot-confirm hook on the user's confirmation (lot 19)
+.claude/current-lot
