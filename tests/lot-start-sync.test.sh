@@ -182,6 +182,24 @@ printf '# P\n' > "$N/CLAUDE.md"
 sync "$N" >/dev/null; rc=$?
 assert_eq 2 "$rc" "no Gate parameters: exit 2"
 
+# --- 7b. a stop answered by the user and cited by SHA does not come back ---
+R=$(new_repo reconciled <<'EOF'
+# Lots
+
+| Lot | Branche | Statut |
+|---|---|---|
+| 2.1 | `feat/lot-2-quotes` | ✅ |
+| 2.2 | `feat/lot-2-quotes` | ⬜ |
+EOF
+)
+merge_pr "$R" feat/lot-2-quotes 3
+out=$(sync "$R"); rc=$?
+assert_eq 3 "$rc" "reconciled: the shared-branch merge stops while unanswered"
+printf '\n2.1 livré par la merge `%s`.\n' "$(git -C "$R" rev-parse --short HEAD)" >> "$R/lots.md"
+out=$(sync "$R" --apply --start 2.2); rc=$?
+assert_eq 0 "$rc" "reconciled: the cited merge no longer stops"
+assert_eq "2.2" "$(field "$out" '.started')" "reconciled: the next sub-lot can start"
+
 # --- 8. replay of the 2026-09-21 incident ---------------------------------
 I=$(new_repo incident <<'EOF'
 # Lots
