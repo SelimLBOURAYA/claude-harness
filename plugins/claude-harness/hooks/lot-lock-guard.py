@@ -5,7 +5,8 @@ Matcher Edit|Write|MultiEdit|NotebookEdit. Reads the hook payload on stdin and
 answers with a permission decision:
 
   deny  - a lot branch with no lock, or a lock for another lot or branch;
-          any tool write to the lock file itself
+          any tool write to the lock file itself, or into the `.git` directory
+          of a harnessed repository
   ask   - any write on develop or main, where no development takes place
   (silence) - everything else, and the normal permission flow applies
 
@@ -17,6 +18,11 @@ The repository is resolved from the path of the file being written, never from
 the session directory (lesson C3 of lot 18): a session sitting in one clone and
 writing into another must be judged against the other. The path is resolved
 through symlinks for the same reason.
+
+Writes into `.git` are denied rather than judged: git resolves no work tree
+from inside its own directory, and a tool that rewrites `.git/HEAD` or
+`core.worktree` in `.git/config` would change the branch or the root the guard
+reads next, and so switch it off (lot 19 audit).
 
 The guard never answers "allow": it only narrows permissions, like git-guard.py.
 
@@ -65,6 +71,14 @@ def target_path(payload):
     return os.path.realpath(path)
 
 
+def git_dir_owner(path):
+    """The directory holding the first `.git` component of path, or None."""
+    parts = path.split(os.sep)
+    if ".git" not in parts:
+        return None
+    return os.sep.join(parts[: parts.index(".git")]) or os.sep
+
+
 def main():
     try:
         payload = json.load(sys.stdin)
@@ -76,6 +90,14 @@ def main():
     path = target_path(payload)
     if path is None:
         sys.exit(0)
+
+    owner = git_dir_owner(path)
+    if owner is not None and lotfile.gate_parameters(owner) is not None:
+        decide(
+            "deny",
+            "Writes into `%s/.git` are denied: they change the branch or the root "
+            "this guard reads. Use git itself." % owner,
+        )
 
     root = lotfile.repo_root(os.path.dirname(path))
     if root is None:
