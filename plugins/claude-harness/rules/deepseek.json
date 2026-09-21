@@ -1,0 +1,148 @@
+{
+  "profile": "deepseek",
+  "purpose": "Imperative rules card for the deepseek profile. Rules only, no rationale: the rationale lives in CONVENTIONS.md. Injected at session start and after every compaction by the SessionStart hook of lot 19 when ANTHROPIC_BASE_URL is set.",
+  "sources": [
+    "CONVENTIONS.md (master, claude-harness)",
+    "<project>/CLAUDE.md = <project>/AGENTS.md (gate parameters, skills, census)",
+    "<project>/lots.md | LOTS.md | dev-plan.md (status table, current lot section)",
+    "<project>/README.md (quick start)"
+  ],
+  "precedence": "Project CLAUDE.md > this card > your own judgement. A loaded skill overrides this card for the step it covers.",
+  "rules": [
+    {
+      "id": "START-1",
+      "rule": "Before any other action, read in this order: project CLAUDE.md (Gate parameters, Skills, Project documents), the lots file status table and the current lot section only, README.md quick start. Do not re-read CONVENTIONS.md if it is already in context.",
+      "source": "CONVENTIONS.md §9"
+    },
+    {
+      "id": "START-2",
+      "rule": "Run `rtk proxy git log --first-parent --oneline -10 origin/develop`, `git status` and `git branch --show-current`. Never use plain `git log`: the rtk filter hides merge commits.",
+      "source": "CONVENTIONS.md §2.1, §9"
+    },
+    {
+      "id": "START-3",
+      "rule": "Summarize in exactly 3 lines: current lot, state, next action. Then stop and wait if the lot is not named explicitly by the user.",
+      "source": "CONVENTIONS.md §9"
+    },
+    {
+      "id": "LOT-1",
+      "rule": "Never infer 'the next lot'. Invoke `claude-harness:lot-start`, state the lot ID you computed, and wait for the user to confirm it before writing any file.",
+      "source": "lot 19"
+    },
+    {
+      "id": "LOT-2",
+      "rule": "Update the lots file status table from git before choosing a lot: a lot whose branch merge is on develop and maps to exactly one lot becomes done, committed alone as `docs: sync lots file status`. If the mapping is ambiguous, or a lot is marked done with no merge, STOP and ask. Never pick one yourself.",
+      "source": "CONVENTIONS.md §2.1, §2.2"
+    },
+    {
+      "id": "LOT-3",
+      "rule": "Never redo work already merged on develop. Before creating a lot branch, check that no merged commit carries that lot's scope.",
+      "source": "incident 2026-09-21"
+    },
+    {
+      "id": "LOT-4",
+      "rule": "If any acceptance criterion is ambiguous, ask all your questions in one batch BEFORE writing code. If there is none, say 'no ambiguity' and restate the criteria in one list.",
+      "source": "CONVENTIONS.md §2.2"
+    },
+    {
+      "id": "LOT-5",
+      "rule": "Implement strictly the lot scope. Anything else becomes a suggestion in the PR description.",
+      "source": "CONVENTIONS.md §2.4"
+    },
+    {
+      "id": "LOT-6",
+      "rule": "One lot per session. After the PR is opened, stop. Never start, prepare or test the next lot.",
+      "source": "CONVENTIONS.md §2.9"
+    },
+    {
+      "id": "LOT-7",
+      "rule": "When development is done, stop before lot-review and tell the user to end the session, run `claude-profile claude`, and open a new session. Never run lot-review, lot-audit or lot-ship under this profile.",
+      "source": "CONVENTIONS.md §14"
+    },
+    {
+      "id": "CTX-1",
+      "rule": "After a compaction, the summary is not a source of truth. Re-run START-2 and re-read the current lot section before the next write.",
+      "source": "lot 19"
+    },
+    {
+      "id": "CTX-2",
+      "rule": "Read files by targeted range (offset/limit, grep) once. Never re-read a whole file you already read in this session unless it changed.",
+      "source": "incident 2026-09-21"
+    },
+    {
+      "id": "CTX-3",
+      "rule": "Before debugging a framework error, check the exact dependency versions in pom.xml or package.json first.",
+      "source": "incident 2026-09-21"
+    },
+    {
+      "id": "GATE-1",
+      "rule": "During development run only the targeted tests of the changed classes. Run the full Validation command from Gate parameters once, before each commit.",
+      "source": "CONVENTIONS.md §2.6"
+    },
+    {
+      "id": "GATE-2",
+      "rule": "The Validation command must be green before every commit and before the PR. A red test is fixed, never skipped, disabled or stripped of its assertion.",
+      "source": "CONVENTIONS.md §2.6, §3"
+    },
+    {
+      "id": "GATE-3",
+      "rule": "Write the lot's tests with the code: one unit test per new or modified public service method, one integration test per new endpoint, in the same commit.",
+      "source": "CONVENTIONS.md §2.5, §3"
+    },
+    {
+      "id": "GATE-4",
+      "rule": "A backend integration test runs on Testcontainers PostgreSQL with migrations active. H2 with ddl-auto and migrations disabled is not an integration test.",
+      "source": "CONVENTIONS.md §2.5"
+    },
+    {
+      "id": "GIT-1",
+      "rule": "Branch from develop only: `feat/lot-N-slug` or `chore/slug`. Never branch from, push to, or open a PR to main.",
+      "source": "CONVENTIONS.md §7"
+    },
+    {
+      "id": "GIT-2",
+      "rule": "Commit titles: English, Conventional Commits `<type>(<lot>): <message>`, no em dash. New commits, never amend. Never use --no-verify or force-push.",
+      "source": "CONVENTIONS.md §7, §10"
+    },
+    {
+      "id": "GIT-3",
+      "rule": "Before each commit, re-read the feedback memories and check them against the staged diff.",
+      "source": "CONVENTIONS.md §10"
+    },
+    {
+      "id": "DOC-1",
+      "rule": "CLAUDE.md and AGENTS.md stay byte-identical. Every new document is added to the Project documents census in the same commit.",
+      "source": "CONVENTIONS.md §12"
+    },
+    {
+      "id": "DOC-2",
+      "rule": "Lots files are written in French; CLAUDE.md, AGENTS.md, skills and memories in English.",
+      "source": "CONVENTIONS.md §11"
+    },
+    {
+      "id": "ASK-1",
+      "rule": "Ask before: adding a dependency, changing the data model or a migration, adding a top-level package or module, touching files outside the lot scope, any security or data-loss decision.",
+      "source": "CONVENTIONS.md §4"
+    },
+    {
+      "id": "CODE-1",
+      "rule": "Constructor injection only. DTOs out of controllers, never entities. No System.out or console.log, no silent catch, no commented-out code, no hard-coded secrets or paths.",
+      "source": "CONVENTIONS.md §3, §6"
+    },
+    {
+      "id": "CODE-2",
+      "rule": "Business logic that depends only on the entity's own state goes on the entity as an instance method, not in a utility class.",
+      "source": "CONVENTIONS.md §1"
+    },
+    {
+      "id": "CODE-3",
+      "rule": "An applied migration is immutable. Expand then contract: never drop, rename or add NOT NULL in the same version as the code that stops using the column.",
+      "source": "CONVENTIONS.md §7"
+    },
+    {
+      "id": "OUT-1",
+      "rule": "No preamble, no recap, no closing pleasantry. Errors: file, line, expected vs actual. Answer in the user's language.",
+      "source": "CONVENTIONS.md §15"
+    }
+  ]
+}

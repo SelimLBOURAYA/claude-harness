@@ -39,6 +39,7 @@
 | 16 | `feat/lot-16-contract-ci` | Plus tard | Job CI « contract » front ↔ backend réel | claude-harness, kf, mpf, elya-frontend | ⏸️ |
 | 17 | `chore/harness-adoption-reports` | A – Harness | `harness-invariants` refuse un seuil de couverture qui ne mesure rien | claude-harness, les repos adoptés | ✅ |
 | 18 | `feat/lot-18-reaudit-fixes` | D – Clôture | Correctifs ouverts par le ré-audit du lot 15 | claude-harness | ✅ |
+| 19 | `feat/lot-19-lot-start-guard` | A – Harness | Cadrage du démarrage : skill `lot-start`, verrou d'écriture, réinjection de l'état au démarrage et après compaction | claude-harness, les 8 repos (via `main`) | ⬜ |
 
 Légende des statuts *(P6-D10)* : ⬜ à faire · 🔄 en cours (livré sur la branche, PR non
 mergée) · ✅ mergé sur `develop` · ⏸️ planifié mais dormant · ❄️ gelé.
@@ -808,6 +809,171 @@ PR #16 déjà ouverte : le `<minimum>` du `pom.xml` et la ligne
 `Coverage threshold` tombent à `0` avec la raison écrite dans les deux, et le
 ticket LOT-1.3 d'elya porte désormais le livrable qui mesure le niveau réel et
 le remonte. `./mvnw verify` reste vert et les deux nouvelles étapes passent.
+
+---
+
+## LOT 19 — Cadrage du démarrage de lot ⬜
+
+Branche `feat/lot-19-lot-start-guard`, depuis `develop`. Repo touché :
+`claude-harness` seul ; les 8 repos en héritent à la promotion `develop` → `main`.
+
+### Origine
+
+Incident du 2026-09-21, profil `deepseek` (`deepseek-v4-pro[1m]`), sur un repo
+backend adopté. Consigne : « développe le lot suivant ». Constaté :
+
+- 17 min de lecture avant la première écriture, ~7 M tokens consommés ;
+- LOT-2.1, déjà mergé sur `develop`, **refait** sur une seconde branche : la table
+  de statut du fichier de lots affichait encore « Lot 2 ⬜ » alors que git disait
+  le contraire, et l'agent a tranché seul au lieu de demander (§2.2) ;
+- aucune question posée ; séquence de démarrage §9 non exécutée ; session
+  reprise sur un résumé de compaction, pris pour l'état réel ;
+- `./mvnw verify` complet (Testcontainers) relancé à chaque essai.
+
+**Cause racine** : le harnais verrouille mécaniquement la **fin** d'un lot (gate
+`lot-test → lot-review → lot-audit → lot-ship`, garde git, CI), mais le **début**
+(§9, §2.1, §2.2) ne repose que sur la prose. C'est précisément la partie qu'un
+modèle faible ou un contexte compacté ne respecte pas. Ce lot rend le démarrage
+aussi mécanique que la fin.
+
+### Livrables
+
+1. **Skill `lot-start`** (`plugins/claude-harness/skills/lot-start/SKILL.md`),
+   premier maillon du gate : `lot-start → développement → lot-test → lot-review →
+   lot-audit → lot-ship`.
+   - Résout le dépôt visé (même règle que `AUDIT_REPO` au lot 18 : jamais le
+     répertoire de session par défaut) et lit `Lots file` dans `## Gate parameters`.
+   - **Réinjecte les références du projet**, dans cet ordre et par extraits :
+     `CLAUDE.md` (= `AGENTS.md`) — Gate parameters, Skills, Project documents ;
+     `CONVENTIONS.md` seulement pour un agent qui ne le charge pas déjà ; le fichier
+     de lots — table de statut puis section du lot candidat **seulement** ;
+     `README.md` — quick start ; les `SKILL.md` du projet cités dans la table Skills.
+   - **Met à jour la table de statut du fichier de lots avant tout calcul**
+     (§2.1), en croisant la table et
+     `rtk proxy git log --first-parent --oneline origin/develop` (après `git fetch`) :
+     - tout lot dont le merge figure sur `develop` passe à ✅, avec une ligne
+       « **Mergé** le <date> (PR #n, merge `<sha>`) » en tête de sa section ;
+     - la correspondance merge → lot se fait par le nom de branche du merge
+       (`feat/lot-N-*`, colonne `Branche` de la table). Elle n'est appliquée
+       automatiquement que si elle désigne **un seul** lot ; sinon (sous-lots
+       `2.1` / `2.2` sur des branches `feat/lot-2-*`, lot ✅ sans merge
+       retrouvable, merge sans lot) → **arrêt et question**, jamais d'arbitrage
+       par l'agent. C'est le cas exact de l'incident : un statut périmé devient
+       une correction mécanique quand elle est univoque, une question quand elle
+       ne l'est pas ;
+     - le commit `docs: sync lots file status` est le **premier commit** de la
+       branche du lot, séparé de toute implémentation ; si la table est déjà à
+       jour, le skill l'écrit et ne produit pas de commit vide.
+   - Calcule ensuite le lot candidat sur la table **synchronisée** : premier lot ⬜
+     dans l'ordre du fichier, hors ⏸️ et ❄️.
+   - Après confirmation (livrable 2), passe le lot confirmé à 🔄 dans la table,
+     dans le même commit de synchronisation.
+   - Vérifie qu'aucun commit mergé ne porte déjà le périmètre du lot candidat.
+   - **Questions obligatoires** : l'agent liste les critères d'acceptation du lot,
+     pose en **un seul lot de questions** toutes les ambiguïtés avant toute
+     écriture ; s'il n'y en a aucune, il l'écrit explicitement (« aucune
+     ambiguïté ») avec la liste des critères reformulés.
+   - Termine par : « Lot candidat : N — confirmer avec `lot-start confirm N` ».
+     Le skill **n'écrit pas** le verrou lui-même (livrable 2).
+
+2. **Verrou de lot confirmé par l'utilisateur** — `.claude/current-lot`, fichier
+   local non versionné (`lot=N`, `branch=feat/lot-N-…`, `confirmed=<ISO date>`).
+   - Écrit **uniquement** par un hook `UserPromptSubmit`
+     (`hooks/lot-confirm.sh`) quand le prompt **de l'utilisateur** correspond à
+     `lot-start confirm <N>` : le modèle ne peut pas forger un prompt utilisateur,
+     la confirmation est donc réelle.
+   - `.claude/current-lot` ajouté au `.gitignore` du squelette (`templates/project/`)
+     et à celui des repos à leur prochaine synchro `harness-sync`.
+
+3. **Hook `PreToolUse` de verrou d'écriture** (point 3 de l'analyse) —
+   `hooks/lot-lock-guard.py`, matcher `Edit|Write|MultiEdit|NotebookEdit`,
+   bibliothèque standard seulement (même contrainte V6 que `git-guard.py`).
+   - Le dépôt est résolu depuis le **chemin du fichier visé**, pas depuis le
+     répertoire courant (leçon C3). Hors d'un dépôt harnaché (pas de
+     `## Gate parameters` dans son `CLAUDE.md`) → silence.
+   - Branche `feat/lot-N-*` : **deny** si le verrou est absent, ou si son `lot`
+     ou sa `branch` ne correspondent pas à la branche courante. Message : « lance
+     `lot-start`, puis confirme avec `lot-start confirm N` ».
+   - Branche `develop` ou `main` : **ask** pour toute écriture (aucun
+     développement n'y a lieu).
+   - Toujours autorisé : le fichier de lots (sync §2.1). Toujours **deny** :
+     toute écriture de `.claude/current-lot` par un outil.
+   - Le guard ne répond jamais `allow` (même principe que `git-guard.py`).
+   - Limite assumée et écrite dans le hook : une écriture par `Bash` (`sed -i`,
+     `tee`, redirection) n'est pas couverte ; voir point à arbitrer n°2.
+
+4. **Hook `SessionStart` de réinjection de l'état** (point 4 de l'analyse) —
+   `hooks/session-context.sh`, matchers `startup|resume|clear|compact`. Sortie en
+   `additionalContext`, plafonnée à ~2 K tokens :
+   - dépôt, branche, `git status --short`, 10 derniers commits first-parent de
+     `develop`, verrou de lot courant (ou « aucun lot confirmé ») ;
+   - table de statut du fichier de lots (la table seule) ;
+   - la consigne de références et de questions du livrable 1, en 5 lignes ;
+   - source `compact` : ajoute « tu reprends depuis un résumé ; il n'est pas une
+     source de vérité ; réancre-toi sur l'état ci-dessus avant toute écriture » ;
+   - profil `deepseek` (signal runtime : `ANTHROPIC_BASE_URL` non vide, comme
+     `lot-review`) : ajoute les règles de
+     `plugins/claude-harness/rules/deepseek.json`, rendues en liste d'impératifs.
+
+5. **Documents** : `hooks.json` câblé ; `plugin.json` (description) ; table Skills
+   et census de `CLAUDE.md` / `AGENTS.md` ; squelette `templates/project/CLAUDE.md`
+   (ligne `lot-start` dans la table Skills) ; `CONVENTIONS.md` §9 et §13 —
+   renvoi court à `lot-start` et au gate étendu, propagé aux repos dans leur
+   prochain lot d'adoption (§12), pas en commit transverse.
+
+### Tests (`./tests/run.sh`)
+
+- `tests/lot-lock-guard.test.sh` — cas piégés obligatoires : verrou absent ;
+  verrou d'un autre lot ; branche renommée après confirmation ; chemin `../autre-repo/…` ;
+  lien symbolique vers un autre dépôt ; écriture du fichier de lots (autorisée) ;
+  écriture de `.claude/current-lot` (refusée) ; dépôt non harnaché (silence) ;
+  `develop` (ask).
+- `tests/lot-confirm.test.sh` — prompt conforme, prompt qui contient la phrase au
+  milieu d'un texte collé (refus : correspondance sur le prompt entier), ID de lot
+  absent de la table de statut (refus).
+- `tests/session-context.test.sh` — chaque matcher ; plafond de taille ; injection
+  des règles `deepseek` uniquement avec `ANTHROPIC_BASE_URL` non vide ; dépôt sans
+  fichier de lots (sortie dégradée, jamais d'erreur bloquante).
+- Synchronisation de la table (script du skill, exécuté sur dépôts fixtures,
+  pas grepé) : merge univoque → ✅ + SHA ; sous-lots ambigus → arrêt ; lot ✅ sans
+  merge → arrêt ; table déjà à jour → aucun commit ; lots ⏸️ / ❄️ ignorés pour le
+  candidat.
+- `tests/skills.test.sh` étendu à `lot-start` ; `tests/manifests.test.sh` au
+  câblage des trois hooks ; JSON de `rules/deepseek.json` validé.
+
+### Critères de validation
+
+- Rejeu de l'incident sur une fixture (table « Lot 2 ⬜ », git avec LOT-2.1 mergé) :
+  `lot-start` s'arrête sur la correspondance ambiguë (sous-lots sur `feat/lot-2-*`)
+  et pose la question ; aucune écriture possible dans `src/` tant que
+  l'utilisateur n'a pas tapé `lot-start confirm N`.
+- Fixture univoque (lot 5 ⬜, merge de `feat/lot-5-…` sur `develop`) : `lot-start`
+  passe le lot 5 à ✅ avec PR et SHA, propose le lot 6, et le premier commit de la
+  branche est `docs: sync lots file status`.
+- Après une compaction forcée (`/compact`), la première réponse de la session
+  contient l'état réinjecté.
+- Session `deepseek` : les règles de `rules/deepseek.json` sont présentes au
+  démarrage ; session `claude` : absentes.
+- `./tests/run.sh` vert ; gate complet du lot (`lot-test → lot-review → lot-audit
+  → lot-ship`), `lot-review` sous profil `claude`.
+
+### Points à arbitrer en début de lot
+
+1. Syntaxe exacte de confirmation (`lot-start confirm N`, ou la commande
+   `/claude-harness:lot-start N` tapée par l'utilisateur, également visible du
+   hook `UserPromptSubmit`).
+2. Écritures par `Bash` vers les chemins source sans verrou : `ask` heuristique
+   (redirections, `sed -i`, `tee`) ou limite simplement écrite.
+3. Branches `chore/*` : verrou exigé ou non.
+
+### Hors périmètre (suggestions pour un lot ultérieur)
+
+- Plafond de tokens par session (hook `PostToolUse` sur la taille de
+  `transcript_path`, arrêt et rapport au-delà d'un seuil).
+- Ligne `Fast loop command` dans Gate parameters (tests ciblés en développement,
+  `Validation command` complète avant commit seulement).
+- Remplacement, sous profil `deepseek`, du chargement intégral de `CONVENTIONS.md`
+  par la seule fiche `rules/deepseek.json`.
 
 ---
 
