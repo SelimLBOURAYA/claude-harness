@@ -966,6 +966,14 @@ aussi mécanique que la fin.
    (redirections, `sed -i`, `tee`) ou limite simplement écrite.
 3. Branches `chore/*` : verrou exigé ou non.
 
+**Tranché le 2026-09-21** (début du lot, par l'utilisateur) :
+
+1. Les deux formes sont acceptées, sur le prompt entier : `lot-start confirm N` et
+   `/claude-harness:lot-start confirm N`.
+2. Pas d'heuristique sur `Bash` : la limite est écrite dans le hook, dans le skill
+   et dans le README.
+3. Branches `chore/*` : aucun verrou, le guard reste silencieux.
+
 ### Hors périmètre (suggestions pour un lot ultérieur)
 
 - Plafond de tokens par session (hook `PostToolUse` sur la taille de

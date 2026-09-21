@@ -121,6 +121,7 @@ missing line is a drift that `harness-sync` and `harness-invariants.yml` report.
 
 | Skill | Role |
 |---|---|
+| `lot-start` | Syncs the lots file status table with develop, asks every ambiguity, creates the branch, waits for `lot-start confirm N` |
 | `lot-test` | Tests written and green, coverage gate at the repo threshold |
 | `lot-review` | Code review of the lot, inline PR comments, applied fixes (`claude` profile only) |
 | `lot-audit` | Security, performance and architecture audit → `docs/audits/lot-N.md` |
@@ -131,7 +132,8 @@ missing line is a drift that `harness-sync` and `harness-invariants.yml` report.
 | `bootstrap-project` | Generates a harnessed repository from `templates/project/` |
 | `i-have-adhd` | Focus aid, user-invoked only |
 
-Gate, mandatory in order: `lot-test → lot-review → lot-audit → lot-ship`.
+Gate, mandatory in order: `lot-test → lot-review → lot-audit → lot-ship`, opened by
+`lot-start` before any development.
 
 ## Hooks
 
@@ -139,6 +141,13 @@ Gate, mandatory in order: `lot-test → lot-review → lot-audit → lot-ship`.
 |---|---|---|
 | `git-guard.py` | `PreToolUse` on `Bash` | Denies pushes to `main`, force pushes, `--no-verify`, `reset --hard`, remote branch deletion, `gh pr create` without `--base develop`, and `gh pr merge`. Gate deliverables are not its business: `lot-deliverables.yml` owns that rule, and owns it alone. Asks for confirmation on every other push or PR creation, and on anything it cannot parse. |
 | `mirror-sync.sh` | `PostToolUse` on `Edit`, `Write`, `Bash` | Keeps `AGENTS.md` byte-identical to `CLAUDE.md`, including after shell edits (`cp`, `mv`, `sed -i`, redirections). |
+
+| `lot-lock-guard.py` | `PreToolUse` on `Edit`, `Write`, `MultiEdit`, `NotebookEdit` | On a `feat/lot-N-*` branch, denies every write until `.claude/current-lot` names that lot and that branch; asks for any write on `develop` or `main`; always lets the lots file through, never the lock itself. The repository is resolved from the written path. Writes made through `Bash` are not covered: a documented limit. |
+| `lot-confirm.sh` | `UserPromptSubmit` | Writes `.claude/current-lot` when the whole user prompt is `lot-start confirm N` or `/claude-harness:lot-start confirm N`, for a lot of the status table, on its `feat/lot-N-*` branch. The model cannot forge a user prompt. |
+| `session-context.sh` | `SessionStart` (`startup`, `resume`, `clear`, `compact`) | Re-injects branch, working tree, last merges on develop, the lot lock and the open rows of the status table; flags a compaction summary as untrusted; adds `rules/deepseek.json` when `ANTHROPIC_BASE_URL` is set. Capped at ~2K tokens, never blocks. |
+
+`.claude/current-lot` is local and never versioned: every harnessed repository
+ignores it.
 
 The guard is intentionally conservative: an unparseable command produces a
 confirmation prompt, never a silent allow.
