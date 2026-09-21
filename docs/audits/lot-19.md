@@ -1,7 +1,7 @@
 # Lot Audit — Lot 19 — feat/lot-19-lot-start-guard
 
 **Harness ref:** 35b2e0a
-**Scope:** 26 modified files | **Verdict:** Fix warnings
+**Scope:** 26 modified files | **Verdict:** Ready for PR
 
 ## Summary
 | Dimension    | Critical | Warning | Info |
@@ -16,7 +16,7 @@ The step ran through the `security-review` skill, with two stages: one analysis 
 
 | Severity | Location | Finding | Action |
 |----------|----------|---------|--------|
-| Warning | `plugins/claude-harness/hooks/lot-lock-guard.py:80` | Writes under `.git/` are never judged. `git rev-parse --show-toplevel` fails inside the git dir, so `repo_root` returns `None` and the guard exits silently. A Write/Edit on `.git/HEAD` (to switch to another branch or detach) or on `.git/config` (to set `core.worktree`) then makes the guard silent on every write, including `.claude/current-lot`. The model could therefore forge a lock with the Write/Edit tools alone. This was reproduced on a scratch repo. Claude Code's own permission prompt for `.git/` probably still applies, but that was not verified. | Pending user decision: deny any tool write whose resolved path has a `.git` component, and add the `.git/HEAD` and `.git/config` cases to `tests/lot-lock-guard.test.sh`. That is about 5 lines plus 3 assertions. Recommended within lot 19 |
+| Warning | `plugins/claude-harness/hooks/lot-lock-guard.py:80` | Writes under `.git/` are never judged. `git rev-parse --show-toplevel` fails inside the git dir, so `repo_root` returns `None` and the guard exits silently. A Write/Edit on `.git/HEAD` (to switch to another branch or detach) or on `.git/config` (to set `core.worktree`) then makes the guard silent on every write, including `.claude/current-lot`. The model could therefore forge a lock with the Write/Edit tools alone. This was reproduced on a scratch repo. Claude Code's own permission prompt for `.git/` probably still applies, but that was not verified. | Fixed in 07cc809, at the user's request, within lot 19: any tool write under the `.git` directory of a harnessed repository is now denied, whatever the branch and lock. A non-harnessed repository keeps the normal flow. Covered by 4 new cases in `tests/lot-lock-guard.test.sh`: `.git/HEAD` and relative `.git/config` on an unlocked branch, `.git/hooks` with a matching lock, and `.git/config` in a non-harnessed repository. |
 
 Checked with no finding:
 - **`lot-lock-guard.py`:** `../`, symlinks and relative paths are normalised by `realpath`. The lots file is exempt only by an exact realpath match. The guard never answers `allow`.
@@ -61,6 +61,5 @@ n/a — `Migrations directory` is `n/a`.
 - The validation criteria that need a live session are left to `lot-ship`'s test plan, because the gate cannot exercise them: the first response after `/compact` should contain the re-injected state, and a `deepseek` session should load the rules card while a `claude` session should not.
 
 ## Recommended next steps
-1. Decide on the Warning. Recommended: fix it in lot 19, which means denying `.git/` writes, adding the test cases and re-running `./tests/run.sh`.
-2. `./tests/run.sh` must be green before the PR.
-3. `lot-ship`.
+1. `./tests/run.sh` must be green before the PR. It is, at 07cc809.
+2. `lot-ship`.
