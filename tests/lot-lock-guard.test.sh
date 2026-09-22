@@ -85,9 +85,9 @@ expect deny "branch renamed after confirmation" "$LOT" Write "$LOT/src/App.java"
 # is the normal state at the start of the next one, while the same lot on
 # another branch means the branch moved under an existing confirmation.
 assert_contains "$(reason_for "$LOT" "$LOT/src/App.java")" \
-  "the branch changed since the confirmation" "same lot, another branch: the reason says so"
+  "the confirmation was given for another branch" "same lot, another branch: the reason says so"
 lock "$LOT" 6 feat/lot-6-y
-assert_contains "$(reason_for "$LOT" "$LOT/src/App.java")" "the lock of a previous lot" \
+assert_contains "$(reason_for "$LOT" "$LOT/src/App.java")" "the lock of another lot, normally the previous one" \
   "a previous lot's lock: the reason says that instead"
 git -C "$LOT" branch -qm feat/lot-5-x
 lock "$LOT" 5 feat/lot-5-x
