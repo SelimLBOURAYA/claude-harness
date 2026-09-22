@@ -12,7 +12,8 @@ CLI, for the shell hooks:
   lotfile.py root <path>            repository toplevel, empty when none
   lotfile.py lots-file <root>       absolute path of the lots file, empty when none
   lotfile.py table <root>           status table, done rows folded into one line
-  lotfile.py has-lot <root> <id>    exit 0 when <id> is a row of the status table
+  lotfile.py has-lot <root> <id>    exit 0 when <id> is a row of the status table,
+                                    or a sub-lot of one (3.3 on a row 3)
   lotfile.py lock <root>            the lock, one key=value per line, empty when none
 """
 
@@ -236,10 +237,14 @@ def main(argv):
     if command == "table":
         return cli_table(target)
     if command == "has-lot" and len(argv) == 4:
+        lot = argv[3].lower()
         path = lots_file(target)
         table = status_table(read_lines(path)) if path else None
         ids = {row["id"].lower() for row in table["rows"]} if table else set()
-        return 0 if argv[3].lower() in ids else 1
+        # Sub-lots (3.3) share the flat branch of their parent (3.3 -> 3, section
+        # 7 of the conventions), and the table carries one row per lot: a
+        # confirmation of 3.3 is a confirmation of the row 3 that exists.
+        return 0 if lot in ids or lot_base(lot) in ids else 1
     if command == "lock":
         lock = read_lock(target) or {}
         for key, value in lock.items():

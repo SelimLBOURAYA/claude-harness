@@ -49,6 +49,11 @@ expect() { # expect <verdict> <label> <cwd> <tool> <path>
   assert_eq "$1" "$(decision "$3" "$4" "$5")" "$2"
 }
 
+reason_for() { # reason_for <cwd> <path> : the denial's reason
+  jq -nc --arg d "$1" --arg f "$2" '{tool_name:"Write", tool_input:{file_path:$f}, cwd:$d}' \
+    | python3 "$GUARD" | jq -r '.hookSpecificOutput.permissionDecisionReason'
+}
+
 LOT=$(make_repo lot-repo feat/lot-5-x)
 
 # --- no lock: development is denied --------------------------------------
@@ -76,6 +81,14 @@ lock "$LOT" 5.1 feat/lot-5-x
 expect pass "a sub-lot lock covers its flat branch" "$LOT" Write "$LOT/src/App.java"
 git -C "$LOT" branch -qm feat/lot-5-renamed
 expect deny "branch renamed after confirmation" "$LOT" Write "$LOT/src/App.java"
+# The two mismatches read differently (lot 20): a lock left by an earlier lot
+# is the normal state at the start of the next one, while the same lot on
+# another branch means the branch moved under an existing confirmation.
+assert_contains "$(reason_for "$LOT" "$LOT/src/App.java")" \
+  "the branch changed since the confirmation" "same lot, another branch: the reason says so"
+lock "$LOT" 6 feat/lot-6-y
+assert_contains "$(reason_for "$LOT" "$LOT/src/App.java")" "the lock of a previous lot" \
+  "a previous lot's lock: the reason says that instead"
 git -C "$LOT" branch -qm feat/lot-5-x
 lock "$LOT" 5 feat/lot-5-x
 

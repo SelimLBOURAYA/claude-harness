@@ -143,17 +143,25 @@ def main():
             "deny",
             "No confirmed lot in %s: `.claude/current-lot` is absent. %s" % (root, how),
         )
+    # Two different situations, told apart (lot 20). A lock naming an earlier
+    # lot is the normal state at the start of the next one, and it is worth
+    # saying so: the alternative is a message that reads like a corrupted lock.
+    # A lock naming this same lot on another branch is not normal: the branch
+    # was renamed or recreated since the confirmation, so that confirmation
+    # named a branch that no longer exists.
     if lotfile.lot_base(lock["lot"]) != lot:
         decide(
             "deny",
-            "The confirmed lot is %s, but the branch `%s` is lot %s. %s"
-            % (lock["lot"], branch, lot, how),
+            "`.claude/current-lot` still names lot %s, confirmed on `%s`: the lock of "
+            "a previous lot, which is the normal state at the start of the next one. "
+            "Each lot is confirmed once. %s" % (lock["lot"], lock["branch"], how),
         )
     if lock["branch"] != branch:
         decide(
             "deny",
-            "Lot %s was confirmed on `%s`, but `%s` is checked out. %s"
-            % (lock["lot"], lock["branch"], branch, how),
+            "Lot %s was confirmed on `%s`, but `%s` is checked out: the branch changed "
+            "since the confirmation, so the confirmation names a branch that no longer "
+            "exists. %s" % (lock["lot"], lock["branch"], branch, how),
         )
     sys.exit(0)
 

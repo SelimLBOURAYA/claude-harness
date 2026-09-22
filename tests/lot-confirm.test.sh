@@ -84,6 +84,22 @@ git -C "$REPO" switch -qc feat/lot-6b-c
 submit "lot-start confirm 6b" >/dev/null
 assert_eq "lot=6b" "$(sed -n 1p "$LOCK" 2>/dev/null)" "a lettered lot ID is accepted on its branch"
 
+# --- a sub-lot is confirmed on its parent row (lot 20) --------------------
+git -C "$REPO" switch -q feat/lot-5-b
+rm -f "$LOCK"
+out=$(submit "lot-start confirm 5.2")
+assert_file "$LOCK" "a sub-lot is accepted when the table carries its parent"
+assert_eq "lot=5.2" "$(sed -n 1p "$LOCK" 2>/dev/null)" "the lock records the sub-lot"
+assert_eq "branch=feat/lot-5-b" "$(sed -n 2p "$LOCK" 2>/dev/null)" "on the parent's flat branch"
+assert_eq "null" "$(printf '%s' "$out" | jq -r '.decision')" "and the prompt is not blocked"
+
+rm -f "$LOCK"
+out=$(submit "lot-start confirm 9.2")
+assert_eq "absent" "$([ -f "$LOCK" ] && echo present || echo absent)" \
+  "a sub-lot whose parent has no row writes nothing"
+assert_contains "$(printf '%s' "$out" | jq -r '.reason')" 'carries no row `9`' \
+  "the reason names the row to look for, not the sub-lot id"
+
 # --- outside a repository -------------------------------------------------
 rm -f "$LOCK"
 out=$(submit "lot-start confirm 5" "$WORK")
