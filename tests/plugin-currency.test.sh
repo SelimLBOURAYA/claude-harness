@@ -5,7 +5,6 @@
 set -uo pipefail
 . "$(dirname "$0")/lib.sh"
 
-HOOK="$REPO_ROOT/plugins/claude-harness/hooks/session-context.sh"
 MODULE="$REPO_ROOT/plugins/claude-harness/hooks/plugin-currency.py"
 WORK=$(mktemp -d)
 trap 'rm -rf "$WORK"' EXIT
