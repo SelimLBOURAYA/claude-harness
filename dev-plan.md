@@ -813,7 +813,13 @@ le remonte. `./mvnw verify` reste vert et les deux nouvelles étapes passent.
 
 ---
 
-## LOT 19 — Cadrage du démarrage de lot 🔄
+## LOT 19 — Cadrage du démarrage de lot ✅
+
+**Mergé** le 2026-09-22 sur `claude-harness` (PR #32, fusion par rebase : `develop`
+porte `d18af94`..`211153a`, arbre identique à la branche), puis promotion
+`develop` → `main` (PR #33, merge `9393cf4`) et retour de `main` dans `develop`
+(PR #34, `0ae9ff8`). Rapports : `docs/audits/lot-19-review.md`,
+`docs/audits/lot-19.md`.
 
 Branche `feat/lot-19-lot-start-guard`, depuis `develop`. Repo touché :
 `claude-harness` seul ; les 8 repos en héritent à la promotion `develop` → `main`.
@@ -986,6 +992,262 @@ aussi mécanique que la fin.
 
 ---
 
+## LOT 20 — Fraîcheur du plugin installé 🔄
+
+Branche `feat/lot-20-plugin-currency`, depuis `develop`. Repo touché :
+`claude-harness` ; les 8 repos en héritent à la promotion `develop` → `main`.
+
+### Origine
+
+Incident du 2026-09-22, repo `elya`, lot 3.3, profil `deepseek`
+(`ANTHROPIC_BASE_URL=https://api.deepseek.com/anthropic`). L'utilisateur tape
+`lot-start 3.3`, répond aux questions du skill, la branche
+`feat/lot-3-media-robustness` est créée, puis il tape `lot-start confirm 3` — et
+**rien ne se passe** :
+
+- `.claude/current-lot` reste sur `lot=3`, `branch=feat/lot-3-media-endpoints`,
+  `confirmed=2026-09-22T11:31:03Z` (valeur de la session du lot 3.2, horodatage
+  inchangé) : le hook `UserPromptSubmit` n'a pas tourné ;
+- `Skill claude-harness:lot-start` répond `Unknown skill: claude-harness:lot-start` ;
+- aucune réinjection d'état au démarrage de la session ;
+- le garde d'écriture est inerte : un `Edit` sur `src/` aurait été accepté sans
+  confirmation. Vérifié en rejouant `lot-lock-guard.py` à la main sur une charge
+  synthétique : le script répond `deny`, donc l'agent aurait été bloqué **si le
+  hook avait été installé**.
+
+Le lot 19 était pourtant mergé sur `develop` et promu sur `main` (PR #32 et #33)
+**avant** cette session : `hooks/lot-confirm.sh`, `hooks/lot-lock-guard.py`,
+`hooks/session-context.sh`, `hooks/lotfile.py` et `skills/lot-start/` figurent
+tous sur `origin/main`.
+
+### Constat : le harnais tourne sur un instantané périmé
+
+Le plugin est chargé depuis la copie **installée** par Claude Code, jamais depuis
+le clone de travail `~/ENV/projets/claude-harness` :
+
+| Chemin | État au 2026-09-22 | `hooks/` | `skills/` |
+|---|---|---|---|
+| `~/.claude/plugins/marketplaces/claude-harness` | `d67c004` (`main` du 2026-09-19) | `git-guard.py`, `mirror-sync.sh`, `hooks.json` (559 o) | 9 skills |
+| `~/.claude/plugins/cache/claude-harness/claude-harness/0.1.0` | `d67c004`, installé les 2026-09-19 et 09-20 | idem | idem |
+| `origin/main` du repo | `9393cf4` (PR #33) | + `lot-confirm.sh`, `lot-lock-guard.py`, `session-context.sh`, `lotfile.py` | 10 skills (`lot-start` en plus) |
+
+Relevé précis :
+
+- `~/.claude/plugins/known_marketplaces.json` → marketplace `claude-harness`,
+  `ref: "main"`, `lastUpdated: 2026-09-19T09:31:54Z` ;
+- `~/.claude/plugins/installed_plugins.json` → trois installations du même
+  plugin (portée utilisateur le 2026-09-19, puis
+  `kreadevis-frontend` le 2026-09-20T17:33:12Z et `elya` le
+  2026-09-20T17:51:35Z), toutes avec `version: "0.1.0"` et
+  `gitCommitSha: "d67c004b4682046c0f6d4968f6a3a8df363103f1"` ;
+- le `hooks.json` installé ne déclare que `PreToolUse` sur `Bash`
+  (`git-guard.py`) et `PostToolUse` sur `Edit|Write|MultiEdit|Bash`
+  (`mirror-sync.sh`) : **aucune** entrée `UserPromptSubmit` ni `SessionStart`.
+
+Portée mesurée : **aucune session Claude Code des 8 repos depuis le 2026-09-19
+n'a disposé du gate de démarrage du lot 19**, y compris la promotion du
+2026-09-20 (PR #28). Ce qui restait gardé : `git-guard.py` (les commandes `git`
+interdites étaient bien refusées) et `mirror-sync.sh` (miroir
+`CLAUDE.md`/`AGENTS.md`). Ce qui ne l'était plus : `lot-start`, la confirmation
+utilisateur, le verrou d'écriture, la réinjection d'état après compaction.
+
+### Pourquoi la défaillance est silencieuse
+
+1. Un hook absent ne produit **rien** : pas de sortie, pas de code retour, pas
+   d'erreur. Un `UserPromptSubmit` sans hook est un prompt ordinaire. Or le
+   silence est aussi le comportement attendu du garde quand il n'a rien à
+   signaler : l'agent ne peut pas distinguer « garde satisfait » de « garde
+   absent ».
+2. La confirmation est matérialisée par un hook. Sans lui, le prompt passe :
+   l'utilisateur croit avoir confirmé, l'agent croit être verrouillé, et les deux
+   se trompent en même temps.
+3. Le repli documenté **masque** le problème. La table Skills des `CLAUDE.md`
+   prévoit, pour les agents qui ne chargent pas les plugins, la lecture directe
+   des `SKILL.md` dans le clone local. Sous Claude Code, ce repli produit un état
+   **hybride** : les procédures viennent du clone (`main` à jour), les gardes de
+   la copie installée (périmée). C'est l'état qu'a connu l'incident : l'agent a
+   suivi le `lot-start` lu dans le clone pendant que le verrou restait inerte.
+4. Le plugin n'a **aucune notion de fraîcheur**. `version` vaut `0.1.0` dans
+   `.claude-plugin/marketplace.json` et dans l'entrée du plugin depuis la première
+   installation, et le cache est indexé par cette version
+   (`cache/claude-harness/claude-harness/0.1.0`). Une promotion `develop` → `main`
+   ne change donc ni le numéro, ni le chemin, ni rien que le tooling puisse
+   comparer ; trois installations de portées différentes partagent le répertoire.
+
+**Vérifié au début du lot (2026-09-22)** : la copie installée et le clone du
+marketplace ont été rafraîchis le 2026-09-22 à 14:50Z, tous deux à `9393cf4`
+(`main`) ; la session ouverte après ce rafraîchissement dispose bien des hooks du
+lot 19 (`SessionStart`, `UserPromptSubmit`, garde d'écriture) et de
+`skills/lot-start/`. Une session ouverte **avant** le rafraîchissement garde donc
+le `hooks.json` chargé à son démarrage : c'est l'état de l'incident, et P1 doit
+avertir au démarrage plutôt que compter sur une propagation en cours de session.
+
+### Pourquoi la conception actuelle ne peut pas le rattraper seule
+
+Le garde du lot 19 est un **hook**, donc livré par le plugin, donc soumis au
+délai de distribution : merge sur `develop` → promotion `main` (utilisateur) →
+rafraîchissement du marketplace (utilisateur) → session suivante. Le garde de la
+**fin** de lot, lui, est dupliqué en CI (`lot-deliverables.yml`,
+`harness-invariants.yml`), précisément parce que la CI est le seul point
+d'application qu'aucun agent ne peut sauter (§12 et §13 des conventions). Un
+garde de **début** de lot ne peut pas suivre cette voie : il doit voir le flux
+d'outils, donc être un hook, donc porter ce délai.
+
+S'y ajoute un problème d'œuf et de poule : un contrôle de fraîcheur ne peut être
+exécuté que par un hook **déjà installé**. Un correctif livré au lot 20 ne protège
+qu'à partir du premier rafraîchissement manuel ; il doit donc être conçu pour
+avertir à chaque fois ensuite, sans jamais supposer qu'il est à jour lui-même.
+
+### Pistes de correction
+
+**P1 — Contrôle de fraîcheur au démarrage de session** *(recommandé, ~40 lignes
+et un test)*. Ajouter à `hooks/session-context.sh` (hook `SessionStart`, donc
+présent dès la version qui le livre) la comparaison entre le SHA enregistré dans
+`~/.claude/plugins/installed_plugins.json` et `git ls-remote origin main` du
+marketplace, et l'afficher en tête de la réinjection d'état :
+
+> ⚠ plugin `claude-harness` installé : `d67c004` (2026-09-19) ; `main` est à
+> `9393cf4`. Des gardes de lot peuvent être absentes (`lot-start`, confirmation,
+> verrou d'écriture, réinjection). Rafraîchir le marketplace (`/plugin` → update)
+> et rouvrir la session avant tout travail de lot.
+
+Coût : une requête réseau à borner par un timeout et à ignorer en silence en cas
+d'échec (jamais bloquante), ~40 lignes, un cas de test. Effet : la défaillance
+cesse d'être silencieuse pour tous les retards futurs, quelle qu'en soit
+l'ampleur. Limite : ne protège pas la session en cours, où l'agent doit alors
+**s'arrêter**, ce qui suppose P3.
+
+**P2 — Versionner le plugin à chaque promotion** *(recommandé, petit)*. Faire
+passer `version` de `0.1.0` à `0.2.0` au lot 20, puis incrémenter à chaque
+promotion, dans `.claude-plugin/marketplace.json` et dans l'entrée du plugin, et
+l'exiger par un job qui échoue si `plugins/**` a changé depuis la promotion
+précédente sans bump (à raccrocher à `harness-invariants.yml`, qui lit déjà les
+`.claude/settings.json` des repos). Effet : un signal de changement exploitable
+par le tooling et par l'interface `/plugin`, et un répertoire de cache qui n'est
+plus réutilisé pour un contenu différent. Coût : une ligne par promotion et un
+job. À inscrire dans le runbook de promotion.
+
+**P3 — Interdire le repli silencieux sous Claude Code** *(complément, prose)*.
+Écrire dans `CONVENTIONS.md` (§9 et §13) et dans le squelette
+`templates/project/CLAUDE.md` : sous Claude Code, `Unknown skill:
+claude-harness:<nom>` **arrête** la session ; l'agent ne lit pas les `SKILL.md`
+du clone pour continuer, il demande le rafraîchissement du plugin et l'ouverture
+d'une nouvelle session. Le repli par le clone reste réservé aux agents qui ne
+chargent aucun plugin (Cursor, DeepSeek/OpenRouter hors Claude Code). Coût : prose
+seule, donc efficace avec n'importe quelle version installée. Limite : non
+mécanique, c'est exactement le type de consigne que le lot 19 a cessé de traiter
+comme une garde. Complément à P1, pas remplacement.
+
+**P4 — Rendre le retard visible au niveau de la PR** *(à arbitrer)*.
+`lot-deliverables.yml` exige déjà `docs/audits/lot-N.md`. Ajouter au format du
+rapport une ligne obligatoire donnant le harnais en vigueur au début du lot
+(`Harnais : claude-harness <version> (<sha court>)`) et échouer si cette version
+est antérieure à celle du harnais que la CI vient de récupérer. Effet : le retard
+devient visible là où aucun agent ne peut le sauter. Réserve : un lot étalé sur
+plusieurs jours peut légitimement finir sur un harnais plus récent que son début,
+d'où la formulation « en vigueur au début du lot », sans quoi le contrôle produit
+du bruit.
+
+**P5 — Ne pas déplacer la confirmation vers la CI** *(décision à écrire)*. La
+tentation est de vérifier en CI que le lot a été confirmé (artefact versionné,
+bandeau de commit). À écarter : un artefact écrit par l'agent ne prouve **rien**
+de la confirmation humaine, et la propriété que le verrou du lot 19 protège (seul
+un prompt utilisateur écrit `.claude/current-lot`) serait perdue. À consigner ici
+pour que la question ne soit pas rouverte sans cet argument.
+
+**P6 — Vérification utilisateur dans le runbook** *(complément)*. Ajouter à la
+checklist de promotion `develop` → `main` : rafraîchir le marketplace sur chaque
+machine, puis rouvrir les sessions ; ajouter une étape « plugin à jour ? » au
+skill `harness-sync` quand il passe sur un repo adopté.
+
+**P7 — Symptômes et dépannage dans le `README.md`** *(documentation)*. Les trois
+symptômes d'un plugin périmé, noir sur blanc : `Skill claude-harness:<nom>` →
+*Unknown skill* ; `lot-start confirm N` ne modifie pas `.claude/current-lot` ; une
+branche `feat/lot-N-*` accepte les écritures sans confirmation. Correctif :
+`/plugin` → update, fermer la session, rouvrir.
+
+### Constats mineurs du même incident
+
+1. **Confirmation d'un sous-lot refusée.** `lotfile.has_lot` ne compare que les
+   identifiants de lignes de la table de statut : `lot-start confirm 3.3` est
+   refusé (« lot 3.3 n'est pas une ligne de la table ») alors que la ligne est
+   `3`, ce que le message ne dit pas. Le skill propose bien la forme plate
+   (`confirm 3`), mais l'utilisateur a tapé `3.3` en premier. Piste : accepter
+   `N.M` quand `N` est une ligne de la table et que la branche courante est
+   `feat/lot-N-*`, en écrivant `lot=3.3` dans le verrou (`lot_base` reste `3`, le
+   garde valide donc déjà ce cas) ; compléter le message de refus par « la ligne
+   de la table est `N` ».
+2. **Verrou périmé d'un lot déjà mergé.** Au démarrage de la session,
+   `.claude/current-lot` nommait encore le lot précédent, sur une autre branche.
+   Avec le garde installé, toute écriture du nouveau lot aurait été refusée
+   jusqu'à re-confirmation : comportement voulu (une confirmation par lot), mais
+   le message gagnerait à distinguer « verrou d'un lot déjà mergé » de « branche
+   inconnue », le premier étant le cas normal au démarrage du lot suivant.
+3. **Livrables des skills laissés non commités.** `lot-review` (étape 4) et
+   `lot-audit` (étape 7) écrivent `docs/audits/lot-N-review.md` et
+   `docs/audits/lot-N.md` mais ne disent pas de les commiter : seul le correctif
+   de `lot-review` a un commit (étape 3). Sur elya LOT-3.3 (2026-09-22), le rapport
+   d'audit et la mise à jour du census sont restés dans la copie de travail
+   jusqu'à ce que l'utilisateur demande le commit. Or le livrable est la **preuve**
+   que le skill a tourné (§13) : un rapport non commité n'existe pas pour
+   `lot-deliverables.yml`, et le contrôle « revue en retard sur `HEAD` » de
+   `lot-audit` (étape 0) compare un SHA à un fichier qui n'est pas dans
+   l'historique. Correction retenue par le propriétaire : **chaque skill qui
+   produit un fichier d'audit ou de revue le commite en sortie**, après la
+   commande de validation au vert, dans un commit dédié
+   (`docs(N): add the lot review report`, `docs(N): add the lot audit report`)
+   qui embarque aussi la ligne du census (§12) quand le document est nouveau ou
+   que son rôle change. Même règle pour `integration-check`
+   (`docs/audits/lot-0-integration.md`). Le skill ne pousse pas : le push reste à
+   `lot-ship`.
+
+### Critères de validation
+
+- Fixture « plugin périmé » (copie installée antérieure, contenant le contrôle) :
+  `session-context.sh` affiche l'avertissement avec la version installée, sa date
+  et le SHA de `main` ; fixture « plugin à jour » : aucun avertissement ; hors
+  ligne ou échec de `git ls-remote` : aucune sortie, aucune erreur bloquante.
+- Version bumpée : le job de contrôle échoue sur une promotion qui change
+  `plugins/**` sans bump et passe avec le bump.
+- Si P4 est retenu : `docs/audits/lot-N.md` sans ligne de version →
+  `lot-deliverables.yml` rouge.
+- Dépannage du `README.md` rejoué : les trois symptômes reproduits sur la copie
+  installée disparaissent après rafraîchissement et redémarrage.
+- `lot-review`, `lot-audit` et `integration-check` se terminent par une étape
+  « Commit the deliverable » (commande de validation, `git add` du rapport et du
+  census, commit `docs(N): …`, pas de push) ; en sortie de skill,
+  `git status --short docs/audits/` est vide.
+- `./tests/run.sh` vert ; gate complet du lot (`lot-test → lot-review → lot-audit
+  → lot-ship`), `lot-review` sous profil `claude`.
+
+### Arbitrages (2026-09-22, début de lot)
+
+1. **P1 et P2 retenus** : le contrôle réseau borné au démarrage *et* le bump de
+   version. P1 rend le retard bruyant pour toute ampleur de retard ; P2 sort le
+   répertoire de cache d'une réutilisation pour un contenu différent.
+2. **P4 écarté** : le lot reste sur la fraîcheur du plugin, l'anti-repli et le
+   commit des livrables. P4 (ligne de version obligatoire dans
+   `docs/audits/lot-N.md` des 8 repos) part en suggestion de la description de PR.
+3. **Version `1.0.0`**, bump à chaque changement de `plugins/**` : le contrôle CI
+   devient auto-portant dans la PR (« ce diff touche `plugins/**` : la version
+   a-t-elle bougé ? »), sans comparaison à `main`, et une promotion sans
+   changement de plugin ne bumpe pas pour rien.
+4. **Constats mineurs n°1 et n°2 dans le périmètre** : `confirm N.M` accepté quand
+   `N` est une ligne de la table et que la branche courante est `feat/lot-N-*`
+   (le verrou porte `lot=N.M`), et message du garde distinguant un verrou de lot
+   déjà mergé d'une branche inconnue. Le n°3 est déjà arbitré (chaque skill qui
+   produit un rapport le commite en sortie).
+
+### Hors périmètre (suggestions pour un lot ultérieur)
+
+- Distribution du harnais hors Claude Code (Cursor, DeepSeek/OpenRouter) : sujet
+  des workflows du lot 3 et de `harness-sync`, pas de la fraîcheur du plugin.
+- Signature ou vérification cryptographique du contenu du plugin.
+- Rafraîchissement automatique du marketplace par le harnais : une commande qui
+  modifie l'installation de l'utilisateur reste une action utilisateur (§4).
+
+---
+
 ## Prérequis
 
 - PR `chore/develop-branching-model` **mergée** dans `develop` sur les 8 repos (état au
@@ -1093,6 +1355,7 @@ aussi mécanique que la fin.
 | P4 | Sort des fichiers `.claude/settings.local.json` (non versionnés) : nettoyage manuel par l'utilisateur ou par l'agent | 7 |
 | P5 | ~~Scan de vulnérabilités en CI~~ **Tranché (P6-D12)** : informatif d'abord, bloquant sur CRITICAL après le premier go-live ; accord §4 donné pour trivy | 3 |
 | P6 | Marqueur `contract` des migrations : commentaire dans le fichier, label de PR, ou les deux (règle de `migrations-immutable.yml`) | 3 |
+| P7 | Fraîcheur du plugin installé : contrôle réseau au démarrage (P1), bump de version à chaque promotion (P2), ou les deux ; ligne de version dans le rapport d'audit (P4) | 20 |
 
 ## Risques
 
@@ -1111,6 +1374,14 @@ aussi mécanique que la fin.
   rendrait actif tout merge non promu. Mitigation : `"ref": "main"` imposé aux lots 5 et 7–14,
   vérifié par `harness-sync` (lot 2) et par `harness-invariants.yml` (lot 3, lecture de
   `.claude/settings.json`).
+- **Plugin installé périmé, silencieusement** : Claude Code charge le harnais depuis la copie
+  installée du marketplace, rafraîchie à la main. Un retard laisse le gate de démarrage
+  (`lot-start`, confirmation utilisateur, verrou d'écriture, réinjection d'état) inerte **sans
+  produire la moindre erreur**, et le repli « lire le `SKILL.md` dans le clone » produit un état
+  hybride : procédures à jour, gardes périmées. Constaté le 2026-09-22 sur elya (lot 3.3) ;
+  portée mesurée : toutes les sessions des 8 repos depuis le 2026-09-19, y compris après la
+  promotion du 2026-09-20. Mitigation : lot 20 (contrôle de fraîcheur au démarrage de session,
+  bump de version à chaque promotion, arrêt explicite de l'agent sur `Unknown skill`).
 - **Garde git contournable** (commande non analysable, exécution hors Claude Code). Mitigation :
   confirmation par défaut sur l'inconnu, CI en second rideau.
 - **Blocage des fronts** par l'exigence `lot-0-integration.md` : effet voulu, mais kf est le
