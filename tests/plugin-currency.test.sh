@@ -100,6 +100,12 @@ assert_eq "" "$(check)" "no recorded SHA: silent"
 installed "$OLD"
 assert_eq "" "$(check --plugin-root "$REPO_ROOT/plugins/claude-harness")" \
   "a development checkout is not an installation"
+printf 'not json at all\n' > "$PLUGINS/installed_plugins.json"
+assert_eq "" "$(check)" "unreadable installed_plugins.json: silent"
+mv "$PLUGINS/known_marketplaces.json" "$PLUGINS/known_marketplaces.json.bak"
+installed "$OLD"
+assert_eq "" "$(check)" "no known_marketplaces.json: silent"
+mv "$PLUGINS/known_marketplaces.json.bak" "$PLUGINS/known_marketplaces.json"
 # The same fixture, read as an installation: the warning is back, so the
 # silences above are verdicts and not a check that never fires.
 assert_contains "$(check)" "⚠" "the stale fixture still warns when it is installed"
