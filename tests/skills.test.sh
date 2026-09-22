@@ -221,4 +221,20 @@ assert_ok "harness-sync propagates the lock to .gitignore" -- \
 assert_ok "i-have-adhd is never model-invoked" -- \
   grep -q '^disable-model-invocation: true' "$SKILLS/i-have-adhd/SKILL.md"
 
+# --- lot 20: a skill commits the report it writes --------------------------
+# The report is the proof the skill ran (section 13). Left in the working tree
+# it is invisible to lot-deliverables.yml, which reads the history, and
+# lot-audit's step 0 compares a SHA against a file that is not in it.
+for pair in "lot-review:docs(N): add the lot review report" \
+            "lot-audit:docs(N): add the lot audit report" \
+            "integration-check:docs: add the integration check report"; do
+  skill=${pair%%:*}
+  message=${pair#*:}
+  file="$SKILLS/$skill/SKILL.md"
+  assert_ok "$skill commits its deliverable" -- grep -qF 'Commit the deliverable' "$file"
+  assert_ok "$skill names the deliverable's commit message" -- grep -qF "$message" "$file"
+  assert_ok "$skill adds the report to the census" -- grep -qF 'Project documents' "$file"
+  assert_ok "$skill leaves the push to lot-ship" -- grep -qF 'the push belongs to `lot-ship`' "$file"
+done
+
 finish

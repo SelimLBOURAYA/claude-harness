@@ -163,7 +163,30 @@ Write **`docs/audits/lot-N-review.md`**:
 The **Reviewed at** SHA is what makes the deliverable verifiable: `lot-audit`
 compares it against `HEAD` and refuses to run when code landed after the review.
 
-## Step 5 — Hand over
+## Step 5 — Commit the deliverable
+
+The report is the **proof** that this skill ran (section 13). Left in the working
+tree it does not exist: `lot-deliverables.yml` reads the repository, not the file
+system, and `lot-audit` (step 0) compares the **Reviewed at** SHA against `HEAD`.
+
+1. Run the `<Validation command>` of the project `CLAUDE.md` — green, or the
+   commit does not happen.
+2. If `docs/audits/lot-N-review.md` is new, or its role changed, add it to the
+   `## Project documents` census of `CLAUDE.md`, and copy `CLAUDE.md` to
+   `AGENTS.md` byte for byte (section 12).
+3. Commit the report **alone**, in the lot's scope:
+
+   ```
+   docs(N): add the lot review report
+   ```
+
+4. Do not push: the push belongs to `lot-ship`.
+
+A deliverable left uncommitted is how a reviewed lot reaches its PR with no trace
+of the review, and how the audit after it compares a SHA to a file that is not in
+the history.
+
+## Step 6 — Hand over
 
 Report the verdict and the deliverable path, then hand over to `lot-audit`.
 Do not run the audit from this skill — each gate step is invoked explicitly, so
@@ -174,6 +197,8 @@ that skipping one is visible.
 - Never run under a profile other than `claude`, and never switch profile
   mid-session to get there.
 - Review the lot's diff, not the repository.
+- The report is committed before this skill reports back, never left in the
+  working tree.
 - Every finding ends as fixed, rejected with a reason, or deferred to a named
   lot. None disappears.
 - `<Validation command>` green before the fix commit.
