@@ -95,6 +95,15 @@ assert_ok "the skeleton states that promotion is user-only" -- \
 # P6-D3: non-Claude agents are told where the procedures are.
 assert_ok "the skeleton points non-Claude agents at the local clone" -- \
   grep -q 'ENV/projets/claude-harness/plugins/claude-harness/skills' "$SK/CLAUDE.md"
+# Lot 20: the subset that is wrong is the one under a stale plugin. A generated
+# repository must say that a missing skill stops the session, not that the clone
+# is a fallback for it.
+assert_ok "the skeleton stops on a stale plugin" -- \
+  grep -qF 'A stale plugin stops the session' "$SK/CLAUDE.md"
+assert_ok "the skeleton says which symptom to watch for" -- \
+  grep -qF 'Unknown skill' "$SK/CLAUDE.md"
+assert_ok "the skeleton sends to the marketplace refresh" -- \
+  grep -qF 'plugin marketplace update claude-harness' "$SK/CLAUDE.md"
 # The gate order is the same one the skills implement.
 assert_ok "the skeleton documents the four-step gate order" -- \
   grep -qF 'lot-test → lot-review → lot-audit → lot-ship' "$SK/CLAUDE.md"
