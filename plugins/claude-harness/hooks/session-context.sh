@@ -26,6 +26,16 @@ cwd=$(printf '%s' "$payload" | jq -r '.cwd // ""' 2>/dev/null || true)
 
 out="# Harness state (SessionStart: $source)"$'\n'
 
+# Lot 20: the plugin the session actually runs can lag behind main, and a hook
+# that was never installed writes nothing - which reads exactly like a guard
+# that found nothing to report. The verdict goes first, before the state below,
+# so a stale harness is the first line the agent reads. Silent when it cannot
+# be established (offline, no clone, a development checkout).
+currency=$(python3 "$here/plugin-currency.py" 2>/dev/null || true)
+if [ -n "$currency" ]; then
+  out+=$'\n'"$currency"$'\n'
+fi
+
 root=$(python3 "$here/lotfile.py" root "$cwd" 2>/dev/null || true)
 if [ -n "$root" ]; then
   branch=$(git -C "$root" rev-parse --abbrev-ref HEAD 2>/dev/null || echo "?")
