@@ -1,7 +1,7 @@
 # Lot Audit — Lot 20 — feat/lot-20-plugin-currency
 
 **Harness ref:** 9f4d747
-**Scope:** 28 modified files | **Verdict:** Fix warnings
+**Scope:** 28 modified files | **Verdict:** Ready for PR
 
 ## Summary
 | Dimension    | Critical | Warning | Info |
@@ -41,7 +41,7 @@ are only compared and echoed.
 ## Architecture
 | Severity | Location | Finding | Action |
 |----------|----------|---------|--------|
-| Warning | `README.md` — "After a promotion: the owner's runbook" | The lot edits the conventions master (`CONVENTIONS.md` §9, §13). Once promoted to `main`, every consuming repository's copy differs from the master, and `harness-invariants.yml` fails there on the next push to `develop`/`main` (outside a pull request, the absence of a match is a hard failure). The new runbook lists the plugin refresh and the session restart, not the `cp CONVENTIONS.md` into the 8 repositories (§12, master propagation, item 3). Same pattern on lot 19. | Add a runbook step (propagate the master into each repository's adoption lot, or expect their CI red until then), in this lot or tracked. |
+| Warning | `README.md` — "After a promotion: the owner's runbook" | The lot edits the conventions master (`CONVENTIONS.md` §9, §13). Once promoted to `main`, every consuming repository's copy differs from the master, and `harness-invariants.yml` fails there on every run, pull requests included, until the copy is refreshed. The new runbook lists the plugin refresh and the session restart, not the `cp CONVENTIONS.md` into the 8 repositories (§12, master propagation, item 3). Same pattern on lot 19. | Resolved in this lot, 79bea9c: runbook step 2 propagates the master into each repository (current lot, or a `chore/sync-conventions` PR), asserted by `tests/manifests.test.sh`. |
 | Info | `.github/workflows/harness-invariants.yml:282` | The bump check is skipped with a warning when there is no base SHA (push events). Consistent with §7 (no direct push to `develop`/`main`), so the pull request run is the one that counts. Two open PRs bumping to the same number both pass against their own base; the second merge carries the collision. | Accepted; single-maintainer, PRs merged one at a time. |
 | Info | `plugins/claude-harness/hooks/plugin-currency.py` | New module stays standard-library only (V6), never blocks (always exit 0, silent on any doubt), reads the plugin identity from its own path (no hard-coded name). `CLAUDE.md` = `AGENTS.md`; census updated (repository layout lists `plugin-currency.py`, review report added with its commit); commit titles English, Conventional Commits, no U+2014; no commented-out code; `dev-plan.md` touched only by the planning and status commits. | none |
 
@@ -67,5 +67,5 @@ n/a (`Migrations directory` is `n/a`).
   this branch, whose plugin is not installed yet.
 
 ## Recommended next steps
-1. Decide on the Warning: add the `CONVENTIONS.md` propagation step to the runbook in this lot, or track it.
-2. `./tests/run.sh` green before the PR, then `lot-ship`.
+1. `./tests/run.sh` green before the PR, then `lot-ship`.
+2. After promotion: follow the runbook, step 2 included (the 8 `CONVENTIONS.md` copies).
