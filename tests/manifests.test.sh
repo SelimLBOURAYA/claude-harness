@@ -94,4 +94,19 @@ while IFS= read -r doc; do
   assert_ok "census lists $rel" -- grep -qF "$rel" "$REPO_ROOT/CLAUDE.md"
 done < <(find "$REPO_ROOT" -name '*.md' -not -path "$REPO_ROOT/.git/*" | sort)
 
+# Lot 20: what to do when the installed copy lags behind main. The symptoms are
+# documented where a blocked developer looks, and the freshness check is wired to
+# the hook and reachable from the sync skill.
+for text in 'Unknown skill: claude-harness' 'plugin marketplace update claude-harness' \
+            "the owner's runbook" 'close the session and reopen'; do
+  assert_ok "the README documents '$text'" -- grep -qF "$text" "$REPO_ROOT/README.md"
+done
+assert_ok "the README documents the freshness helper" -- \
+  grep -qF 'plugin-currency.py' "$REPO_ROOT/README.md"
+assert_ok "the SessionStart hook calls the freshness check" -- \
+  grep -qF 'plugin-currency.py' "$REPO_ROOT/plugins/claude-harness/hooks/session-context.sh"
+assert_ok "harness-sync checks the installed plugin freshness" -- \
+  grep -qF 'Installed plugin freshness' \
+  "$REPO_ROOT/plugins/claude-harness/skills/harness-sync/SKILL.md"
+
 finish
