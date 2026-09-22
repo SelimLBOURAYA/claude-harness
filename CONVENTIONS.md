@@ -194,6 +194,19 @@ denies every file write until the **user** types `lot-start confirm N`, and a
 `SessionStart` hook re-injects this state at startup and after every compaction:
 a compaction summary is never a source of truth.
 
+**A stale plugin is a stopped session, not a degraded one.** Claude Code loads
+the harness from the copy it installed under `~/.claude/plugins/cache/`, never
+from the working clone, and a hook that was never installed writes nothing at
+all — which is exactly what a guard writes when it finds nothing to report. So
+neither `Skill` failing with `Unknown skill: claude-harness:<name>` nor a
+`lot-start confirm N` that leaves `.claude/current-lot` untouched is a licence to
+carry on by hand: **stop**, and ask the user to refresh the marketplace
+(`/plugin marketplace update claude-harness`) and reopen the session. Reading the
+`SKILL.md` files of the local clone instead is the hybrid state that produced the
+2026-09-22 incident: procedures current, guards inert, everything looking in
+place. The `SessionStart` hook warns when the installed copy lags behind `main`;
+a warning it prints is that stop, already announced.
+
 **Do not include a build/compile** in this sequence — it is expensive at every session start for uncertain benefit. Build runs on demand, or via the validation gate before commit. If a project genuinely needs a project-specific startup check, it adds it in its project `AGENTS.md`.
 
 ---
@@ -313,6 +326,30 @@ The other plugin skills are `harness-sync` (drift detection), `dep-update`
 (dependency refresh), `bootstrap-project` (new repository) and `i-have-adhd`
 (user-invoked only).
 
+### Where the procedures come from, and what a missing one means
+
+Under Claude Code, the skills are loaded from the **installed plugin**, not from
+the clone of the harness repository. The same plugin ships the hooks that enforce
+the gate, so the two must come from one copy:
+
+- `Unknown skill: claude-harness:<name>`, or a `lot-start confirm N` that leaves
+  `.claude/current-lot` untouched, means the installed copy is behind `main`.
+  The session **stops** there: refresh the marketplace
+  (`/plugin marketplace update claude-harness`) and reopen it. Working on from
+  the `SKILL.md` of the local clone produces the hybrid state of the 2026-09-22
+  incident — procedures current, hooks inert, and every guard reading as
+  satisfied because an absent hook writes nothing.
+- Reading the procedures from the clone
+  (`~/ENV/projets/claude-harness/plugins/claude-harness/skills/<name>/SKILL.md`)
+  is for agents that load **no** plugin at all (Cursor, DeepClaude/OpenRouter
+  outside Claude Code). Those agents have no hooks to fall behind, and CI — not
+  the plugin — is what closes their gate.
+
+The `SessionStart` hook warns when the installed copy lags behind `main`, with
+the installed version, its date and the SHA `main` carries. A warning it prints
+**is** the stop of the bullet above, already announced: no session may develop a
+lot under it.
+
 ### Why
 
 Skills contain **detailed checklists, matrices, and procedures** that the summary table in `CLAUDE.md` does not capture. Executing a skill "from memory" without invoking the `Skill` tool skips these details. Past sessions confirmed that the agent misses mandatory steps (business-rule test matrix, coverage report inspection, security review, architecture audit checklist, audit report writing) when it does not load the skill file.
@@ -322,7 +359,7 @@ Skills contain **detailed checklists, matrices, and procedures** that the summar
 - **Invoke at the trigger moment**: when a skill's trigger condition is met, invoke `Skill` with that skill name **before** doing any of the work the skill covers.
 - **Never skip a gate step**, and never run two of them from one invocation — each is invoked explicitly, so that skipping one is visible.
 - **Skill instructions take precedence**: when a loaded skill contradicts the agent's default approach, the skill wins. The skill file is the procedure; the agent's memory is fallible.
-- **Deliverables are proof**: a gate skill produces a deliverable (`docs/audits/lot-N-review.md`, `docs/audits/lot-N.md`). A missing deliverable means the skill was not invoked — the pre-commit gate (§10 item 6) and `lot-deliverables.yml` both block on it. The blocking check lives in CI only: it is the one enforcement point that also covers agents which load no hook.
+- **Deliverables are proof**: a gate skill produces a deliverable (`docs/audits/lot-N-review.md`, `docs/audits/lot-N.md`, `docs/audits/lot-0-integration.md`) **and commits it before reporting back**, after the `Validation command` is green and in a commit of its own (`docs(N): add the lot review report`, `docs(N): add the lot audit report`, `docs: add the integration check report`), adding the document to the project census (§12) when it is new. A missing deliverable means the skill was not invoked — the pre-commit gate (§10 item 6) and `lot-deliverables.yml` both block on it. The blocking check lives in CI only: it is the one enforcement point that also covers agents which load no hook, and it reads the **history**, so a report left in the working tree is a report that does not exist. The push stays with `lot-ship`.
 
 ---
 
