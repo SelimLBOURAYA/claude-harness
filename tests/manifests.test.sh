@@ -98,7 +98,8 @@ done < <(find "$REPO_ROOT" -name '*.md' -not -path "$REPO_ROOT/.git/*" | sort)
 # documented where a blocked developer looks, and the freshness check is wired to
 # the hook and reachable from the sync skill.
 for text in 'Unknown skill: claude-harness' 'plugin marketplace update claude-harness' \
-            "the owner's runbook" 'close the session and reopen'; do
+            "the owner's runbook" 'close the session and reopen' \
+            'propagate the master'; do
   assert_ok "the README documents '$text'" -- grep -qF "$text" "$REPO_ROOT/README.md"
 done
 assert_ok "the README documents the freshness helper" -- \
