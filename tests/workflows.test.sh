@@ -605,4 +605,104 @@ else
   echo "  (skipped: shellcheck not installed, the shell lint is not executed)"
 fi
 
+# --- lot 20: the plugin version moves with the plugin content -------------
+# Extracted and run for real, like the coverage steps above. A grep for
+# "version" would pass on a step whose comparison never fires.
+extract_step "A change under plugins/ carries a version bump" > "$COVWORK/bump.sh"
+assert_ok "the version-bump step has an extractable script" -- test -s "$COVWORK/bump.sh"
+
+BUMPWORK=$(mktemp -d)
+trap 'rm -rf "$COVWORK" "$BUMPWORK"' EXIT
+
+# write_manifests <repo> <version> : the shape of the real manifests, where the
+# marketplace carries its own version under metadata and the plugin's under
+# plugins[0].
+write_manifests() {
+  cat > "$1/.claude-plugin/marketplace.json" <<EOF
+{"name": "claude-harness", "metadata": {"version": "$2"},
+ "plugins": [{"name": "claude-harness", "version": "$2"}]}
+EOF
+  cat > "$1/plugins/claude-harness/.claude-plugin/plugin.json" <<EOF
+{"name": "claude-harness", "version": "$2"}
+EOF
+}
+
+B="$BUMPWORK/repo"
+mkdir -p "$B/plugins/claude-harness/hooks" "$B/plugins/claude-harness/.claude-plugin" "$B/.claude-plugin"
+git -C "$B" init -q -b develop
+git -C "$B" config user.email test@example.com
+git -C "$B" config user.name Test
+write_manifests "$B" 1.0.0
+printf 'one\n' > "$B/plugins/claude-harness/hooks/a.sh"
+git -C "$B" add -A && git -C "$B" commit -qm "feat: first"
+C1=$(git -C "$B" rev-parse HEAD)
+
+printf 'two\n' >> "$B/plugins/claude-harness/hooks/a.sh"
+git -C "$B" commit -qam "feat: a hook change with no bump"
+C2=$(git -C "$B" rev-parse HEAD)
+
+printf 'three\n' >> "$B/plugins/claude-harness/hooks/a.sh"
+write_manifests "$B" 1.0.1
+git -C "$B" commit -qam "feat: a hook change with the bump"
+C3=$(git -C "$B" rev-parse HEAD)
+
+write_manifests "$B" 1.0.2
+git -C "$B" commit -qam "docs: a version bump on its own"
+C4=$(git -C "$B" rev-parse HEAD)
+
+printf 'four\n' >> "$B/plugins/claude-harness/hooks/a.sh"
+sed -i 's/"version": "1.0.2"/"version": "1.1.0"/' "$B/.claude-plugin/marketplace.json"
+git -C "$B" commit -qam "feat: a bump the plugin manifest did not follow"
+C5=$(git -C "$B" rev-parse HEAD)
+
+# run_bump <head-ref> <base-sha> : sets BUMP (its output) and BUMP_RC.
+# A command substitution would run this in a subshell and lose both.
+run_bump() {
+  git -C "$B" -c advice.detachedHead=false switch -q --detach "$1"
+  BUMP=$(cd "$B" && BASE_SHA="$2" bash "$COVWORK/bump.sh" 2>&1)
+  BUMP_RC=$?
+}
+
+expect_bump() { # expect_bump <exit> <head> <base> <label>
+  run_bump "$2" "$3"
+  assert_eq "$1" "$BUMP_RC" "$4"
+}
+
+expect_bump 1 "$C2" "$C1" "a plugins/ change with no bump fails the step"
+assert_contains "$BUMP" "leaves the version at 1.0.0" "the failure names the stuck version"
+assert_contains "$BUMP" "::error::" "the failure is an annotation"
+
+expect_bump 0 "$C3" "$C2" "the same change with the bump passes"
+assert_contains "$BUMP" "version 1.0.0 -> 1.0.1" "the pass reports the move"
+
+expect_bump 0 "$C3" "$C1" "a pull request spanning both passes once the bump is in"
+expect_bump 0 "$C4" "$C3" "a version-only change passes"
+assert_contains "$BUMP" "version 1.0.1 -> 1.0.2" "the version-only change reports its move"
+expect_bump 0 "$C4" "$C4" "an unchanged tree passes"
+assert_contains "$BUMP" "nothing under plugins/" "an unchanged tree says so"
+
+expect_bump 1 "$C5" "$C4" "a bump the manifest did not follow fails"
+assert_contains "$BUMP" "version fields disagree" "the failure names the disagreement"
+
+# Run against a consistent tree: a disagreeing tree fails on that first, which
+# would make these two assertions pass for the wrong reason.
+expect_bump 0 "$C4" "" "no base commit: skipped, not failed"
+assert_contains "$BUMP" "::warning::" "no base commit: said out loud"
+expect_bump 0 "$C4" "0000000000000000000000000000000000000000" \
+  "an unreachable base commit: skipped, not failed"
+assert_contains "$BUMP" "is unreachable" "an unreachable base commit: said out loud"
+
+# A consuming repository has no plugin tree: the step must not fail there.
+N="$BUMPWORK/consumer"
+mkdir -p "$N"
+git -C "$N" init -q -b develop
+git -C "$N" config user.email test@example.com
+git -C "$N" config user.name Test
+printf 'x\n' > "$N/file"
+git -C "$N" add -A && git -C "$N" commit -qm "feat: consumer"
+NOBASE=$(git -C "$N" rev-parse HEAD)
+CONSUMER=$(cd "$N" && BASE_SHA="$NOBASE" bash "$COVWORK/bump.sh" 2>&1; echo "|$?")
+assert_eq "0" "${CONSUMER##*|}" "a repository with no plugin tree skips"
+assert_contains "$CONSUMER" "not the harness repository" "and says why it skipped"
+
 finish
