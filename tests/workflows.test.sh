@@ -684,6 +684,14 @@ assert_contains "$BUMP" "nothing under plugins/" "an unchanged tree says so"
 expect_bump 1 "$C5" "$C4" "a bump the manifest did not follow fails"
 assert_contains "$BUMP" "version fields disagree" "the failure names the disagreement"
 
+git -C "$B" -c advice.detachedHead=false switch -q --detach "$C4"
+write_manifests "$B" 1.0.1
+printf 'five\n' >> "$B/plugins/claude-harness/hooks/a.sh"
+git -C "$B" commit -qam "feat: a change that moves the version backwards"
+C6=$(git -C "$B" rev-parse HEAD)
+expect_bump 1 "$C6" "$C4" "a version moved backwards fails"
+assert_contains "$BUMP" "moves the version backwards, 1.0.2 -> 1.0.1" "the failure names the regression"
+
 # Run against a consistent tree: a disagreeing tree fails on that first, which
 # would make these two assertions pass for the wrong reason.
 expect_bump 0 "$C4" "" "no base commit: skipped, not failed"

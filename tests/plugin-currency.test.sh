@@ -78,6 +78,31 @@ assert_eq "" "$(check)" "current: no warning"
 installed "${NEW:0:9}"
 assert_eq "" "$(check)" "current: a short SHA is not a lag"
 
+# --- several scopes share one cache directory -----------------------------
+# The directory holds what the latest install wrote: the newest record wins,
+# not the first one listed (the real file lists project scopes first).
+cat > "$PLUGINS/installed_plugins.json" <<EOF
+{"version": 2, "plugins": {"$PLUGIN@$MP": [
+  {"scope": "project", "installPath": "$VERSION_DIR", "version": "$VPATH",
+   "lastUpdated": "2026-09-20T17:33:12.266Z", "gitCommitSha": "$OLD"},
+  {"scope": "user", "installPath": "$VERSION_DIR", "version": "$VPATH",
+   "lastUpdated": "2026-09-22T14:50:33.580Z", "gitCommitSha": "$NEW"}]}}
+EOF
+assert_eq "" "$(check)" "shared directory: the newest record decides, not the first"
+# A record of another version describes another copy: no verdict from it.
+cat > "$PLUGINS/installed_plugins.json" <<EOF
+{"version": 2, "plugins": {"$PLUGIN@$MP": [
+  {"scope": "user", "installPath": "$PLUGINS/cache/$MP/$PLUGIN/9.9.9", "version": "9.9.9",
+   "lastUpdated": "2026-09-22T14:50:33.580Z", "gitCommitSha": "$OLD"}]}}
+EOF
+assert_eq "" "$(check)" "a record of another version is not this copy's"
+
+# --- a branch whose name merely ends in /main is not main ----------------
+git -C "$SEED" push -q origin "$OLD:refs/heads/release/main"
+installed "$NEW"
+assert_eq "" "$(check)" "refs/heads/release/main is not read as main"
+git -C "$SEED" push -q origin --delete release/main
+
 # --- never a guess, never a block ----------------------------------------
 installed "$OLD"
 marketplaces "$PLUGINS/absent"

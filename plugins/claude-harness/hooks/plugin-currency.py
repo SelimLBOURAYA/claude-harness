@@ -90,19 +90,27 @@ def read_json(path):
 def installed_entry(plugins, key, version_dir):
     """The record of one installation: the newest one of that plugin.
 
-    Three scopes of the same plugin share one cache directory (user level,
-    per-project), so the record is picked by installPath when it matches the
-    copy this hook runs from, and by lastUpdated otherwise.
+    Several scopes of the same plugin (user level, per-project) share one cache
+    directory under one version, each with its own gitCommitSha. The directory
+    holds whatever the latest install wrote, so the record is the newest one
+    whose installPath is the copy this hook runs from; failing that, the newest
+    one of the same version. Any other record describes another copy.
     """
     data = read_json(os.path.join(plugins, "installed_plugins.json")) or {}
     entries = [e for e in (data.get("plugins") or {}).get(key) or [] if isinstance(e, dict)]
-    if not entries:
+    matching = [
+        e for e in entries
+        if e.get("installPath") and os.path.realpath(e["installPath"]) == version_dir
+    ]
+    if not matching:
+        version = os.path.basename(version_dir)
+        matching = [e for e in entries if str(e.get("version", "")) == version]
+    if not matching:
         return None
-    for entry in entries:
-        path = entry.get("installPath")
-        if path and os.path.realpath(path) == version_dir:
-            return entry
-    return max(entries, key=lambda entry: str(entry.get("lastUpdated", "")))
+    return max(
+        matching,
+        key=lambda entry: str(entry.get("lastUpdated") or entry.get("installedAt") or ""),
+    )
 
 
 def marketplace_ref(plugins, name):
@@ -119,21 +127,34 @@ def remote_tip(clone, ref, timeout):
     """The SHA `origin` carries at `ref`, or None when it cannot be read."""
     if not clone or not os.path.isdir(os.path.join(clone, ".git")):
         return None
+    # A SessionStart hook has no one to answer a credential or passphrase
+    # prompt: fail fast instead, and fall silent like any unreachable remote.
+    env = dict(os.environ, GIT_TERMINAL_PROMPT="0")
+    env.setdefault("GIT_SSH_COMMAND", "ssh -o BatchMode=yes")
     try:
         result = subprocess.run(
             ["git", "-C", clone, "ls-remote", "origin", ref],
             capture_output=True,
             text=True,
             timeout=timeout,
+            stdin=subprocess.DEVNULL,
+            env=env,
         )
     except (OSError, subprocess.SubprocessError):
         return None
     if result.returncode != 0:
         return None
+    # ls-remote matches the pattern against the tail of every ref, so `main`
+    # also returns refs/heads/release/main or refs/tags/main: take the exact
+    # branch, then the exact tag, never the first line that happens to end so.
+    tips = {}
     for line in result.stdout.splitlines():
         fields = line.split()
-        if len(fields) == 2 and fields[1].endswith("/" + ref):
-            return fields[0]
+        if len(fields) == 2:
+            tips[fields[1]] = fields[0]
+    for name in ("refs/heads/" + ref, "refs/tags/" + ref + "^{}", "refs/tags/" + ref, ref):
+        if name in tips:
+            return tips[name]
     return None
 
 

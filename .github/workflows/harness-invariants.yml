@@ -302,6 +302,13 @@ jobs:
             echo "The installed copy is keyed by version: under an unchanged number, a refresh is indistinguishable from a no-op."
             exit 1
           fi
+          # A lower number is no better than an unchanged one: its cache
+          # directory may already exist on a machine, holding older content.
+          if [ -n "$before" ] && [ "$(printf '%s\n%s\n' "$before" "$bump" | sort -V | tail -n1)" != "$bump" ]; then
+            echo "::error::this change moves the version backwards, $before -> $bump."
+            echo "The installed copy is keyed by version: an earlier number may name a cache directory that already holds older content."
+            exit 1
+          fi
           echo "version $before -> $bump"
 
       - name: The lots file opens with a status table
