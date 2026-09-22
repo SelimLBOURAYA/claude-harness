@@ -21,6 +21,15 @@ assert_eq "1" "$(jq -r '.plugins | length' "$mk")" "exactly one plugin is publis
 src=$(jq -r '.plugins[0].source' "$mk")
 assert_file "$REPO_ROOT/${src#./}/.claude-plugin/plugin.json" "declared plugin source resolves"
 
+# One version, three fields (lot 20). Claude Code keys the installed copy by
+# version, so a refresh under an unchanged number is indistinguishable from a
+# no-op. The bump itself is enforced by harness-invariants.yml on the diff; this
+# is the local half, which catches the disagreement before the push.
+assert_eq "$(jq -r '.metadata.version' "$mk")" "$(jq -r '.plugins[0].version' "$mk")" \
+  "marketplace metadata and its plugin entry agree on the version"
+assert_eq "$(jq -r '.plugins[0].version' "$mk")" "$(jq -r '.version' "$pl")" \
+  "the marketplace entry and the plugin manifest agree on the version"
+
 # Hook wiring (lot 1, lot 19): every hook script is wired, and every wired
 # script exists.
 hj="$REPO_ROOT/plugins/claude-harness/hooks/hooks.json"
