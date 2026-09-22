@@ -39,10 +39,18 @@ assert_ok "mirror on PostToolUse" -- wired PostToolUse "Edit|Write|MultiEdit|Bas
 while IFS= read -r script; do
   assert_file "$REPO_ROOT/plugins/claude-harness/hooks/$script" "wired hook $script exists"
 done < <(jq -r '.hooks[][].hooks[].command' "$hj" | grep -oE 'hooks/[a-z-]+\.(py|sh)' | sed 's#hooks/##' | sort -u)
+# Helpers called by a wired hook rather than declared in hooks.json itself.
+HELPERS="lotfile.py plugin-currency.py"
 for script in "$REPO_ROOT"/plugins/claude-harness/hooks/*.py "$REPO_ROOT"/plugins/claude-harness/hooks/*.sh; do
   name=$(basename "$script")
-  [ "$name" = lotfile.py ] && continue  # a library, imported by the hooks
+  case " $HELPERS " in *" $name "*) continue ;; esac
   assert_ok "hook script $name is wired" -- grep -qF "hooks/$name" "$hj"
+done
+# An exception list on its own would hide an orphaned helper: each one must be
+# reachable from some other file of the hooks tree.
+for name in $HELPERS; do
+  assert_ok "$name is called from the hooks tree" -- \
+    grep -rlF "$name" "$REPO_ROOT/plugins/claude-harness/hooks" | grep -qv "/$name$"
 done
 
 # The lock is local state: never versioned, here or in a generated repository.
