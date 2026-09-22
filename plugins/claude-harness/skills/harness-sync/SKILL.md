@@ -65,6 +65,7 @@ Run each of these. Each failure is a drift row in the Step 3 report.
 | 13 | Memory freshness | Every `project_*` memory carries a `Verified: YYYY-MM-DD` line. Report any missing line, and any date older than **60 days** |
 | 14 | Branch naming | Branches follow `feat/lot-N-slug`, `fix/…`, `chore/…`, `docs/…`; no `lot-XX-slug`, no branch from `main` |
 | 15 | Lot lock ignored | `.gitignore` carries `.claude/current-lot`, the local lock `lot-confirm.sh` writes (lot 19). Missing line: add it |
+| 16 | Installed plugin freshness | Compare the SHA the installed copy records (`gitCommitSha` of `claude-harness@claude-harness` in `~/.claude/plugins/installed_plugins.json`) against `main`: `git -C ~/.claude/plugins/marketplaces/claude-harness ls-remote origin main`, or, offline, `rtk proxy git -C ~/ENV/projets/claude-harness log -1 --format=%H origin/main`. Behind → drift of the **environment**, not of the repository: the skills and hooks the gate runs on are the ones of that copy. Fix: `/plugin marketplace update claude-harness`, close the session, reopen it. Under a stale copy the `SessionStart` check is not installed either, so this one is read by hand |
 
 ### Step 3 — Drift report
 
