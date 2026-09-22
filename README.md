@@ -78,11 +78,19 @@ harness is loaded from the copy Claude Code installed, and only a refresh brings
 the new one in.
 
 1. Merge the `develop` → `main` pull request (owner only, never an agent).
-2. On **each machine**, refresh the marketplace:
+2. If the promotion changed `CONVENTIONS.md`, **propagate the master** to the 8
+   consuming repositories. `harness-invariants.yml` compares each copy with the
+   master at `main` on every run, pull requests included, so each repository is
+   red from the promotion until its copy is refreshed. In each repository, copy
+   the master from `main` into `CONVENTIONS.md` on a branch from `develop` —
+   inside its current lot when one is open, otherwise a
+   `chore/sync-conventions` pull request — and never hand-edit the copy
+   (§12 of `CONVENTIONS.md`, master propagation).
+3. On **each machine**, refresh the marketplace:
    `/plugin marketplace update claude-harness`.
-3. **Close and reopen** the sessions of the affected repositories. A session keeps
+4. **Close and reopen** the sessions of the affected repositories. A session keeps
    the hooks it loaded at startup; a refresh under a live session does not reach it.
-4. In each reopened session, read the first lines of the state re-injection: a
+5. In each reopened session, read the first lines of the state re-injection: a
    warning there means the copy is still behind `main`.
 
 The plugin version moves with every change under `plugins/` — enforced by
