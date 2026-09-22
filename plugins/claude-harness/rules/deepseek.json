@@ -140,6 +140,11 @@
       "source": "CONVENTIONS.md §7"
     },
     {
+      "id": "CODE-4",
+      "rule": "Navigate and check code with the LSP tool (definitions, references, diagnostics) before grep or whole-file reads: `jdtls-lsp` for Java, `typescript-lsp` for TypeScript. If the LSP tool is missing, ask the user to run `/plugin install jdtls-lsp@claude-plugins-official` and `/plugin install typescript-lsp@claude-plugins-official`, then reopen the session.",
+      "source": "chore 2026-09-22"
+    },
+    {
       "id": "OUT-1",
       "rule": "No preamble, no recap, no closing pleasantry. Errors: file, line, expected vs actual. Answer in the user's language.",
       "source": "CONVENTIONS.md §15"
