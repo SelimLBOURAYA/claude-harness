@@ -149,6 +149,25 @@ A **Fail** verdict blocks the frontend PR just as a Critical audit finding does.
 Findings belonging to the backend become a lot in the backend's own lots file —
 propose it, and wait for approval before editing that file.
 
+### Step 6 — Commit the deliverable
+
+`lot-deliverables.yml` and every frontend PR require this report **in the
+history**: a report left in the working tree is a report that does not exist
+(section 13).
+
+1. Run the frontend's `<Validation command>` — green, or the commit does not
+   happen.
+2. If `docs/audits/lot-0-integration.md` is new, or its role changed, add it to
+   the `## Project documents` census of `CLAUDE.md`, and copy `CLAUDE.md` to
+   `AGENTS.md` byte for byte (section 12).
+3. Commit it alone:
+
+   ```
+   docs: add the integration check report
+   ```
+
+4. Do not push: the push belongs to `lot-ship`.
+
 ## Rules
 
 - The backend is the **real** one, from its repository. A mock server, a stub or

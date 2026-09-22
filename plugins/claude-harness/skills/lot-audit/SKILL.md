@@ -250,10 +250,32 @@ Procedure: add a **Recommended lot** section at the end of the report (reason,
 proposed lot row, affected files) and **wait for user approval before touching
 the `Lots file`**.
 
+## Commit the deliverable
+
+The report is the **proof** that this skill ran (section 13), and
+`lot-deliverables.yml` requires `docs/audits/lot-N.md` to be in the history of the
+pull request. Left in the working tree, the audit did not happen.
+
+1. Run the `<Validation command>` of the project `CLAUDE.md` — green, or the
+   commit does not happen.
+2. If `docs/audits/lot-N.md` is new, or its role changed, add it to the
+   `## Project documents` census of `CLAUDE.md`, and copy `CLAUDE.md` to
+   `AGENTS.md` byte for byte (section 12).
+3. Commit the report **alone**, in the lot's scope:
+
+   ```
+   docs(N): add the lot audit report
+   ```
+
+   An approved `Lots file` edit is a commit of its own, never mixed into this one.
+4. Do not push: the push belongs to `lot-ship`.
+
 ## Rules
 
 - Do not fix findings unless the user asks — report first. The fixes belong to
   `lot-review`, which ran before this step.
+- The report is committed before this skill reports back, never left in the
+  working tree.
 - Stay within the lot's diff and its direct dependencies.
 - Empty diff → one sentence: nothing to audit.
 - Never modify the `Lots file` without explicit approval (status column excepted).
