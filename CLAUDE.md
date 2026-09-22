@@ -47,6 +47,7 @@ plugins/claude-harness/
   hooks/lot-confirm.sh               writes .claude/current-lot on the user's `lot-start confirm N`
   hooks/session-context.sh           re-injects the repository state at start and after compaction
   hooks/lotfile.py                   shared readers: gate parameters, status table, lock
+  hooks/plugin-currency.py           installed copy vs main: the freshness warning of the SessionStart hook
   hooks/mirror-sync.sh               CLAUDE.md <-> AGENTS.md mirror
   skills/<name>/SKILL.md             generic skills shared by every repo
 .github/workflows/*.yml              reusable workflows called by every repo

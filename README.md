@@ -71,6 +71,47 @@ harnessed without user-level setup.
 Only commits already promoted to `main` are picked up. Promotion `develop` → `main`
 is manual and done by the repo owner.
 
+### After a promotion: the owner's runbook
+
+A promotion on GitHub changes nothing in a session that is already open. The
+harness is loaded from the copy Claude Code installed, and only a refresh brings
+the new one in.
+
+1. Merge the `develop` → `main` pull request (owner only, never an agent).
+2. On **each machine**, refresh the marketplace:
+   `/plugin marketplace update claude-harness`.
+3. **Close and reopen** the sessions of the affected repositories. A session keeps
+   the hooks it loaded at startup; a refresh under a live session does not reach it.
+4. In each reopened session, read the first lines of the state re-injection: a
+   warning there means the copy is still behind `main`.
+
+The plugin version moves with every change under `plugins/` — enforced by
+`harness-invariants.yml` — so `/plugin` shows a new version whenever a refresh
+brought something in.
+
+## Troubleshooting a stale plugin
+
+Three symptoms, one cause: the installed copy is behind `main`, so the start-of-lot
+guards are not installed at all.
+
+| Symptom | What it means |
+|---|---|
+| `Skill claude-harness:<name>` answers `Unknown skill: claude-harness:<name>` | the skill is not in the installed copy |
+| `lot-start confirm N` leaves `.claude/current-lot` untouched | the `UserPromptSubmit` hook is not installed |
+| a `feat/lot-N-*` branch accepts writes with no confirmation | the write guard is not installed |
+
+Absent hooks are silent by construction: a hook that was never installed writes
+nothing, which is exactly what a guard writes when it finds nothing to report. The
+fix is always the same:
+
+```
+/plugin marketplace update claude-harness
+```
+
+then close the session and reopen it. The `SessionStart` hook warns by itself when
+the installed copy lags behind `main`, with the installed version, its date and the
+SHA `main` carries — do not develop a lot under that warning.
+
 ## Uninstallation
 
 ```
@@ -146,6 +187,10 @@ Gate, mandatory in order: `lot-test → lot-review → lot-audit → lot-ship`, 
 | `lot-confirm.sh` | `UserPromptSubmit` | Writes `.claude/current-lot` when the whole user prompt is `lot-start confirm N` or `/claude-harness:lot-start confirm N`, for a lot of the status table, on its `feat/lot-N-*` branch. The model cannot forge a user prompt. |
 | `session-context.sh` | `SessionStart` (`startup`, `resume`, `clear`, `compact`) | Re-injects branch, working tree, last merges on develop, the lot lock and the open rows of the status table; flags a compaction summary as untrusted; adds `rules/deepseek.json` when `ANTHROPIC_BASE_URL` is set. Capped at ~2K tokens, never blocks. |
 
+`session-context.sh` reads that freshness through `hooks/plugin-currency.py`, a
+helper it calls from its own tree rather than a hook of its own: the check must be
+able to report that the copy reading it is the outdated one.
+
 `.claude/current-lot` is local and never versioned: every harnessed repository
 ignores it.
 
@@ -159,7 +204,7 @@ Called with `workflow_call` from each repo's `.github/workflows/ci.yml`. Start f
 
 | Workflow | Checks |
 |---|---|
-| `harness-invariants.yml` | Mirror, marketplace ref `main`, `CONVENTIONS.md` = master, no `skill/`, census ⇔ skills, lots file status table |
+| `harness-invariants.yml` | Mirror, marketplace ref `main`, `CONVENTIONS.md` = master, no `skill/`, census ⇔ skills, lots file status table, plugin version bump on any change under `plugins/` |
 | `commit-format.yml` | Conventional Commits, ASCII title without U+2014 |
 | `branch-naming.yml` | `feat/lot-N-slug`, `fix/`, `chore/`, `docs/`; PR base `develop` |
 | `migrations-immutable.yml` | Migration files added only, destructive changes marked `contract` |
