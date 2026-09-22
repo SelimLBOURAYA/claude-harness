@@ -83,6 +83,15 @@ Claude Code session with the plugin enabled they are announced as
 opened by `lot-start` before any development.
 Each lot gets its own invocation of every gate skill.
 
+**A stale plugin stops the session.** Under Claude Code the skills and the hooks
+both come from the installed plugin copy, so `Unknown skill:
+claude-harness:<name>`, or a `lot-start confirm N` that leaves
+`.claude/current-lot` untouched, means the copy is behind `main` and the guards
+are inert. Refresh the marketplace (`/plugin marketplace update claude-harness`)
+and reopen the session; never carry on from the `SKILL.md` of the local clone
+(CONVENTIONS.md §9, §13). The `SessionStart` hook warns when the installed copy
+lags behind `main`.
+
 **Non-Claude agents** (Cursor, DeepClaude/OpenRouter, any agent that does not load
 plugins): read the procedures directly from the local clone at
 `~/ENV/projets/claude-harness/plugins/claude-harness/skills/<name>/SKILL.md`.

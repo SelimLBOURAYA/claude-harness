@@ -72,6 +72,28 @@ assert_ok "section 9 forbids re-reading the conventions under Claude Code" -- \
 assert_ok "section 9 scopes the lots read to the status table" -- \
   grep -qF 'not the whole file' "$C"
 
+# --- lot 20: a stale plugin is a stop, and a deliverable is committed -----
+assert_ok "section 9 makes a stale plugin a stopped session" -- \
+  grep -qF 'A stale plugin is a stopped session, not a degraded one' "$C"
+assert_ok "section 9 names the symptom the agent must not work around" -- \
+  grep -qF 'Unknown skill: claude-harness:<name>' "$C"
+assert_ok "section 9 sends to the marketplace refresh" -- \
+  grep -qF '/plugin marketplace update claude-harness' "$C"
+assert_ok "section 9 rejects the silent fallback to the clone" -- \
+  grep -qF 'procedures current, guards inert' "$C"
+assert_ok "section 13 keeps the clone fallback for agents without plugins" -- \
+  grep -qF 'outside Claude Code' "$C"
+assert_ok "section 13 requires the deliverable to be committed" -- \
+  grep -qF 'and commits it before reporting back' "$C"
+assert_ok "section 13 names the review report commit" -- \
+  grep -qF 'docs(N): add the lot review report' "$C"
+assert_ok "section 13 names the audit report commit" -- \
+  grep -qF 'docs(N): add the lot audit report' "$C"
+assert_ok "section 13 names the integration report commit" -- \
+  grep -qF 'docs: add the integration check report' "$C"
+assert_ok "section 13 reads the history, not the working tree" -- \
+  grep -qF 'a report left in the working tree is a report that does not exist' "$C"
+
 # --- section 12: the contracts the workflows enforce ---------------------
 assert_ok "section 12 mandates the Gate parameters table" -- \
   grep -qF '### Gate parameters' "$C"
