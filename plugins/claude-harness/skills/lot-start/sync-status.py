@@ -4,9 +4,12 @@
     sync-status.py <repo> [--apply] [--start <lot>]
 
 Reads the status table, maps every merge on develop to its lot by branch name,
-and reports, as JSON on stdout:
+closes an in-progress lot whose audit commit (`docs(N): add the lot audit report`)
+is on develop although no merge commit is (a rebase or squash merge), and
+reports, as JSON on stdout:
 
   updates      lots whose merge is on develop but whose row is not done yet
+  sub_updates  sub-lots listed in an in-progress row (`3.3 🔄`) whose audit landed
   stops        what the agent must ask the user instead of deciding
   in_progress  rows marked in progress
   candidate    first to-do row, in file order, once the updates are applied
@@ -47,6 +50,11 @@ CITED_SHA = re.compile(r"`([0-9a-f]{7,40})`")
 MERGE_PR = re.compile(r"^Merge pull request #(\d+) from [^/\s]+/(\S+)")
 MERGE_BRANCH = re.compile(r"^Merge (?:remote-tracking )?branch '([^']+)'")
 SCOPE = re.compile(r"^[a-z]+\(([^)]*)\)!?:")
+# The lot-audit deliverable commit (CONVENTIONS.md §13). lot-ship pushes nothing
+# before it, so on develop it proves the lot's pull request landed, including
+# through a rebase or squash merge that leaves no merge commit behind.
+AUDIT = re.compile(r"^docs\(([^)]*)\)!?: add the lot audit report", re.I)
+STATUS_MARK = "|".join(re.escape(status) + "️?" for status in lotfile.STATUSES)
 
 
 def fail(message):
@@ -108,6 +116,83 @@ def scope_covers(subject, lot_id):
             if int(bounds.group(1)) <= int(base_num.group(0)) <= int(bounds.group(2)):
                 return True
     return False
+
+
+def audit_commit(commits, lot_id, cited):
+    """Last unreconciled audit commit whose scope names exactly this lot."""
+    found = None
+    for pos, (sha, date, subject, full) in enumerate(commits):
+        match = AUDIT.match(subject)
+        if not match or reconciled(full, cited):
+            continue
+        tokens = [t for t in re.split(r"[,\s]+", match.group(1).lower()) if t]
+        if lot_id.lower() in tokens:
+            found = {"sha": sha, "date": date, "pos": pos}
+    return found
+
+
+def listed_sub_lots(line, lot_id):
+    """Sub-lots a status row lists with their own mark: `3.1 ✅, 3.3 🔄`."""
+    pattern = r"\b(%s\.[0-9]+)\s*(%s)" % (re.escape(lotfile.lot_base(lot_id)), STATUS_MARK)
+    return [(sub, lotfile.status_of(mark)) for sub, mark in re.findall(pattern, line)]
+
+
+def landed_without_merge(rows, lines, text, commits, cited, updates, sub_updates, stops):
+    """In-progress rows whose pull request landed with no merge commit.
+
+    A row without sub-lots is done once its audit commit is on develop. A row that
+    lists its sub-lots is done once every pending one has its audit commit there;
+    the sub-lots that landed are marked even when the row stays open. Sub-lots
+    named in the lots file but missing from the row cannot be ruled out: stop.
+    """
+    for row in rows:
+        if row["status"] != lotfile.IN_PROGRESS:
+            continue
+        subs = listed_sub_lots(lines[row["line"]], row["id"])
+        if not subs:
+            landed = audit_commit(commits, row["id"], cited)
+            if landed:
+                updates.append(dict(landed, lot=row["id"], branch=None, pr=None, evidence="audit"))
+                row["status"] = lotfile.DONE
+                row["merge"] = updates[-1]
+            continue
+
+        base = lotfile.lot_base(row["id"]).lower()
+        in_file = {s.lower() for s in re.findall(r"lot[ -]?(%s\.[0-9]+)" % re.escape(base), text, re.I)}
+        unlisted = sorted(in_file - {sub.lower() for sub, _ in subs})
+        pending = [sub for sub, status in subs if status != lotfile.DONE]
+        landed = {sub: audit_commit(commits, sub, cited) for sub in pending}
+        landed = {sub: hit for sub, hit in landed.items() if hit}
+        if not landed:
+            continue
+        if unlisted:
+            stops.append(
+                {
+                    "kind": "ambiguous",
+                    "detail": "lot %s: the audit of %s is on develop, but the lots file "
+                    "also names %s, absent from the status row; is the lot complete?"
+                    % (row["id"], ", ".join(sorted(landed)), ", ".join(unlisted)),
+                }
+            )
+            continue
+        for sub, hit in landed.items():
+            sub_updates.append(dict(hit, lot=sub, parent=row["id"]))
+        if len(landed) == len(pending):
+            last = max(landed.values(), key=lambda hit: hit["pos"])
+            updates.append(dict(last, lot=row["id"], branch=None, pr=None, evidence="audit"))
+            row["status"] = lotfile.DONE
+            row["merge"] = updates[-1]
+
+
+def strip_pos(update):
+    return {key: value for key, value in update.items() if key != "pos"}
+
+
+def merged_note(update):
+    if update.get("evidence") == "audit":
+        return "**Mergé** le %s (commit d'audit `%s`)." % (update["date"], update["sha"])
+    pr = "PR #%s, " % update["pr"] if update["pr"] else ""
+    return "**Mergé** le %s (%smerge `%s`)." % (update["date"], pr, update["sha"])
 
 
 def has_sub_lots(text, lot_id):
@@ -175,6 +260,7 @@ def main():
 
     stops = []
     updates = []
+    sub_updates = []
     claimed = set()
 
     for sha, date, subject, full in commits:
@@ -227,6 +313,8 @@ def main():
         row["status"] = lotfile.DONE
         row["merge"] = updates[-1]
 
+    landed_without_merge(rows, lines, text, commits, cited, updates, sub_updates, stops)
+
     for row in rows:
         if row["status"] != lotfile.DONE or not row["branch"] or row.get("merge"):
             continue
@@ -274,10 +362,22 @@ def main():
     changed = False
     if args.apply and not stops:
         before = list(lines)
+        headings = []
         marks = [(update["lot"], lotfile.DONE, update) for update in updates]
+        for sub in sub_updates:
+            parent = next(row for row in rows if row["id"] == sub["parent"])
+            lines[parent["line"]] = re.sub(
+                r"\b(%s)\s*(%s)" % (re.escape(sub["lot"]), STATUS_MARK),
+                lambda m: "%s %s" % (m.group(1), lotfile.DONE),
+                lines[parent["line"]],
+                count=1,
+            )
+            heading = heading_index(lines, sub["lot"])
+            if heading is not None:
+                lines[heading] = replace_status(lines[heading], lotfile.DONE)
+                headings.append((heading, dict(sub, evidence="audit")))
         if started:
             marks.append((started, lotfile.IN_PROGRESS, None))
-        headings = []
         for lot_id, status, update in marks:
             row = next(row for row in rows if row["id"] == lot_id)
             set_cell_status(lines, row, status)
@@ -288,8 +388,7 @@ def main():
                     headings.append((heading, update))
         # Insert bottom-up so an insertion never shifts a heading still to process.
         for heading, update in sorted(headings, key=lambda item: item[0], reverse=True):
-            pr = "PR #%s, " % update["pr"] if update["pr"] else ""
-            note = "**Mergé** le %s (%smerge `%s`)." % (update["date"], pr, update["sha"])
+            note = merged_note(update)
             if note not in lines[heading + 1 : heading + 3]:
                 lines[heading + 1 : heading + 1] = ["", note]
         changed = lines != before
@@ -303,7 +402,8 @@ def main():
                 "repo": root,
                 "lots_file": os.path.relpath(path, root),
                 "ref": ref,
-                "updates": updates,
+                "updates": [strip_pos(update) for update in updates],
+                "sub_updates": [strip_pos(sub) for sub in sub_updates],
                 "stops": stops,
                 "in_progress": in_progress,
                 "candidate": candidate,

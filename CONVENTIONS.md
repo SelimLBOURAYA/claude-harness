@@ -300,7 +300,7 @@ The master is **`claude-harness/CONVENTIONS.md`**, this file.
 
 1. Edit it here, in a harness pull request. Never edit a project's copy: the reverse path is forbidden.
 2. `harness-invariants.yml` compares every repository's `CONVENTIONS.md` against this file at the harness `main` branch, so a project falls out of date **loudly**.
-3. Propagate with `cp` into each project's `CONVENTIONS.md` **within that project's adoption lot**, not as an isolated drive-by commit across eight repositories.
+3. Propagation is automatic: when this file changes on the harness `main`, the `sync-projects` workflow opens one pull request per project listed in `projects.json` (branch `chore/sync-harness-files`, base `develop`) carrying the new copy. The user merges them; an agent never hand-copies the master into a project outside such a pull request.
 
 ---
 
