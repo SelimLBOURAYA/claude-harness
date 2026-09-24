@@ -170,16 +170,20 @@ missing line is a drift that `harness-sync` and `harness-invariants.yml` report.
 
 | Skill | Role |
 |---|---|
-| `lot-start` | Syncs the lots file status table with develop, asks every ambiguity, creates the branch, waits for `lot-start confirm N` |
+| `lot-start` | Syncs the lots file status table with develop, asks every ambiguity, creates the branch, waits for `lot-start confirm N`, opens `docs/audits/lot-N-friction.md` |
 | `lot-test` | Tests written and green, coverage gate at the repo threshold |
 | `lot-review` | Code review of the lot, inline PR comments, applied fixes (`claude` profile only) |
 | `lot-audit` | Security, performance and architecture audit → `docs/audits/lot-N.md` |
 | `lot-ship` | Commits, push, PR to `develop`, then stop until merge |
-| `harness-sync` | Detects and fixes drift between docs, skills and reality |
+| `harness-sync` | Detects and fixes drift between docs, skills and reality; digests the gate friction into proposed correction lots |
 | `integration-check` | Manual front ↔ real backend smoke → `docs/audits/lot-0-integration.md` |
 | `dep-update` | Patch/minor applied, major proposed |
 | `bootstrap-project` | Generates a harnessed repository from `templates/project/` |
 | `i-have-adhd` | Focus aid, user-invoked only |
+
+Every gate skill records what its own run cost in `docs/audits/lot-N-friction.md`,
+one section per skill (`CONVENTIONS.md` §13, « Friction »), and `harness-sync`
+turns those records into correction lots the user approves.
 
 Gate, mandatory in order: `lot-test → lot-review → lot-audit → lot-ship`, opened by
 `lot-start` before any development.
@@ -216,7 +220,7 @@ Called with `workflow_call` from each repo's `.github/workflows/ci.yml`. Start f
 | `commit-format.yml` | Conventional Commits, ASCII title without U+2014 |
 | `branch-naming.yml` | `feat/lot-N-slug`, `fix/`, `chore/`, `docs/`; PR base `develop` |
 | `migrations-immutable.yml` | Migration files added only, destructive changes marked `contract` |
-| `lot-deliverables.yml` | `docs/audits/lot-N.md` present, one lot per PR, lots file touched on status lines only |
+| `lot-deliverables.yml` | `docs/audits/lot-N.md` present, one lot per PR, lots file touched on status lines only; `docs/audits/lot-N-friction.md` with its five sections from the caller's `friction_from_lot` |
 | `image-smoke.yml` | Built image started with compose, waits `healthy`, curls the health path |
 | `image-publish.yml` | Build, trivy scan, GHCR push (`dev`/`sha-` on `develop`, `latest`/`sha-` on `main`) |
 | `frontend-dist.yml` | Production bundle free of the forbidden pattern, `index.html` present |

@@ -361,6 +361,48 @@ Skills contain **detailed checklists, matrices, and procedures** that the summar
 - **Skill instructions take precedence**: when a loaded skill contradicts the agent's default approach, the skill wins. The skill file is the procedure; the agent's memory is fallible.
 - **Deliverables are proof**: a gate skill produces a deliverable (`docs/audits/lot-N-review.md`, `docs/audits/lot-N.md`, `docs/audits/lot-0-integration.md`) **and commits it before reporting back**, after the `Validation command` is green and in a commit of its own (`docs(N): add the lot review report`, `docs(N): add the lot audit report`, `docs: add the integration check report`), adding the document to the project census (§12) when it is new. A missing deliverable means the skill was not invoked — the pre-commit gate (§10 item 6) and `lot-deliverables.yml` both block on it. The blocking check lives in CI only: it is the one enforcement point that also covers agents which load no hook, and it reads the **history**, so a report left in the working tree is a report that does not exist. The push stays with `lot-ship`.
 
+### Friction: the gate reports on itself
+
+Every gate skill records what **its own execution** cost, so that the harness
+improves from runs instead of from incidents. The record is one file per lot,
+`docs/audits/lot-N-friction.md`:
+
+```markdown
+# Lot N — Skill friction
+
+## lot-start
+- `lot-start / A3` — sync-status.py did not see the rebase merge of lot 20; the
+  row stayed 🔄. Cost: one question to the user, the status fixed by hand.
+
+## lot-test
+None.
+
+## lot-review
+## lot-audit
+## lot-ship
+```
+
+- **One section per gate skill**, `## lot-start`, `## lot-test`, `## lot-review`,
+  `## lot-audit`, `## lot-ship`, each written by its skill before it hands over.
+  `None.` is a valid section; a missing one is not.
+- **Friction** is what, in running the skill, failed, came back empty, was
+  ambiguous, or cost work for nothing: a step the repository's shape defeats, a
+  command that errors, an instruction two readings apart, a check that never
+  fires. The lot's own bugs are not friction; they are findings of `lot-review`.
+- **Every entry opens with a stable key**, `` `<skill> / <step>` ``, the step as
+  its `SKILL.md` numbers it. The key is what lets `harness-sync` group entries
+  across lots and tell whether a correction worked.
+- **A file, not a section of the review or audit report**: §14 ends the session
+  between `lot-test` and `lot-review`, and friction that is not written down
+  when it happens is lost.
+- `lot-start` creates the file; `lot-test` and `lot-ship` commit their section on
+  its own (`docs(N): record the <skill> friction`); `lot-review` and `lot-audit`
+  commit theirs with their report. `lot-ship` writes before the final push, and
+  what fails after it goes into a `## Friction` section of the PR body.
+- `harness-sync` reads the files and **proposes** correction lots; nothing edits
+  a `SKILL.md` on its own. `lot-deliverables.yml` requires the file from the lot
+  a repository sets in its caller (`friction_from_lot`).
+
 ---
 
 ## 14. LLM profile routing — review is not done by the author
@@ -407,7 +449,14 @@ that wrote it, which is the one thing the split exists to prevent.
 
 ## 15. Response shape
 
-Three rules apply to every chat response, in every project:
+One floor, then three length rules, apply to every chat response, in every
+project. The floor comes first and wins over the three:
+
+- **The completeness floor.** Complete means nothing the user needs is missing,
+  not that everything is included. Always keep, stated plainly and early:
+  failures and bad news, assumptions made, anything skipped or left undone,
+  caveats that change the next action, and anything the user must act on
+  themselves. When a length rule and this list disagree, this list wins.
 
 - **No preamble, no recap, no closing pleasantry.** Not "Let me…", not "I've now
   done X, Y and Z", not "Let me know if you need anything else". Start with the
@@ -417,7 +466,11 @@ Three rules apply to every chat response, in every project:
 - **Factual tone on errors.** State cause and fix: file, line, expected vs
   actual. No "Uh oh", no "there seems to be a problem".
 
-These three never conflict with the lot gate, and they cost fewer tokens than
+A rule that only says what to cut pushes the model to bury what is unwelcome: a
+failed test, a skipped step, a silent assumption. The floor is what a concise
+answer never cuts, and it matters most under the `deepseek` profile, whose own
+account of its work is already the least reliable witness (§14). The three
+length rules never conflict with the lot gate, and they cost fewer tokens than
 they save. The full output shaping (lead with the next action, numbered steps,
 state restated each turn, tangents suppressed) stays in the `i-have-adhd` skill,
 invoked on demand — it is deliberately **not** a default, because "end with a

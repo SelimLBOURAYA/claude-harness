@@ -157,6 +157,25 @@ threshold, that is a finding to report, not a setting to edit.
 - [ ] Coverage report opened — no business class at 0 %
 - [ ] `Coverage exclusions` reviewed, any business-package exclusion reported
 - [ ] Tests committed on the lot branch, with the code they cover
+- [ ] `## lot-test` friction section committed (section 5)
+
+---
+
+## 5. Record the friction
+
+Append the `## lot-test` section to `docs/audits/lot-N-friction.md`, in the format
+of `CONVENTIONS.md` §13 (« Friction »): what, in running **this skill**, failed,
+came back empty, was ambiguous or cost for nothing — a `Coverage tool` report
+that was not where the gate parameters say, a matrix row the skill does not fit,
+a validation command that misreports. Each entry opens with its key,
+`` `lot-test / <step>` `` (`3.1`, `3.2`…). Nothing to record → `None.`
+
+Write it now: §14 ends this session before `lot-review`, and what is not in the
+file is lost. `<Validation command>` green, then commit it on its own:
+
+```
+docs(N): record the lot-test friction
+```
 
 Next step: **`lot-review`**. It requires the `claude` profile — if the session is
 not running it, stop here and tell the user to open a new session.

@@ -261,14 +261,19 @@ pull request. Left in the working tree, the audit did not happen.
 2. If `docs/audits/lot-N.md` is new, or its role changed, add it to the
    `## Project documents` census of `CLAUDE.md`, and copy `CLAUDE.md` to
    `AGENTS.md` byte for byte (section 12).
-3. Commit the report **alone**, in the lot's scope:
+3. Append the `## lot-audit` section to `docs/audits/lot-N-friction.md`, in the
+   format of `CONVENTIONS.md` §13 (« Friction »): what, in running **this
+   skill**, failed, came back empty, was ambiguous or cost for nothing. Each
+   entry opens with its key, `` `lot-audit / <step>` ``. Nothing to record →
+   `None.` Findings about the lot's code stay in the report, not here.
+4. Commit the report with that section and nothing else, in the lot's scope:
 
    ```
    docs(N): add the lot audit report
    ```
 
    An approved `Lots file` edit is a commit of its own, never mixed into this one.
-4. Do not push: the push belongs to `lot-ship`.
+5. Do not push: the push belongs to `lot-ship`.
 
 ## Rules
 

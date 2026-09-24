@@ -174,13 +174,18 @@ system, and `lot-audit` (step 0) compares the **Reviewed at** SHA against `HEAD`
 2. If `docs/audits/lot-N-review.md` is new, or its role changed, add it to the
    `## Project documents` census of `CLAUDE.md`, and copy `CLAUDE.md` to
    `AGENTS.md` byte for byte (section 12).
-3. Commit the report **alone**, in the lot's scope:
+3. Append the `## lot-review` section to `docs/audits/lot-N-friction.md`, in the
+   format of `CONVENTIONS.md` §13 (« Friction »): what, in running **this
+   skill**, failed, came back empty, was ambiguous or cost for nothing. Each
+   entry opens with its key, `` `lot-review / <step>` ``. Nothing to record →
+   `None.` Findings about the lot's code stay in the report, not here.
+4. Commit the report with that section and nothing else, in the lot's scope:
 
    ```
    docs(N): add the lot review report
    ```
 
-4. Do not push: the push belongs to `lot-ship`.
+5. Do not push: the push belongs to `lot-ship`.
 
 A deliverable left uncommitted is how a reviewed lot reaches its PR with no trace
 of the review, and how the audit after it compares a SHA to a file that is not in

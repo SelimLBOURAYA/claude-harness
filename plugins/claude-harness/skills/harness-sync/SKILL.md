@@ -32,6 +32,7 @@ repository, fixes it, and proposes improvements. Never touches application code.
 Task Progress:
 - [ ] Step 1 — Fact collection
 - [ ] Step 2 — Invariant checks
+- [ ] Step 2b — Friction digest
 - [ ] Step 3 — Drift report (before any write)
 - [ ] Step 4 — Application after approval
 - [ ] Step 5 — Verification
@@ -67,6 +68,49 @@ Run each of these. Each failure is a drift row in the Step 3 report.
 | 15 | Lot lock ignored | `.gitignore` carries `.claude/current-lot`, the local lock `lot-confirm.sh` writes (lot 19). Missing line: add it |
 | 16 | Installed plugin freshness | Compare the SHA the installed copy records (`gitCommitSha` of `claude-harness@claude-harness` in `~/.claude/plugins/installed_plugins.json`) against `main`: `git -C ~/.claude/plugins/marketplaces/claude-harness ls-remote origin main`, or, offline, `rtk proxy git -C ~/ENV/projets/claude-harness log -1 --format=%H origin/main`. Behind → drift of the **environment**, not of the repository: the skills and hooks the gate runs on are the ones of that copy. Fix: `/plugin marketplace update claude-harness`, close the session, reopen it. Under a stale copy the `SessionStart` check is not installed either, so this one is read by hand |
 
+### Step 2b — Friction digest
+
+The gate skills record what their own execution cost in
+`docs/audits/lot-N-friction.md` (`CONVENTIONS.md` §13, « Friction »). This step
+turns that record into **proposed correction lots**, so that the skills improve
+from runs rather than from incidents.
+
+```bash
+python3 <this skill's base directory>/friction-digest.py "$(git rev-parse --show-toplevel)" \
+  --lots ~/ENV/projets/claude-harness/dev-plan.md
+```
+
+The script ships next to this file and is read-only. It groups every entry by
+its key `` `<skill> / <step>` `` and looks each key up in the repository's own
+lots file and in the harness `dev-plan.md`, where the correction lots of the
+plugin skills live:
+
+| `status` | Meaning | What you do |
+|---|---|---|
+| `open` | No lots file cites the key | Part of a draft |
+| `planned` | A lot cites it and is not merged, including a new correction planned after an ineffective one | Nothing: the correction is on its way |
+| `addressed` | A merged lot cites it and it has not come back (or the lot has no `**Mergé**` date to measure against) | Nothing: report it as a fix that held |
+| `ineffective` | It came back in a friction file created after its fix merged, and no new lot is planned | Part of a draft, flagged: the correction did not work |
+
+**Window**: every lot holding an `open` or `ineffective` key, and at least the 3
+most recent lots (`window` in the output). The friction of the lots before the
+window stays in the history; it is reported only through its keys.
+
+For each entry of `drafts`, write a **correction-lot draft** in the Step 3
+report: the skill, the keys it resolves (each with the lots where it occurred and
+their text), the `SKILL.md` step to change, and the target lots file —
+`claude-harness/dev-plan.md` for a plugin skill, the project's lots file for a
+skill of `.claude/skills/`. A section in `missing_sections` (absent, or a bare
+heading) is a drift of its own: that skill did not record.
+
+A draft is a **proposal**. It enters a lots file only on the user's approval, as
+a lot that cites its keys in backticks, which is what makes the next digest see
+it as `planned`, then `addressed` or `ineffective`. A draft the user rejects is
+recorded the same way, cited inside the `## LOT` section that set it aside (a key
+cited outside a `## LOT` section is not seen), so that it is not proposed again.
+**Never edit a `SKILL.md` from this skill**, in the repository or in the harness:
+the correction is a lot, with its own gate.
+
 ### Step 3 — Drift report
 
 Present this **before** any write:
@@ -78,6 +122,11 @@ Present this **before** any write:
 
 | # | Invariant | File(s) | Drift | Proposed fix |
 |---|-----------|---------|-------|--------------|
+
+**Friction** (window: lots …): N open, N ineffective, N addressed, N planned
+
+| Draft | Skill | Keys (lots) | Step to change | Target lots file |
+|-------|-------|-------------|----------------|------------------|
 
 **Improvements (optional):** [list or none]
 ```
@@ -116,5 +165,6 @@ Distinguish clearly:
 - Report drifts **before** fixing — no surprise writes.
 - Never desynchronise `CLAUDE.md` and `AGENTS.md`.
 - Never modify the `Lots file` without explicit approval.
+- Never edit a `SKILL.md` to answer a friction entry: propose a correction lot.
 - Do not touch application code, migrations or secrets.
 - Nothing to fix → one sentence: harness up to date.
