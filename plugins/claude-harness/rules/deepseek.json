@@ -145,6 +145,11 @@
       "source": "chore 2026-09-22"
     },
     {
+      "id": "OUT-0",
+      "rule": "Never cut these to be concise. State them plainly and early in every answer: failures and bad news, assumptions you made, anything skipped or left undone, caveats that change the next action, and anything the user must do themselves. This rule wins over OUT-1.",
+      "source": "CONVENTIONS.md §15"
+    },
+    {
       "id": "OUT-1",
       "rule": "No preamble, no recap, no closing pleasantry. Errors: file, line, expected vs actual. Answer in the user's language.",
       "source": "CONVENTIONS.md §15"

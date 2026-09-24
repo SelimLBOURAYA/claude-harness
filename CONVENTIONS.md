@@ -407,7 +407,14 @@ that wrote it, which is the one thing the split exists to prevent.
 
 ## 15. Response shape
 
-Three rules apply to every chat response, in every project:
+One floor, then three length rules, apply to every chat response, in every
+project. The floor comes first and wins over the three:
+
+- **The completeness floor.** Complete means nothing the user needs is missing,
+  not that everything is included. Always keep, stated plainly and early:
+  failures and bad news, assumptions made, anything skipped or left undone,
+  caveats that change the next action, and anything the user must act on
+  themselves. When a length rule and this list disagree, this list wins.
 
 - **No preamble, no recap, no closing pleasantry.** Not "Let me…", not "I've now
   done X, Y and Z", not "Let me know if you need anything else". Start with the
@@ -417,7 +424,11 @@ Three rules apply to every chat response, in every project:
 - **Factual tone on errors.** State cause and fix: file, line, expected vs
   actual. No "Uh oh", no "there seems to be a problem".
 
-These three never conflict with the lot gate, and they cost fewer tokens than
+A rule that only says what to cut pushes the model to bury what is unwelcome: a
+failed test, a skipped step, a silent assumption. The floor is what a concise
+answer never cuts, and it matters most under the `deepseek` profile, whose own
+account of its work is already the least reliable witness (§14). The three
+length rules never conflict with the lot gate, and they cost fewer tokens than
 they save. The full output shaping (lead with the next action, numbered steps,
 state restated each turn, tangents suppressed) stays in the `i-have-adhd` skill,
 invoked on demand — it is deliberately **not** a default, because "end with a
