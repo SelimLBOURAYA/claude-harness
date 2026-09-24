@@ -78,6 +78,8 @@ Re-read §10 of `CONVENTIONS.md` and verify against the **staged diff**:
 - [ ] `CONVENTIONS.md` identical to the harness master if staged
 - [ ] `docs/audits/lot-N-review.md` exists (produced by `lot-review`)
 - [ ] `docs/audits/lot-N.md` exists and carries no unresolved Critical row
+- [ ] `docs/audits/lot-N-friction.md` carries its five sections, `## lot-ship`
+      included (section 2b)
 - [ ] *(frontend)* `docs/audits/lot-0-integration.md` exists
 - [ ] Every report just written is listed in the `## Project documents` census of
       `CLAUDE.md` — §12 says "in the same commit", and `harness-invariants.yml`
@@ -93,6 +95,28 @@ done
 git diff --cached --stat
 git commit -m "feat(N): <description>"
 ```
+
+### 2b. Record the friction, before the push
+
+Append the `## lot-ship` section to `docs/audits/lot-N-friction.md`, in the format
+of `CONVENTIONS.md` §13 (« Friction »): what, in running **this skill** so far,
+failed, came back empty, was ambiguous or cost for nothing — a pre-commit check
+that did not fit the repository, a guard that asked for nothing. Each entry opens
+with its key, `` `lot-ship / <step>` ``. Nothing to record → `None.` Then check
+that the four other sections are there: a missing one means its skill did not
+record, and `lot-deliverables.yml` fails the PR on it.
+
+```bash
+for s in lot-start lot-test lot-review lot-audit lot-ship; do
+  grep -qx "## $s" docs/audits/lot-N-friction.md || echo "missing friction section: $s"
+done
+git add docs/audits/lot-N-friction.md
+git commit -m "docs(N): record the lot-ship friction"
+```
+
+What goes wrong **after** the push (PR creation, a red check) cannot be
+committed without another push: record it in a `## Friction` section of the PR
+body (`gh pr edit --body`), with the same keys.
 
 ---
 
@@ -129,7 +153,7 @@ without it, and denies it outright when the lot's audit report is missing.
 
 Exactly **two** sections in the body — `## Summary` then `## Test plan` — unless
 a third adds real information (for instance `## DB migration` when the lot ships
-a changeset).
+a changeset, or `## Friction` for what failed after the push, section 2b).
 
 ---
 
@@ -158,6 +182,8 @@ for the user to merge, then a new lot starts from an updated `develop`.
 - `<Validation command>` green before every commit; never `--no-verify`.
 - English message, Conventional Commits, scope = lot number, no em dash.
 - No PR without `docs/audits/lot-N.md` free of unresolved Critical rows.
+- The `## lot-ship` friction section is committed before the push, `None.` when
+  there is nothing to record.
 - Never `gh pr merge` — merging is the user's decision.
 - All history reads through `rtk proxy git log` (P5-#14): the rtk filter hides
   merge commits, which makes the branch state look wrong.

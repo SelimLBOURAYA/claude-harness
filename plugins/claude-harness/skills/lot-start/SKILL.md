@@ -180,7 +180,25 @@ git -C "$LOT_REPO" status --short
 - `changed: false` → the table was already right and the lot was already 🔄:
   no commit. Never create an empty one.
 
-### Step B2 — Hand over to development
+### Step B2 — Open the friction file
+
+Create `docs/audits/lot-N-friction.md` with its title and the `## lot-start`
+section, in the format of `CONVENTIONS.md` §13 (« Friction »). Record what this
+skill cost in Parts A and B: a stop of `sync-status.py` that was a false alarm or
+a missed merge, a reference that was missing or stale, a question the lots file
+should have answered. Each entry opens with its key, `` `lot-start / <step>` ``
+(`A3`, `B1`…). Nothing to record → `None.`
+
+Add the file to the `## Project documents` census of `CLAUDE.md`, copy
+`CLAUDE.md` to `AGENTS.md`, run the `<Validation command>`, and commit, after the
+sync commit and never inside it:
+
+```bash
+git -C "$LOT_REPO" add docs/audits/lot-N-friction.md CLAUDE.md AGENTS.md
+git -C "$LOT_REPO" commit -m "docs(N): record the lot-start friction"
+```
+
+### Step B3 — Hand over to development
 
 Report in three lines: lot confirmed, what the sync changed (or « table already
 up to date »), the first development step. Development then follows §2 steps 4
@@ -191,6 +209,8 @@ to 8, and `lot-test` is the next gate skill.
 - Never write `.claude/current-lot`. Only the user's prompt creates it.
 - Never arbitrate a stop of `sync-status.py`: ask.
 - The sync commit is alone and first on the branch; no empty commit.
+- The friction file is opened in Part B, with `None.` when there is nothing to
+  record, never skipped.
 - One lot per session. `lot-start` never chains onto the next lot.
 - History reads go through `rtk proxy git log` (P5-#14).
 - Every repository read or write is scoped to `$LOT_REPO` (Step A1).
