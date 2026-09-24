@@ -103,12 +103,18 @@ of `CONVENTIONS.md` §13 (« Friction »): what, in running **this skill** so fa
 failed, came back empty, was ambiguous or cost for nothing — a pre-commit check
 that did not fit the repository, a guard that asked for nothing. Each entry opens
 with its key, `` `lot-ship / <step>` ``. Nothing to record → `None.` Then check
-that the four other sections are there: a missing one means its skill did not
-record, and `lot-deliverables.yml` fails the PR on it.
+that the four other sections are there and not empty: a missing section or a bare
+heading means its skill did not record, and `lot-deliverables.yml` fails the PR on
+either.
 
 ```bash
 for s in lot-start lot-test lot-review lot-audit lot-ship; do
-  grep -qx "## $s" docs/audits/lot-N-friction.md || echo "missing friction section: $s"
+  awk -v h="## $s" '
+    /^## / { inside = ($0 == h || $0 ~ "^" h "[ \t]+$"); if (inside) found = 1; next }
+    inside && NF { said = 1 }
+    END { if (!found) print "missing friction section: " substr(h, 4)
+          else if (!said) print "empty friction section: " substr(h, 4) }' \
+    docs/audits/lot-N-friction.md
 done
 git add docs/audits/lot-N-friction.md
 git commit -m "docs(N): record the lot-ship friction"

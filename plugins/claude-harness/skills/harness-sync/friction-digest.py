@@ -14,16 +14,19 @@ plugin skills live. Prints, as JSON on stdout:
           ineffective key, and at least the N most recent ones (--min, default 3)
   keys    one row per key: its occurrences, and its status
             open         no lots file cites the key
-            planned      a lot cites it and is not merged yet
+            planned      a lot cites it and is not merged yet (including a new
+                         correction planned after an ineffective one)
             addressed    a merged lot cites it, and it has not come back since
-            ineffective  a merged lot cites it, and a friction file dated after
-                         that merge carries it again
+                         (or the lot carries no merge date to measure against)
+            ineffective  a merged lot cites it, a friction file created after
+                         that merge carries it again, and no new lot is planned
   drafts  one correction-lot draft per skill holding open or ineffective keys
 
 A lots file "cites" a key when it carries it in backticks inside a `## LOT`
 section; the section's status and its `**Mergé** le YYYY-MM-DD` line give the
-state of the correction. Recording a rejected draft the same way (the key cited
-under the lot or note that set it aside) keeps it from being proposed again.
+state of the correction. A key cited anywhere else is not seen, so a rejected
+draft is recorded the same way, cited inside the `## LOT` section that set it
+aside, to keep it from being proposed again.
 
 Read-only: the script writes nothing, and never a SKILL.md or a lots file. The
 drafts are proposals; the user decides what enters a lots file.
@@ -64,23 +67,32 @@ def lot_order(lot_id):
 
 
 def file_date(root, path):
-    """The date the file last changed in the history, else on disk."""
+    """The date the file was created in the history, else its date on disk.
+
+    The author date of the commit that added it: the lot's start. Neither the
+    committer date (rewritten by a rebase merge) nor the last change (a later
+    fix of the file) may move a friction recorded before a correction to after
+    it, which would report that correction as ineffective.
+    """
     rel = os.path.relpath(path, root)
-    date = lotfile.run_git(root, "log", "-1", "--format=%cs", "--", rel)
-    if date:
-        return date
+    added = lotfile.run_git(root, "log", "--diff-filter=A", "--format=%as", "--", rel)
+    if added:
+        return added.splitlines()[-1]
     return datetime.date.fromtimestamp(os.path.getmtime(path)).isoformat()
 
 
 def read_friction(root, path):
     lot_id = FILE_NAME.match(os.path.basename(path)).group(1)
-    sections, entries, current = [], [], None
+    # A section counts once it says something, an entry or None.: a bare
+    # heading is a skill that did not record, as lot-deliverables.yml reads it.
+    sections, entries, current = set(), [], None
     for line in lotfile.read_lines(path):
         heading = SECTION.match(line)
         if heading:
             current = heading.group(1)
-            sections.append(current)
             continue
+        if current and line.strip():
+            sections.add(current)
         entry = ENTRY.match(line)
         if entry and current:
             entries.append({
@@ -144,12 +156,19 @@ def classify(occurrences, cites):
     """open / planned / addressed / ineffective, and the lot that decides it."""
     if not cites:
         return "open", None
-    merged = [c for c in cites if c["status"] == "✅" and c["merged"]]
+    pending = [c for c in cites if c["status"] != lotfile.DONE]
+    merged = [c for c in cites if c["status"] == lotfile.DONE]
     if not merged:
-        return "planned", cites[0]
-    fix = max(merged, key=lambda c: c["merged"])
+        return "planned", pending[0]
+    dated = [c for c in merged if c["merged"]]
+    if not dated:
+        # A lot marked done with no **Mergé** line (a rebase merge, a status
+        # set by hand): merged, but with no date to measure the fix against.
+        return "addressed", merged[0]
+    fix = max(dated, key=lambda c: c["merged"])
     if any(o["date"] > fix["merged"] for o in occurrences):
-        return "ineffective", fix
+        # A new correction already planned is on its way: not a new draft.
+        return ("planned", pending[0]) if pending else ("ineffective", fix)
     return "addressed", fix
 
 
@@ -200,7 +219,8 @@ def main():
 
     live = {"open", "ineffective"}
     window = {o["lot"] for k in keys if k["status"] in live for o in k["occurrences"]}
-    window.update(f["lot"] for f in files[-max(args.min, 0):] if args.min > 0)
+    if args.min > 0:
+        window.update(f["lot"] for f in files[-args.min:])
 
     drafts = []
     for skill in sorted({k["skill"] for k in keys if k["status"] in live}):

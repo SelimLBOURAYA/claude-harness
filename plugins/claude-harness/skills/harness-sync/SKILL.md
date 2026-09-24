@@ -88,9 +88,9 @@ plugin skills live:
 | `status` | Meaning | What you do |
 |---|---|---|
 | `open` | No lots file cites the key | Part of a draft |
-| `planned` | A lot cites it and is not merged | Nothing: the correction is on its way |
-| `addressed` | A merged lot cites it and it has not come back | Nothing: report it as a fix that held |
-| `ineffective` | It came back in a friction file dated after its fix merged | Part of a draft, flagged: the correction did not work |
+| `planned` | A lot cites it and is not merged, including a new correction planned after an ineffective one | Nothing: the correction is on its way |
+| `addressed` | A merged lot cites it and it has not come back (or the lot has no `**Mergé**` date to measure against) | Nothing: report it as a fix that held |
+| `ineffective` | It came back in a friction file created after its fix merged, and no new lot is planned | Part of a draft, flagged: the correction did not work |
 
 **Window**: every lot holding an `open` or `ineffective` key, and at least the 3
 most recent lots (`window` in the output). The friction of the lots before the
@@ -100,15 +100,16 @@ For each entry of `drafts`, write a **correction-lot draft** in the Step 3
 report: the skill, the keys it resolves (each with the lots where it occurred and
 their text), the `SKILL.md` step to change, and the target lots file —
 `claude-harness/dev-plan.md` for a plugin skill, the project's lots file for a
-skill of `.claude/skills/`. A missing section in `missing_sections` is a drift of
-its own: that skill did not record.
+skill of `.claude/skills/`. A section in `missing_sections` (absent, or a bare
+heading) is a drift of its own: that skill did not record.
 
 A draft is a **proposal**. It enters a lots file only on the user's approval, as
 a lot that cites its keys in backticks, which is what makes the next digest see
 it as `planned`, then `addressed` or `ineffective`. A draft the user rejects is
-recorded the same way, cited under the lot or note that set it aside, so that it
-is not proposed again. **Never edit a `SKILL.md` from this skill**, in the
-repository or in the harness: the correction is a lot, with its own gate.
+recorded the same way, cited inside the `## LOT` section that set it aside (a key
+cited outside a `## LOT` section is not seen), so that it is not proposed again.
+**Never edit a `SKILL.md` from this skill**, in the repository or in the harness:
+the correction is a lot, with its own gate.
 
 ### Step 3 — Drift report
 

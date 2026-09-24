@@ -157,9 +157,34 @@ assert_eq "1 3" "$(field "$out" '.window | join(" ")')" \
 # --- 4. the project's own lots file counts as a citation source ------------
 printf '\n## LOT 2 — Rejected friction ✅\n\nSet aside: `lot-test / 3.1`.\n' >> "$P/lots.md"
 out=$(digest "$P")
-assert_eq "planned" "$(field "$out" '.keys[] | select(.key=="lot-test / 3.1") | .status')" \
-  "a key cited in the project lots file with no merge date is not re-proposed"
+assert_eq "addressed" "$(field "$out" '.keys[] | select(.key=="lot-test / 3.1") | .status')" \
+  "a key cited under a done lot with no merge date is addressed, not re-proposed"
 git -C "$P" checkout -q lots.md
+
+# --- 4b. a new correction planned after an ineffective one ----------------
+printf '\n## LOT 33 — Coverage path, second try ⬜\n\nAgain `lot-test / 3.1`.\n' >> "$H"
+out=$(digest "$P" --lots "$H")
+assert_eq "planned" "$(field "$out" '.keys[] | select(.key=="lot-test / 3.1") | .status')" \
+  "an ineffective key re-planned in a new lot is planned, not drafted again"
+assert_eq "0" "$(field "$out" '.drafts | length')" "the re-planned key produces no draft"
+
+# --- 4c. a file edited after the fix keeps the date it was created --------
+printf '\n' >> "$P/docs/audits/lot-2-friction.md"
+git -C "$P" add -A
+GIT_COMMITTER_DATE="2026-09-30T12:00:00" GIT_AUTHOR_DATE="2026-09-30T12:00:00" \
+  git -C "$P" commit -qm "docs: touch lot 2 friction"
+out=$(digest "$P" --lots "$H")
+assert_eq "2026-09-10" "$(field "$out" '.files[] | select(.lot=="2") | .date')" \
+  "a later edit does not move the friction after its fix"
+assert_eq "addressed" "$(field "$out" '.keys[] | select(.key=="lot-start / A3") | .status')" \
+  "a later edit does not turn an addressed key ineffective"
+
+# --- 4d. a bare heading is a section that did not record ------------------
+printf '# Lot 4 — Skill friction\n\n## lot-start\nNone.\n\n## lot-test\n\n## lot-review\nNone.\n\n## lot-audit\nNone.\n\n## lot-ship\nNone.\n' \
+  | friction "$P" 4 2026-09-21
+out=$(digest "$P" --lots "$H")
+assert_eq "lot-test" "$(field "$out" '.files[] | select(.lot=="4") | .missing_sections | join(",")')" \
+  "a bare heading is reported with the missing sections"
 
 # --- 5. not harnessed ------------------------------------------------------
 mkdir -p "$WORK/bare" && git -C "$WORK/bare" init -q
