@@ -277,4 +277,18 @@ assert_ok "lot-ship checks the five sections" -- \
 assert_ok "lot-ship sends post-push friction to the PR body" -- \
   grep -qF '`## Friction` section of the PR' "$SHIP"
 
+# --- lot 21: harness-sync turns friction into proposed correction lots ------
+SYNC_SKILL="$SKILLS/harness-sync/SKILL.md"
+assert_file "$SKILLS/harness-sync/friction-digest.py" "harness-sync ships its friction digest"
+assert_ok "harness-sync runs the digest" -- grep -qF 'friction-digest.py' "$SYNC_SKILL"
+assert_ok "harness-sync reads the harness plan for plugin corrections" -- \
+  grep -qF -- '--lots ~/ENV/projets/claude-harness/dev-plan.md' "$SYNC_SKILL"
+assert_ok "harness-sync states its window" -- \
+  grep -qF 'and at least the 3' "$SYNC_SKILL"
+assert_ok "harness-sync reports ineffective corrections" -- grep -qF '`ineffective`' "$SYNC_SKILL"
+assert_ok "harness-sync never edits a SKILL.md for friction" -- \
+  grep -qF '**Never edit a `SKILL.md` from this skill**' "$SYNC_SKILL"
+assert_ok "harness-sync drafts need the user's approval" -- \
+  grep -qF "only on the user's approval" "$SYNC_SKILL"
+
 finish
