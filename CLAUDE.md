@@ -101,6 +101,7 @@ Every blocking invariant is also enforced in CI, which is the only agent-agnosti
 | [`CONVENTIONS.md`](CONVENTIONS.md) | **Master** of the cross-cutting conventions (lot 5) |
 | [`README.md`](README.md) | Plugin installation, the two owner settings that make the harness consumable, gate parameters contract |
 | [`dev-plan.md`](dev-plan.md) | Remediation plan — lots, decisions, findings matrices (French) |
+| [`projects.json`](projects.json) | The portfolio: projects and harness-managed files that `sync-projects.yml` keeps current |
 | `plugins/claude-harness/skills/bootstrap-project/SKILL.md` | New project generation skill |
 | `plugins/claude-harness/skills/dep-update/SKILL.md` | Dependency refresh skill |
 | `plugins/claude-harness/skills/harness-sync/SKILL.md` | Harness drift detection skill |
