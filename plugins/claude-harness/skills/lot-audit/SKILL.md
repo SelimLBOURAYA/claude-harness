@@ -88,7 +88,10 @@ Consequences for the rest of the skill:
 1. Read `$AUDIT_REPO`'s `CLAUDE.md` / `AGENTS.md`, its `## Gate parameters`, and
    the active lot section in the `Lots file`.
 2. Identify the lot from the branch name (`feat/lot-N-slug`) or from the context.
-3. Scope the diff to the **branch changes** vs `develop`.
+3. Scope the diff to the **branch changes** vs `origin/develop`, fetched first
+   (`git -C "$AUDIT_REPO" fetch -q origin develop`). Never the local `develop`:
+   it only moves on a `git pull` made on it, and a stale one puts every lot
+   merged since into the diff as if this lot had written it.
 
 ## Workflow
 
@@ -107,10 +110,10 @@ Task Progress:
 
 ### Step 1 — Context
 
-- `rtk proxy git -C "$AUDIT_REPO" log --first-parent develop..HEAD --oneline` —
+- `rtk proxy git -C "$AUDIT_REPO" log --first-parent origin/develop..HEAD --oneline` —
   the lot's commits. Always `rtk proxy` for history: the rtk filter hides merge
   commits (P5-#14).
-- `git -C "$AUDIT_REPO" diff develop...HEAD --stat` — the modified files.
+- `git -C "$AUDIT_REPO" diff origin/develop...HEAD --stat` — the modified files.
 - Identify the lot's specific risks from its section in the `Lots file`
   (credentials, authorisation, export, file paths, payment, migrations).
 - Read only the files touched by the lot and their direct dependencies.
@@ -128,7 +131,7 @@ This replaces the `security-review` **subagent**, which does not exist (finding
 failed, so the security step was never actually performed.
 
 It reviews the working directory, which step 0b established is `$AUDIT_REPO`.
-Give it the diff scope (`branch changes vs develop`) and custom instructions
+Give it the diff scope (`branch changes vs origin/develop`) and custom instructions
 built from that repository's `CLAUDE.md`: stack, the secrets it handles, the
 routes it exposes, and the lot's specific risks.
 

@@ -131,7 +131,17 @@ assert_ok "lot-audit stops when the session is in another repository" -- \
 assert_ok "lot-audit scopes its history read to the audited repository" -- \
   grep -qF 'rtk proxy git -C "$AUDIT_REPO" log' "$SKILLS/lot-audit/SKILL.md"
 assert_ok "lot-audit scopes its diff to the audited repository" -- \
-  grep -qF 'git -C "$AUDIT_REPO" diff develop...HEAD' "$SKILLS/lot-audit/SKILL.md"
+  grep -qF 'git -C "$AUDIT_REPO" diff origin/develop...HEAD' "$SKILLS/lot-audit/SKILL.md"
+# A stale local develop puts every lot merged since into the diff (lot 21
+# friction, lot-review / 1 and lot-audit / 1): both skills diff origin/develop.
+assert_ok "lot-audit fetches develop before diffing" -- \
+  grep -qF 'fetch -q origin develop' "$SKILLS/lot-audit/SKILL.md"
+assert_ok "lot-review fetches develop before diffing" -- \
+  grep -qF 'fetch -q origin develop' "$SKILLS/lot-review/SKILL.md"
+for s in lot-review lot-audit; do
+  assert_eq "" "$(grep -nE '(^|[^/])develop\.\.\.?HEAD' "$SKILLS/$s/SKILL.md" || true)" \
+    "$s never diffs the local develop"
+done
 assert_ok "lot-audit writes the report inside the audited repository" -- \
   grep -qF '$AUDIT_REPO/docs/audits/lot-N.md' "$SKILLS/lot-audit/SKILL.md"
 # A path derived from the session's own cwd cannot contradict itself: the stop
