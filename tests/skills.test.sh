@@ -131,7 +131,17 @@ assert_ok "lot-audit stops when the session is in another repository" -- \
 assert_ok "lot-audit scopes its history read to the audited repository" -- \
   grep -qF 'rtk proxy git -C "$AUDIT_REPO" log' "$SKILLS/lot-audit/SKILL.md"
 assert_ok "lot-audit scopes its diff to the audited repository" -- \
-  grep -qF 'git -C "$AUDIT_REPO" diff develop...HEAD' "$SKILLS/lot-audit/SKILL.md"
+  grep -qF 'git -C "$AUDIT_REPO" diff origin/develop...HEAD' "$SKILLS/lot-audit/SKILL.md"
+# A stale local develop puts every lot merged since into the diff (lot 21
+# friction, lot-review / 1 and lot-audit / 1): both skills diff origin/develop.
+assert_ok "lot-audit fetches develop before diffing" -- \
+  grep -qF 'fetch -q origin develop' "$SKILLS/lot-audit/SKILL.md"
+assert_ok "lot-review fetches develop before diffing" -- \
+  grep -qF 'fetch -q origin develop' "$SKILLS/lot-review/SKILL.md"
+for s in lot-review lot-audit; do
+  assert_eq "" "$(grep -nE '(^|[^/])develop\.\.\.?HEAD' "$SKILLS/$s/SKILL.md" || true)" \
+    "$s never diffs the local develop"
+done
 assert_ok "lot-audit writes the report inside the audited repository" -- \
   grep -qF '$AUDIT_REPO/docs/audits/lot-N.md' "$SKILLS/lot-audit/SKILL.md"
 # A path derived from the session's own cwd cannot contradict itself: the stop
@@ -236,5 +246,59 @@ for pair in "lot-review:docs(N): add the lot review report" \
   assert_ok "$skill adds the report to the census" -- grep -qF 'Project documents' "$file"
   assert_ok "$skill leaves the push to lot-ship" -- grep -qF 'the push belongs to `lot-ship`' "$file"
 done
+
+# --- lot 21: every gate skill records its own friction ---------------------
+# One file per lot, one section per gate skill, one stable key per entry
+# (CONVENTIONS.md section 13). A skill that does not name its section is a skill
+# whose friction is lost at the section 14 session break.
+C="$REPO_ROOT/CONVENTIONS.md"
+assert_ok "section 13 defines the friction file" -- \
+  grep -qF '### Friction: the gate reports on itself' "$C"
+assert_ok "section 13 names the stable key" -- grep -qF '`<skill> / <step>`' "$C"
+assert_ok "section 13 accepts None. and refuses a missing section" -- \
+  grep -qF '`None.` is a valid section; a missing one is not.' "$C"
+for skill in lot-start lot-test lot-review lot-audit lot-ship; do
+  file="$SKILLS/$skill/SKILL.md"
+  assert_ok "$skill names the friction file" -- grep -qF 'docs/audits/lot-N-friction.md' "$file"
+  assert_ok "$skill names its own section" -- grep -qF "\`## $skill\`" "$file"
+  assert_ok "$skill keys its entries" -- grep -qF "\`$skill / <step>\`" "$file"
+  assert_ok "$skill accepts None." -- grep -qF '`None.`' "$file"
+  assert_ok "$skill points to the section 13 format" -- grep -qF '§13 (« Friction »)' "$file"
+done
+for pair in "lot-start:docs(N): record the lot-start friction" \
+            "lot-test:docs(N): record the lot-test friction" \
+            "lot-ship:docs(N): record the lot-ship friction"; do
+  assert_ok "${pair%%:*} commits its friction section" -- \
+    grep -qF "${pair#*:}" "$SKILLS/${pair%%:*}/SKILL.md"
+done
+# lot-start opens the file after the sync commit, never inside it.
+START_FRICTION=$(grep -n 'Open the friction file' "$START" | head -1 | cut -d: -f1)
+START_SYNC=$(grep -n 'docs: sync lots file status' "$START" | head -1 | cut -d: -f1)
+assert_ok "lot-start opens the friction file after the sync commit" -- \
+  test "${START_FRICTION:-0}" -gt "${START_SYNC:-99999}"
+# lot-ship records before it pushes, and checks the four others are there.
+SHIP="$SKILLS/lot-ship/SKILL.md"
+SHIP_FRICTION=$(grep -n 'Record the friction, before the push' "$SHIP" | cut -d: -f1)
+SHIP_PUSH=$(grep -n '^git push -u origin' "$SHIP" | head -1 | cut -d: -f1)
+assert_ok "lot-ship records its friction before the push" -- \
+  test "${SHIP_FRICTION:-99999}" -lt "${SHIP_PUSH:-0}"
+assert_ok "lot-ship checks the five sections" -- \
+  grep -qF 'for s in lot-start lot-test lot-review lot-audit lot-ship' "$SHIP"
+assert_ok "lot-ship sends post-push friction to the PR body" -- \
+  grep -qF '`## Friction` section of the PR' "$SHIP"
+
+# --- lot 21: harness-sync turns friction into proposed correction lots ------
+SYNC_SKILL="$SKILLS/harness-sync/SKILL.md"
+assert_file "$SKILLS/harness-sync/friction-digest.py" "harness-sync ships its friction digest"
+assert_ok "harness-sync runs the digest" -- grep -qF 'friction-digest.py' "$SYNC_SKILL"
+assert_ok "harness-sync reads the harness plan for plugin corrections" -- \
+  grep -qF -- '--lots ~/ENV/projets/claude-harness/dev-plan.md' "$SYNC_SKILL"
+assert_ok "harness-sync states its window" -- \
+  grep -qF 'and at least the 3' "$SYNC_SKILL"
+assert_ok "harness-sync reports ineffective corrections" -- grep -qF '`ineffective`' "$SYNC_SKILL"
+assert_ok "harness-sync never edits a SKILL.md for friction" -- \
+  grep -qF '**Never edit a `SKILL.md` from this skill**' "$SYNC_SKILL"
+assert_ok "harness-sync drafts need the user's approval" -- \
+  grep -qF "only on the user's approval" "$SYNC_SKILL"
 
 finish

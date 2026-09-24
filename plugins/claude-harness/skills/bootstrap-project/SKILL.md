@@ -119,10 +119,17 @@ Then push and read the first CI run. `harness-invariants.yml` green is the
 acceptance criterion of this skill; anything it reports is a placeholder or a
 deleted row, both fixed here rather than by loosening the workflow.
 
+Register the repository in the harness `projects.json` (its `projects` list), in
+a harness pull request to `develop`. Until it is listed, the `sync-projects`
+workflow never refreshes its `CONVENTIONS.md`, and the first master change after
+the bootstrap turns its `harness-invariants` red. Also give the harness sync token
+access to the new repository (README, *Making the harness consumable*).
+
 ## Step 6 — Report
 
 State: the files created, the gate parameters chosen (especially any `n/a` and
-why), what was deleted for the stack, and the CI run result. Then stop — writing
+why), what was deleted for the stack, the harness pull request that registers it
+in `projects.json`, and the CI run result. Then stop — writing
 lot 0 is the user's call, not this skill's.
 
 ## Rules

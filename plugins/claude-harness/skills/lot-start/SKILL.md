@@ -76,11 +76,19 @@ The script ships next to this file. Agents that do not load plugins run it from
 the harness clone:
 `~/ENV/projets/claude-harness/plugins/claude-harness/skills/lot-start/sync-status.py`.
 
-It maps every merge on develop to its lot by branch name, and prints JSON:
+It maps every merge on develop to its lot by branch name, and prints JSON.
+A lot merged **without** a merge commit (rebase or squash, the usual GitHub
+setting) leaves no branch name on develop; its audit commit
+`docs(N): add the lot audit report`, which `lot-ship` requires before any push,
+is taken as the proof instead. So a row left 🔄 by the previous lot is closed
+here as soon as its pull request is merged. A row that lists its sub-lots
+(`3.1 ✅, 3.3 🔄`) has each landed sub-lot marked, and turns ✅ once the last one
+landed.
 
 | Field | Meaning |
 |---|---|
 | `updates` | Lots merged on develop whose row is not ✅ yet: the table is stale |
+| `sub_updates` | Sub-lots listed in a 🔄 row whose audit commit is on develop |
 | `stops` | What you must **ask**, never decide |
 | `in_progress` | Rows marked 🔄 |
 | `candidate` | First ⬜ row in file order, ⏸️ and ❄️ skipped, **after** the updates |
@@ -91,7 +99,7 @@ Every other case is in `stops` and exits 3:
 
 | `kind` | Situation | What you do |
 |---|---|---|
-| `ambiguous` | Sub-lots (`2.1`, `2.2`) on one flat `feat/lot-2-*` branch, or a branch shared by several open rows | Ask which lots the merge completes |
+| `ambiguous` | Sub-lots (`2.1`, `2.2`) on one flat `feat/lot-2-*` branch, a branch shared by several open rows, or a sub-lot audit landed while the lots file names a sub-lot the row does not list | Ask which lots the merge completes |
 | `done-without-merge` | A row is ✅ but develop has neither its merge nor a commit scoped to it | Ask whether the status is wrong or the lot shipped another way |
 | `merge-without-lot` | A lot-shaped branch was merged but no row maps to it | Ask which row it belongs to |
 | `scope-already-merged` | The candidate is ⬜ but develop already carries commits scoped to it | Ask whether it is done, partly done, or mislabelled |
@@ -180,7 +188,25 @@ git -C "$LOT_REPO" status --short
 - `changed: false` → the table was already right and the lot was already 🔄:
   no commit. Never create an empty one.
 
-### Step B2 — Hand over to development
+### Step B2 — Open the friction file
+
+Create `docs/audits/lot-N-friction.md` with its title and the `## lot-start`
+section, in the format of `CONVENTIONS.md` §13 (« Friction »). Record what this
+skill cost in Parts A and B: a stop of `sync-status.py` that was a false alarm or
+a missed merge, a reference that was missing or stale, a question the lots file
+should have answered. Each entry opens with its key, `` `lot-start / <step>` ``
+(`A3`, `B1`…). Nothing to record → `None.`
+
+Add the file to the `## Project documents` census of `CLAUDE.md`, copy
+`CLAUDE.md` to `AGENTS.md`, run the `<Validation command>`, and commit, after the
+sync commit and never inside it:
+
+```bash
+git -C "$LOT_REPO" add docs/audits/lot-N-friction.md CLAUDE.md AGENTS.md
+git -C "$LOT_REPO" commit -m "docs(N): record the lot-start friction"
+```
+
+### Step B3 — Hand over to development
 
 Report in three lines: lot confirmed, what the sync changed (or « table already
 up to date »), the first development step. Development then follows §2 steps 4
@@ -191,6 +217,8 @@ to 8, and `lot-test` is the next gate skill.
 - Never write `.claude/current-lot`. Only the user's prompt creates it.
 - Never arbitrate a stop of `sync-status.py`: ask.
 - The sync commit is alone and first on the branch; no empty commit.
+- The friction file is opened in Part B, with `None.` when there is nothing to
+  record, never skipped.
 - One lot per session. `lot-start` never chains onto the next lot.
 - History reads go through `rtk proxy git log` (P5-#14).
 - Every repository read or write is scoped to `$LOT_REPO` (Step A1).

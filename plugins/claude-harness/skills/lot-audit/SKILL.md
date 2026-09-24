@@ -88,7 +88,10 @@ Consequences for the rest of the skill:
 1. Read `$AUDIT_REPO`'s `CLAUDE.md` / `AGENTS.md`, its `## Gate parameters`, and
    the active lot section in the `Lots file`.
 2. Identify the lot from the branch name (`feat/lot-N-slug`) or from the context.
-3. Scope the diff to the **branch changes** vs `develop`.
+3. Scope the diff to the **branch changes** vs `origin/develop`, fetched first
+   (`git -C "$AUDIT_REPO" fetch -q origin develop`). Never the local `develop`:
+   it only moves on a `git pull` made on it, and a stale one puts every lot
+   merged since into the diff as if this lot had written it.
 
 ## Workflow
 
@@ -107,10 +110,10 @@ Task Progress:
 
 ### Step 1 — Context
 
-- `rtk proxy git -C "$AUDIT_REPO" log --first-parent develop..HEAD --oneline` —
+- `rtk proxy git -C "$AUDIT_REPO" log --first-parent origin/develop..HEAD --oneline` —
   the lot's commits. Always `rtk proxy` for history: the rtk filter hides merge
   commits (P5-#14).
-- `git -C "$AUDIT_REPO" diff develop...HEAD --stat` — the modified files.
+- `git -C "$AUDIT_REPO" diff origin/develop...HEAD --stat` — the modified files.
 - Identify the lot's specific risks from its section in the `Lots file`
   (credentials, authorisation, export, file paths, payment, migrations).
 - Read only the files touched by the lot and their direct dependencies.
@@ -128,7 +131,7 @@ This replaces the `security-review` **subagent**, which does not exist (finding
 failed, so the security step was never actually performed.
 
 It reviews the working directory, which step 0b established is `$AUDIT_REPO`.
-Give it the diff scope (`branch changes vs develop`) and custom instructions
+Give it the diff scope (`branch changes vs origin/develop`) and custom instructions
 built from that repository's `CLAUDE.md`: stack, the secrets it handles, the
 routes it exposes, and the lot's specific risks.
 
@@ -261,14 +264,19 @@ pull request. Left in the working tree, the audit did not happen.
 2. If `docs/audits/lot-N.md` is new, or its role changed, add it to the
    `## Project documents` census of `CLAUDE.md`, and copy `CLAUDE.md` to
    `AGENTS.md` byte for byte (section 12).
-3. Commit the report **alone**, in the lot's scope:
+3. Append the `## lot-audit` section to `docs/audits/lot-N-friction.md`, in the
+   format of `CONVENTIONS.md` §13 (« Friction »): what, in running **this
+   skill**, failed, came back empty, was ambiguous or cost for nothing. Each
+   entry opens with its key, `` `lot-audit / <step>` ``. Nothing to record →
+   `None.` Findings about the lot's code stay in the report, not here.
+4. Commit the report with that section and nothing else, in the lot's scope:
 
    ```
    docs(N): add the lot audit report
    ```
 
    An approved `Lots file` edit is a commit of its own, never mixed into this one.
-4. Do not push: the push belongs to `lot-ship`.
+5. Do not push: the push belongs to `lot-ship`.
 
 ## Rules
 

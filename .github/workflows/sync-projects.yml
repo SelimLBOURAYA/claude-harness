@@ -1,0 +1,47 @@
+name: sync-projects
+
+# Propagates the harness-managed files (projects.json) to every project, as one
+# pull request per project against its develop branch. Runs when they change on
+# main, which is the ref harness-invariants compares the projects against, and
+# on demand. The pull requests are never merged here: the owner merges them.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - CONVENTIONS.md
+      - projects.json
+  workflow_dispatch:
+    inputs:
+      projects:
+        description: Space-separated project names (empty = every project)
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sync-projects
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Open or refresh the sync pull requests
+        env:
+          SYNC_TOKEN: ${{ secrets.HARNESS_SYNC_TOKEN }}
+          GH_TOKEN: ${{ secrets.HARNESS_SYNC_TOKEN }}
+          SYNC_SOURCE_SHA: ${{ github.sha }}
+          PROJECTS: ${{ inputs.projects }}
+        run: |
+          if [ -z "$SYNC_TOKEN" ]; then
+            echo "::error::the HARNESS_SYNC_TOKEN secret is missing (README, Making the harness consumable)."
+            exit 1
+          fi
+          # Word splitting of PROJECTS is intended: one argument per project.
+          # shellcheck disable=SC2086
+          bash .github/scripts/sync-projects.sh $PROJECTS

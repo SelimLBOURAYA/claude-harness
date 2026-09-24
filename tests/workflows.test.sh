@@ -214,7 +214,7 @@ assert_ok "lot-deliverables anchors Critical to the first cell" -- \
 in_scope() {  # in_scope <declared lots> <report path>
   local lots="$1" f="$2" n base
   case "$f" in */lot-0-integration.md) printf 'skipped'; return ;; esac
-  n=$(basename "$f" .md | sed -E 's/^lot-([0-9]+[a-z]?)(-review)?$/\1/')
+  n=$(basename "$f" .md | sed -E 's/^lot-([0-9]+[a-z]?)(-review|-friction)?$/\1/')
   base=${n%%[a-z]}
   case " $lots " in
     *" $n "* | *" $base "*) printf 'in' ;;
@@ -225,6 +225,12 @@ assert_eq "in" "$(in_scope "0 1 2 3 4 5 6" docs/audits/lot-2b.md)" \
   "a lettered lot inside the declared range is in scope"
 assert_eq "in" "$(in_scope "0 1 2 3 4 5 6" docs/audits/lot-2b-review.md)" \
   "its review report is in scope too"
+assert_eq "in" "$(in_scope "21" docs/audits/lot-21-friction.md)" \
+  "the friction file of a declared lot is in scope (lot 21)"
+assert_eq "out" "$(in_scope "21" docs/audits/lot-7-friction.md)" \
+  "the friction file of another lot is rejected"
+assert_ok "the workflow reads the friction file as its lot's report" -- \
+  grep -qF '(-review|-friction)?$' "$WF/lot-deliverables.yml"
 assert_eq "in" "$(in_scope "0 1 2 3 4 5 6" docs/audits/lot-3.md)" \
   "a plain lot inside the declared range is in scope"
 assert_eq "out" "$(in_scope "0 1 2" docs/audits/lot-7.md)" \
@@ -712,5 +718,60 @@ NOBASE=$(git -C "$N" rev-parse HEAD)
 CONSUMER=$(cd "$N" && BASE_SHA="$NOBASE" bash "$COVWORK/bump.sh" 2>&1; echo "|$?")
 assert_eq "0" "${CONSUMER##*|}" "a repository with no plugin tree skips"
 assert_contains "$CONSUMER" "not the harness repository" "and says why it skipped"
+
+# --- lot 21: a lot from the threshold ships its friction file --------------
+# Executed like the coverage steps: the shell is extracted and run on fixtures.
+extract_step_from "$WF/lot-deliverables.yml" "Each lot from the threshold ships its friction file" \
+  > "$COVWORK/friction.sh"
+assert_ok "the friction step has an extractable script" -- test -s "$COVWORK/friction.sh"
+assert_ok "the friction threshold is an input, empty by default" -- \
+  grep -qF "if: steps.lots.outputs.list != '' && inputs.friction_from_lot != ''" "$WF/lot-deliverables.yml"
+
+# friction_run <dir> <lots> <from> : echoes the exit status
+friction_run() {
+  ( cd "$1" && LOTS="$2" FROM="$3" bash "$COVWORK/friction.sh" > /dev/null 2>&1; echo $? )
+}
+# friction_file <dir> <lot> [skill to leave out] [skill to leave empty]
+friction_file() {
+  mkdir -p "$1/docs/audits"
+  {
+    printf '# Lot %s — Skill friction\n\n' "$2"
+    for s in lot-start lot-test lot-review lot-audit lot-ship; do
+      [ "$s" = "${3:-}" ] && continue
+      printf '## %s\n' "$s"
+      if [ "$s" = "${4:-}" ]; then printf '\n'; continue; fi
+      if [ "$s" = lot-start ]; then
+        printf -- '- `lot-start / A3` — a merge was missed.\n\n'
+      else
+        printf 'None.\n\n'
+      fi
+    done
+  } > "$1/docs/audits/lot-$2-friction.md"
+}
+
+D="$COVWORK/friction-none"; mkdir -p "$D"
+assert_eq "1" "$(friction_run "$D" "22" 22)" "a lot at the threshold without its friction file fails"
+assert_eq "0" "$(friction_run "$D" "21" 22)" "a lot below the threshold is not checked"
+assert_eq "1" "$(friction_run "$D" "22b" 22)" "a lettered lot is compared on its number"
+friction_file "$D" 22
+assert_eq "0" "$(friction_run "$D" "22" 22)" "five sections, None. included, pass"
+friction_file "$D" 22 lot-audit
+assert_eq "1" "$(friction_run "$D" "22" 22)" "a missing section fails"
+friction_file "$D" 22 "" lot-ship
+assert_eq "1" "$(friction_run "$D" "22" 22)" "a bare heading as the last section fails"
+friction_file "$D" 22 "" lot-test
+assert_eq "1" "$(friction_run "$D" "22" 22)" "a bare heading between two sections fails"
+friction_file "$D" 22
+friction_file "$D" 23
+assert_eq "0" "$(friction_run "$D" "22 23" 22)" "every lot of a range is checked, and passes"
+rm "$D/docs/audits/lot-23-friction.md"
+assert_eq "1" "$(friction_run "$D" "22 23" 22)" "one lot of a range without its file fails"
+assert_eq "1" "$(friction_run "$D" "22" "lot-22")" "a threshold that is not a number fails loudly"
+
+# --- the harness and the caller template wire the threshold ---------------
+assert_ok "the caller template exposes friction_from_lot" -- \
+  grep -qF 'friction_from_lot:' "$TPL/ci-caller.yml"
+assert_ok "the harness CI requires the friction file from lot 22" -- \
+  grep -qF 'friction_from_lot: "22"' "$WF/ci.yml"
 
 finish

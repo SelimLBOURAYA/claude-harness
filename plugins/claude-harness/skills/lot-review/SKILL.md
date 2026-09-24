@@ -84,14 +84,19 @@ Every `git` and `gh` command below therefore carries `-C "$REVIEW_REPO"` /
 | Situation | Target |
 |---|---|
 | The lot's PR is already open (a previous turn ran `lot-ship`) | The PR number |
-| No PR yet | The local diff `develop...HEAD` |
+| No PR yet | The local diff `origin/develop...HEAD` |
+
+The base is `origin/develop`, fetched first, never the local `develop`: the
+local branch only moves on a `git pull` made on it, and a stale one puts every
+lot merged since into the diff as if this lot had written it.
 
 ```bash
 git -C "$REVIEW_REPO" rev-parse --show-toplevel   # confirms the target repo
+git -C "$REVIEW_REPO" fetch -q origin develop
 # `gh` resolves the repository from the *current* directory, never from a `git
 # -C`: run it inside $REVIEW_REPO, or it answers about another repository's PR.
 (cd "$REVIEW_REPO" && gh pr view --json number,url,headRefName) 2>/dev/null
-rtk proxy git -C "$REVIEW_REPO" log --first-parent develop..HEAD --oneline
+rtk proxy git -C "$REVIEW_REPO" log --first-parent origin/develop..HEAD --oneline
 ```
 
 Read the lot's section in the `Lots file` so the review is against the lot's
@@ -142,7 +147,7 @@ Write **`docs/audits/lot-N-review.md`**:
 
 **Harness ref:** [short SHA of the claude-harness clone]
 **Model:** [the model that ran this review]
-**Target:** PR #NN / local diff develop...HEAD
+**Target:** PR #NN / local diff origin/develop...HEAD
 **Reviewed at:** [short SHA of HEAD when the review ran]
 **Fix commit:** [short SHA, or "none needed"]
 **Verdict:** Clean / Fixed / Findings deferred
@@ -174,13 +179,18 @@ system, and `lot-audit` (step 0) compares the **Reviewed at** SHA against `HEAD`
 2. If `docs/audits/lot-N-review.md` is new, or its role changed, add it to the
    `## Project documents` census of `CLAUDE.md`, and copy `CLAUDE.md` to
    `AGENTS.md` byte for byte (section 12).
-3. Commit the report **alone**, in the lot's scope:
+3. Append the `## lot-review` section to `docs/audits/lot-N-friction.md`, in the
+   format of `CONVENTIONS.md` §13 (« Friction »): what, in running **this
+   skill**, failed, came back empty, was ambiguous or cost for nothing. Each
+   entry opens with its key, `` `lot-review / <step>` ``. Nothing to record →
+   `None.` Findings about the lot's code stay in the report, not here.
+4. Commit the report with that section and nothing else, in the lot's scope:
 
    ```
    docs(N): add the lot review report
    ```
 
-4. Do not push: the push belongs to `lot-ship`.
+5. Do not push: the push belongs to `lot-ship`.
 
 A deliverable left uncommitted is how a reviewed lot reaches its PR with no trace
 of the review, and how the audit after it compares a SHA to a file that is not in

@@ -147,6 +147,29 @@ assert_ok "lot-review checks ANTHROPIC_BASE_URL as section 14 claims" -- \
   grep -qF 'ANTHROPIC_BASE_URL' \
   "$REPO_ROOT/plugins/claude-harness/skills/lot-review/SKILL.md"
 
+# --- section 15: what a concise answer never cuts (lot 21) ---------------
+assert_ok "section 15 carries the completeness floor" -- \
+  grep -qF '**The completeness floor.**' "$C"
+# The floor is placed before the length rules and declared above them: a floor
+# listed after "no recap" reads as one more thing to trim.
+s15=$(sed -n '/^## 15[.] /,$p' "$C")
+floor_line=$(printf '%s\n' "$s15" | grep -nF '**The completeness floor.**' | cut -d: -f1)
+recap_line=$(printf '%s\n' "$s15" | grep -nF '**No preamble, no recap' | cut -d: -f1)
+assert_ok "the floor comes before the length rules" -- \
+  test "${floor_line:-99}" -lt "${recap_line:-0}"
+assert_ok "the floor wins over the length rules" -- \
+  grep -qF 'this list wins' "$C"
+for item in 'failures and bad news' 'assumptions made' 'skipped or left undone' \
+            'change the next action' 'must act on'; do
+  assert_contains "$s15" "$item" "the floor keeps: $item"
+done
+# The deepseek card carries the same floor, ranked above OUT-1.
+CARD="$REPO_ROOT/plugins/claude-harness/rules/deepseek.json"
+assert_eq "OUT-0 OUT-1" "$(jq -r '[.rules[].id | select(startswith("OUT-"))] | join(" ")' "$CARD")" \
+  "the deepseek card lists the floor before the length rule"
+assert_contains "$(jq -r '.rules[] | select(.id=="OUT-0") | .rule' "$CARD")" \
+  'wins over OUT-1' "the deepseek floor wins over OUT-1"
+
 # --- the master is English only (section 11 applies to itself) -----------
 assert_eq "" "$(grep -cE '\b(le |la |les |une |des |dans |pour |avec )' "$C" \
   | grep -v '^0$' || true)" \

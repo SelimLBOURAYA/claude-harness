@@ -243,4 +243,103 @@ assert_eq deny "$(guard)" "incident: src/ is locked before the confirmation"
 jq -nc --arg d "$I" '{prompt:"lot-start confirm 2", cwd:$d}' | bash "$HOOKS/lot-confirm.sh" >/dev/null
 assert_eq pass "$(guard)" "incident: src/ opens once the user typed lot-start confirm 2"
 
+
+# --- 9. a lot merged by rebase: its audit commit on develop closes the row --
+# commit_on <repo> <subject> : one first-parent commit on develop, as a rebase
+# merge of the lot pull request leaves it (no merge commit at all).
+commit_on() {
+  printf '%s\n' "$2" >> "$1/src/rebased.txt"
+  git -C "$1" add -A
+  git -C "$1" commit -qm "$2"
+}
+R=$(new_repo rebased <<'EOF'
+# Lots
+
+| Lot | Branche | Statut |
+|---|---|---|
+| 5 | `feat/lot-5-…` | 🔄 |
+| 6 | `feat/lot-6-…` | ⬜ |
+
+## LOT 5 — Five 🔄
+
+## LOT 6 — Six ⬜
+EOF
+)
+commit_on "$R" "feat(5): the work"
+out=$(sync "$R"); rc=$?
+assert_eq 0 "$rc" "rebased: exit 0"
+assert_eq "0" "$(field "$out" '.updates | length')" "rebased: no audit commit yet, the lot stays open"
+assert_eq "5" "$(field "$out" '.in_progress[0]')" "rebased: lot 5 still in progress"
+commit_on "$R" "docs(5): add the lot audit report"
+audit_sha=$(git -C "$R" rev-parse --short HEAD)
+out=$(sync "$R" --apply); rc=$?
+assert_eq 0 "$rc" "rebased: apply exits 0"
+assert_eq "5" "$(field "$out" '.updates[0].lot')" "rebased: the audit commit marks lot 5 merged"
+assert_eq "audit" "$(field "$out" '.updates[0].evidence')" "rebased: with the audit commit as evidence"
+assert_eq "6" "$(field "$out" '.candidate')" "rebased: the candidate moves to lot 6"
+assert_ok "rebased: row 5 is done" -- grep -qF '| 5 | `feat/lot-5-…` | ✅ |' "$R/lots.md"
+assert_ok "rebased: heading 5 is done" -- grep -qx '## LOT 5 — Five ✅' "$R/lots.md"
+assert_ok "rebased: the note cites the audit commit" -- \
+  grep -qF "(commit d'audit \`$audit_sha\`)" "$R/lots.md"
+git -C "$R" commit -qam "docs: sync lots file status"
+out=$(sync "$R" --apply); rc=$?
+assert_eq "0 false" "$rc $(field "$out" '.changed')" "rebased: a second run changes nothing"
+
+# --- 10. sub-lots listed in the row close one by one, then the row --------
+S=$(new_repo sublots <<'EOF'
+# Lots
+
+| Lot | Branche | Statut | Objet |
+|---|---|---|---|
+| 3 | `feat/lot-3-…` | 🔄 | Media (3.1 ✅, 3.2 🔄, 3.3 ⬜) |
+| 4 | `feat/lot-4-…` | ⬜ | Next |
+
+## LOT 3 — Media
+
+### LOT-3.1 — Storage ✅
+
+### LOT-3.2 — Endpoints 🔄
+
+### LOT-3.3 — Robustness ⬜
+
+## LOT 4 — Next ⬜
+EOF
+)
+commit_on "$S" "docs(3.1): add the lot audit report"
+commit_on "$S" "docs(3.2): add the lot audit report"
+out=$(sync "$S" --apply); rc=$?
+assert_eq 0 "$rc" "sub-lots: exit 0"
+assert_eq "3.2" "$(field "$out" '.sub_updates[0].lot')" "sub-lots: 3.2 is marked merged"
+assert_eq "0" "$(field "$out" '.updates | length')" "sub-lots: row 3 stays open while 3.3 is pending"
+assert_ok "sub-lots: the row marks 3.2 done" -- grep -qF '(3.1 ✅, 3.2 ✅, 3.3 ⬜)' "$S/lots.md"
+assert_ok "sub-lots: row 3 still in progress" -- grep -qF '| 3 | `feat/lot-3-…` | 🔄 |' "$S/lots.md"
+assert_ok "sub-lots: heading 3.2 is done" -- grep -qx '### LOT-3.2 — Endpoints ✅' "$S/lots.md"
+git -C "$S" commit -qam "docs: sync lots file status"
+commit_on "$S" "docs(3.3): add the lot audit report"
+out=$(sync "$S" --apply); rc=$?
+assert_eq "3" "$(field "$out" '.updates[0].lot')" "sub-lots: the last audit closes row 3"
+assert_eq "4" "$(field "$out" '.candidate')" "sub-lots: the candidate moves to lot 4"
+assert_ok "sub-lots: row 3 is done" -- grep -qF '| 3 | `feat/lot-3-…` | ✅ | Media (3.1 ✅, 3.2 ✅, 3.3 ✅) |' "$S/lots.md"
+
+# --- 11. a sub-lot the row does not list is a stop, not a guess -----------
+X=$(new_repo unlisted <<'EOF'
+# Lots
+
+| Lot | Branche | Statut | Objet |
+|---|---|---|---|
+| 3 | `feat/lot-3-…` | 🔄 | Media (3.1 🔄) |
+
+### LOT-3.1 — Storage 🔄
+
+### LOT-3.2 — Endpoints ⬜
+EOF
+)
+commit_on "$X" "docs(3.1): add the lot audit report"
+before=$(sha256sum "$X/lots.md")
+out=$(sync "$X" --apply); rc=$?
+assert_eq 3 "$rc" "unlisted: exit 3"
+assert_eq "ambiguous" "$(field "$out" '.stops[0].kind')" "unlisted: asked, not decided"
+assert_contains "$(field "$out" '.stops[0].detail')" "3.2" "unlisted: the stop names the missing sub-lot"
+assert_eq "$before" "$(sha256sum "$X/lots.md")" "unlisted: nothing written"
+
 finish
