@@ -52,3 +52,12 @@
 - `lot-audit / 2` — `security-review` asks for sub-tasks per finding; with a
   small, fully read surface the analysis ran inline, a deviation the skill does
   not anticipate.
+
+## lot-ship
+- `lot-ship / 2` — the skill assumes the branch still merges into `develop`;
+  `origin/develop` had moved three commits and bumped the plugin to `1.0.1`, so
+  both version fields conflicted. No step says to integrate `develop` before the
+  push. Cost: a merge commit, the conflict resolved by hand to `1.1.0`.
+- `lot-ship / 2b` — the installed plugin (1.0.0) predates this lot, so the
+  loaded skill has no friction step; this section follows the lot's own
+  `SKILL.md`.
