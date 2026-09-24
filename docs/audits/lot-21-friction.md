@@ -41,3 +41,14 @@
 - `lot-review / 5` — the installed plugin (1.0.0) predates this lot, so the
   loaded skill has no friction step; this section was written from
   `CONVENTIONS.md` §13.
+
+## lot-audit
+- `lot-audit / 0` — the review records `Reviewed at` before its own fix commit,
+  so `HEAD` is always ahead of it; the step says "behind HEAD → stop" without
+  exempting the review's fix and report commits. Resolved by the lot 20
+  precedent, not by the skill text.
+- `lot-audit / 1` — the step diffs against the local `develop`, which was stale;
+  `origin/develop` had to be used by hand, as in `lot-review / 1`.
+- `lot-audit / 2` — `security-review` asks for sub-tasks per finding; with a
+  small, fully read surface the analysis ran inline, a deviation the skill does
+  not anticipate.

@@ -140,6 +140,7 @@ Every blocking invariant is also enforced in CI, which is the only agent-agnosti
 | `docs/audits/lot-20-review.md` | Lot 20 code-review report |
 | `docs/audits/lot-20.md` | Lot 20 audit report — security, performance, architecture |
 | `docs/audits/lot-21-review.md` | Lot 21 code-review report |
+| `docs/audits/lot-21.md` | Lot 21 audit report — security, performance, architecture |
 | `docs/audits/lot-21-friction.md` | Lot 21 friction record — what each gate skill's own run cost |
 | `docs/audits/portfolio/p4-meta-harness-2026-09-17-v2.md` | P4 portfolio audit (supersedes the removed morning v1) |
 | `docs/audits/portfolio/p5-harness-cicd-2026-09-17.md` | P5 CI/CD guards audit |
