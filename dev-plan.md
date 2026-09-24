@@ -1292,8 +1292,8 @@ confronté au harnais. Deux manques retenus par l'utilisateur :
    La phrase de clôture de §15 (« these three… ») est mise à jour. Même règle
    reportée dans `rules/deepseek.json`.
 2. **Fichier de friction par lot** (arbitrage 1) : `docs/audits/lot-N-friction.md`,
-   une section par skill du gate — `### lot-start`, `### lot-test`,
-   `### lot-review`, `### lot-audit`, `### lot-ship`. Chaque skill y consigne ce
+   une section par skill du gate — `## lot-start`, `## lot-test`,
+   `## lot-review`, `## lot-audit`, `## lot-ship`. Chaque skill y consigne ce
    qui, dans sa propre exécution, a échoué, est revenu vide, était ambigu ou a
    coûté pour rien, sous une **clé stable** `skill / étape du SKILL.md`, et commite
    sa section avant de rendre la main. `None.` est une valeur valide, une section
@@ -1313,7 +1313,7 @@ confronté au harnais. Deux manques retenus par l'utilisateur :
    un `SKILL.md`.
 4. **Garde CI** (arbitrage 3) : `lot-deliverables.yml` exige
    `docs/audits/lot-N-friction.md`, avec ses cinq sections, à partir du lot fixé
-   par une entrée `friction-from-lot` du workflow, **désactivée par défaut**. Le
+   par une entrée `friction_from_lot` du workflow, **désactivée par défaut**. Le
    harnais l'active à `22` dans sa propre CI ; chaque projet l'active dans son
    `ci-caller.yml` à son prochain lot d'adoption. Un seuil global casserait les 8
    repos à la promotion (numérotations de lots indépendantes) ; un paramètre de
@@ -1354,7 +1354,7 @@ confronté au harnais. Deux manques retenus par l'utilisateur :
 2. `harness-sync` : fenêtre = tous les lots depuis son dernier passage, au moins
    les 3 derniers ; la friction devient des brouillons de lots de correction
    validés par l'utilisateur, avec mesure de l'effet par clé (livrable 3).
-3. Garde CI : dans ce lot, activée repo par repo par `friction-from-lot`
+3. Garde CI : dans ce lot, activée repo par repo par `friction_from_lot`
    (livrable 4).
 
 ### Hors périmètre (suggestions pour un lot ultérieur)
@@ -1367,7 +1367,7 @@ confronté au harnais. Deux manques retenus par l'utilisateur :
   `harness-sync` sait router leurs brouillons, mais ces skills ne tiennent pas de
   section dans `lot-N-friction.md`.
 - `sync-status.py` ne reconnaît pas un lot fusionné par rebase (lot 20) : entrée
-  de friction `lot-start / A3` de ce lot, correction dans un lot dédié.
+  de friction de `lot-start`, étape A3, de ce lot ; correction dans un lot dédié.
 
 ---
 
