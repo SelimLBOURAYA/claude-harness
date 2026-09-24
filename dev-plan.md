@@ -41,6 +41,7 @@
 | 18 | `feat/lot-18-reaudit-fixes` | D – Clôture | Correctifs ouverts par le ré-audit du lot 15 | claude-harness | ✅ |
 | 19 | `feat/lot-19-lot-start-guard` | A – Harness | Cadrage du démarrage : skill `lot-start`, verrou d'écriture, réinjection de l'état au démarrage et après compaction | claude-harness, les 8 repos (via `main`) | ✅ |
 | 20 | `feat/lot-20-plugin-currency` | A – Harness | Fraîcheur du plugin installé : un harnais en retard rend le verrou de lot muet au lieu de le signaler | claude-harness, les 8 repos (via `main`) | 🔄 |
+| 21 | `feat/lot-21-response-floor-friction` | A – Harness | Plancher de complétude dans §15 et remontée de friction des skills vers `harness-sync` | claude-harness, les 8 repos (via `main`) | ⬜ |
 
 Légende des statuts *(P6-D10)* : ⬜ à faire · 🔄 en cours (livré sur la branche, PR non
 mergée) · ✅ mergé sur `develop` · ⏸️ planifié mais dormant · ❄️ gelé.
@@ -1245,6 +1246,99 @@ branche `feat/lot-N-*` accepte les écritures sans confirmation. Correctif :
 - Signature ou vérification cryptographique du contenu du plugin.
 - Rafraîchissement automatique du marketplace par le harnais : une commande qui
   modifie l'installation de l'utilisateur reste une action utilisateur (§4).
+
+---
+
+## LOT 21 — Ce qu'une réponse concise ne coupe jamais, et la friction des skills ⬜
+
+Branche `feat/lot-21-response-floor-friction`, depuis `develop`. Repo touché :
+`claude-harness` ; les 8 repos en héritent à la promotion `develop` → `main`
+(plugin) puis au lot d'adoption suivant (copie de `CONVENTIONS.md`, §12).
+
+### Origine
+
+Relecture du 2026-09-24 d'un retour d'usage publié (« 8 Claude workflow tips »),
+confronté au harnais. Deux manques retenus par l'utilisateur :
+
+1. **§15 dit quoi couper, pas quoi garder.** Les trois règles actuelles (pas de
+   préambule, pas de récap, pas de formule finale) poussent vers le court, sans
+   plancher. Une consigne de concision seule conduit le modèle à enterrer ce qui
+   dérange : échec, étape sautée, hypothèse prise en silence. Risque maximal sous
+   le profil `deepseek`, dont le compte rendu est déjà le témoin le moins fiable
+   (§14).
+2. **Les skills ne remontent pas leur propre friction.** Une consigne ambiguë,
+   une étape qui échoue ou tourne à vide dans un `SKILL.md` n'est aujourd'hui
+   découverte qu'après incident (lots 19 et 20). Rien ne capte, lot après lot, ce
+   qui a coûté pendant l'exécution d'un skill.
+
+### Livrables
+
+1. **Plancher de complétude dans §15** (`CONVENTIONS.md`, master) : une règle qui
+   prime sur toutes les règles de longueur, et dit ce qui est toujours énoncé, tôt
+   et en clair — échecs et mauvaises nouvelles, hypothèses prises, ce qui a été
+   sauté ou laissé non fait, réserves qui changent l'action suivante, ce que
+   l'utilisateur doit faire lui-même. Formulation de départ :
+   > Complete means nothing the user needs is missing, not that everything is
+   > included. Always keep, stated plainly and early: failures, assumptions made,
+   > anything skipped or left undone, caveats that change the next action, and
+   > anything the user must act on. This list wins over every length rule.
+
+   La phrase de clôture de §15 (« these three… ») est mise à jour. Même règle
+   reportée dans `rules/deepseek.json`.
+2. **Section `## Friction` dans les rapports de gate** : `lot-review` et
+   `lot-audit` ajoutent à leur rapport (`docs/audits/lot-N-review.md`,
+   `docs/audits/lot-N.md`) une section `## Friction` — ce qui, dans l'exécution du
+   skill lui-même, a échoué, est revenu vide, était ambigu ou a coûté pour rien,
+   avec l'étape du `SKILL.md` en cause. `None.` est une valeur valide, une section
+   absente ne l'est pas.
+3. **`harness-sync` relit la friction** : nouvelle étape qui lit la section
+   `## Friction` des N derniers rapports et produit, dans son rapport de dérive,
+   une liste de modifications **proposées** aux `SKILL.md` concernés. Proposition
+   seulement : aucun skill ne modifie un `SKILL.md`, l'application reste une
+   décision de l'utilisateur et part dans un lot.
+4. **Garde CI** : `lot-deliverables.yml` exige la section `## Friction` dans les
+   rapports des lots postérieurs à celui-ci (les rapports existants ne sont pas
+   réécrits).
+5. Census, `README.md` et `CLAUDE.md` mis à jour si le contrat des rapports y est
+   décrit.
+
+### Tests (`./tests/run.sh`)
+
+- Fixture rapport sans `## Friction` → `lot-deliverables` rouge ; avec
+  `## Friction` + `None.` → vert ; rapport antérieur au lot 21 → non contrôlé.
+- `rules/deepseek.json` contient la règle de plancher (test de contenu).
+- Invariant existant : `CONVENTIONS.md` reste le master, aucune copie ne diverge
+  dans ce repo.
+
+### Critères de validation
+
+- §15 contient le plancher, placé avant les règles de longueur et déclaré
+  prioritaire sur elles.
+- Un `lot-review` et un `lot-audit` exécutés sur ce lot produisent chacun une
+  section `## Friction`.
+- `harness-sync` sur une fixture de trois rapports avec friction sort une liste de
+  propositions rattachées à un skill et à une étape, sans écrire dans aucun
+  `SKILL.md`.
+- `./tests/run.sh` vert ; gate complet du lot (`lot-test → lot-review → lot-audit
+  → lot-ship`), `lot-review` sous profil `claude`.
+
+### Points à arbitrer en début de lot
+
+1. `lot-test` et `lot-ship` ne produisent pas de rapport : leur friction va-t-elle
+   dans le rapport de `lot-review` (étape suivante), dans la description de PR, ou
+   n'est-elle pas captée ?
+2. Fenêtre de relecture de `harness-sync` : N derniers rapports (N = 3 ?) ou tous
+   les rapports depuis le dernier passage de `harness-sync` ?
+3. Garde CI (livrable 4) : dans ce lot, ou d'abord la section en prose et la garde
+   au lot suivant ?
+
+### Hors périmètre (suggestions pour un lot ultérieur)
+
+- Propagation de `CONVENTIONS.md` dans les 8 repos : elle suit la promotion, dans
+  leur prochain lot d'adoption (§12), pas en commit transverse.
+- `outputStyle` natif de Claude Code : non retenu, redondant avec §15 et
+  contraire aux rapports de gate, longs par nature.
+- Friction des skills propres à un projet (`.claude/skills/`).
 
 ---
 
