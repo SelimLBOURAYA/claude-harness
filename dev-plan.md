@@ -40,8 +40,8 @@
 | 17 | `chore/harness-adoption-reports` | A – Harness | `harness-invariants` refuse un seuil de couverture qui ne mesure rien | claude-harness, les repos adoptés | ✅ |
 | 18 | `feat/lot-18-reaudit-fixes` | D – Clôture | Correctifs ouverts par le ré-audit du lot 15 | claude-harness | ✅ |
 | 19 | `feat/lot-19-lot-start-guard` | A – Harness | Cadrage du démarrage : skill `lot-start`, verrou d'écriture, réinjection de l'état au démarrage et après compaction | claude-harness, les 8 repos (via `main`) | ✅ |
-| 20 | `feat/lot-20-plugin-currency` | A – Harness | Fraîcheur du plugin installé : un harnais en retard rend le verrou de lot muet au lieu de le signaler | claude-harness, les 8 repos (via `main`) | 🔄 |
-| 21 | `feat/lot-21-response-floor-friction` | A – Harness | Plancher de complétude dans §15 et remontée de friction des skills vers `harness-sync` | claude-harness, les 8 repos (via `main`) | ⬜ |
+| 20 | `feat/lot-20-plugin-currency` | A – Harness | Fraîcheur du plugin installé : un harnais en retard rend le verrou de lot muet au lieu de le signaler | claude-harness, les 8 repos (via `main`) |✅ |
+| 21 | `feat/lot-21-response-floor-friction` | A – Harness | Plancher de complétude dans §15 et remontée de friction des skills vers `harness-sync` | claude-harness, les 8 repos (via `main`) | 🔄 |
 
 Légende des statuts *(P6-D10)* : ⬜ à faire · 🔄 en cours (livré sur la branche, PR non
 mergée) · ✅ mergé sur `develop` · ⏸️ planifié mais dormant · ❄️ gelé.
@@ -993,7 +993,13 @@ aussi mécanique que la fin.
 
 ---
 
-## LOT 20 — Fraîcheur du plugin installé 🔄
+## LOT 20 — Fraîcheur du plugin installé ✅
+
+**Mergé** le 2026-09-22 sur `claude-harness` (PR #35, fusion par rebase : `develop`
+porte `f06b364`..`a3df13d`), puis promotion `develop` → `main` (PR #36). Rapports :
+`docs/audits/lot-20-review.md`, `docs/audits/lot-20.md`. Statut resté 🔄 jusqu'au
+2026-09-24 : `sync-status.py` ne reconnaît un lot qu'à son commit de merge et ne
+voit pas une fusion par rebase (première friction relevée par le lot 21).
 
 Branche `feat/lot-20-plugin-currency`, depuis `develop`. Repo touché :
 `claude-harness` ; les 8 repos en héritent à la promotion `develop` → `main`.
@@ -1249,7 +1255,7 @@ branche `feat/lot-N-*` accepte les écritures sans confirmation. Correctif :
 
 ---
 
-## LOT 21 — Ce qu'une réponse concise ne coupe jamais, et la friction des skills ⬜
+## LOT 21 — Ce qu'une réponse concise ne coupe jamais, et la friction des skills 🔄
 
 Branche `feat/lot-21-response-floor-friction`, depuis `develop`. Repo touché :
 `claude-harness` ; les 8 repos en héritent à la promotion `develop` → `main`
@@ -1285,28 +1291,45 @@ confronté au harnais. Deux manques retenus par l'utilisateur :
 
    La phrase de clôture de §15 (« these three… ») est mise à jour. Même règle
    reportée dans `rules/deepseek.json`.
-2. **Section `## Friction` dans les rapports de gate** : `lot-review` et
-   `lot-audit` ajoutent à leur rapport (`docs/audits/lot-N-review.md`,
-   `docs/audits/lot-N.md`) une section `## Friction` — ce qui, dans l'exécution du
-   skill lui-même, a échoué, est revenu vide, était ambigu ou a coûté pour rien,
-   avec l'étape du `SKILL.md` en cause. `None.` est une valeur valide, une section
-   absente ne l'est pas.
-3. **`harness-sync` relit la friction** : nouvelle étape qui lit la section
-   `## Friction` des N derniers rapports et produit, dans son rapport de dérive,
-   une liste de modifications **proposées** aux `SKILL.md` concernés. Proposition
-   seulement : aucun skill ne modifie un `SKILL.md`, l'application reste une
-   décision de l'utilisateur et part dans un lot.
-4. **Garde CI** : `lot-deliverables.yml` exige la section `## Friction` dans les
-   rapports des lots postérieurs à celui-ci (les rapports existants ne sont pas
-   réécrits).
+2. **Fichier de friction par lot** (arbitrage 1) : `docs/audits/lot-N-friction.md`,
+   une section par skill du gate — `### lot-start`, `### lot-test`,
+   `### lot-review`, `### lot-audit`, `### lot-ship`. Chaque skill y consigne ce
+   qui, dans sa propre exécution, a échoué, est revenu vide, était ambigu ou a
+   coûté pour rien, sous une **clé stable** `skill / étape du SKILL.md`, et commite
+   sa section avant de rendre la main. `None.` est une valeur valide, une section
+   absente ne l'est pas. Un fichier plutôt qu'une section des rapports de revue et
+   d'audit : l'arrêt de §14 coupe la session entre `lot-test` et `lot-review`, et
+   une friction qui n'est pas écrite est perdue. `lot-ship` écrit sa section avant
+   le push final ; ce qui échoue après le push va dans la description de la PR.
+3. **`harness-sync` relit la friction et propose des lots de correction**
+   (arbitrage 2) : nouvelle étape qui lit les fichiers de friction de **tous les
+   lots depuis son dernier passage, et au moins des 3 derniers**, regroupe les
+   entrées par clé, et produit dans son rapport des **brouillons de lots de
+   correction**. Un brouillon n'entre dans un fichier de lots qu'après validation de
+   l'utilisateur : skill du plugin → `claude-harness/dev-plan.md`, skill propre au
+   projet → le fichier de lots du projet. Un lot de correction cite les clés qu'il
+   traite ; une clé qui réapparaît dans un fichier de friction postérieur au merge
+   de sa correction est signalée « correction inefficace ». Aucun skill ne modifie
+   un `SKILL.md`.
+4. **Garde CI** (arbitrage 3) : `lot-deliverables.yml` exige
+   `docs/audits/lot-N-friction.md`, avec ses cinq sections, à partir du lot fixé
+   par une entrée `friction-from-lot` du workflow, **désactivée par défaut**. Le
+   harnais l'active à `22` dans sa propre CI ; chaque projet l'active dans son
+   `ci-caller.yml` à son prochain lot d'adoption. Un seuil global casserait les 8
+   repos à la promotion (numérotations de lots indépendantes) ; un paramètre de
+   gate dans `CLAUDE.md` aussi (`harness-invariants` exige toutes les lignes).
 5. Census, `README.md` et `CLAUDE.md` mis à jour si le contrat des rapports y est
    décrit.
 
 ### Tests (`./tests/run.sh`)
 
-- Fixture rapport sans `## Friction` → `lot-deliverables` rouge ; avec
-  `## Friction` + `None.` → vert ; rapport antérieur au lot 21 → non contrôlé.
+- `lot-deliverables` : entrée absente → fichier de friction non exigé ; lot ≥ seuil
+  sans fichier → rouge ; fichier avec une section manquante → rouge ; cinq
+  sections dont `None.` → vert ; lot < seuil → non contrôlé.
 - `rules/deepseek.json` contient la règle de plancher (test de contenu).
+- Les cinq `SKILL.md` du gate nomment le fichier de friction et leur section ;
+  `harness-sync` nomme la fenêtre (depuis le dernier passage, au moins 3) et
+  l'interdiction d'écrire un `SKILL.md`.
 - Invariant existant : `CONVENTIONS.md` reste le master, aucune copie ne diverge
   dans ce repo.
 
@@ -1314,23 +1337,25 @@ confronté au harnais. Deux manques retenus par l'utilisateur :
 
 - §15 contient le plancher, placé avant les règles de longueur et déclaré
   prioritaire sur elles.
-- Un `lot-review` et un `lot-audit` exécutés sur ce lot produisent chacun une
-  section `## Friction`.
-- `harness-sync` sur une fixture de trois rapports avec friction sort une liste de
-  propositions rattachées à un skill et à une étape, sans écrire dans aucun
-  `SKILL.md`.
+- Ce lot produit son propre `docs/audits/lot-21-friction.md`, une section par
+  skill du gate.
+- `harness-sync` sur une fixture de trois fichiers de friction sort des brouillons
+  de lots rattachés à une clé `skill / étape`, sans écrire dans aucun `SKILL.md`
+  ni dans aucun fichier de lots.
 - `./tests/run.sh` vert ; gate complet du lot (`lot-test → lot-review → lot-audit
-  → lot-ship`), `lot-review` sous profil `claude`.
+  → lot-ship`), `lot-review` sous profil `claude`, dans une autre session que le
+  développement.
 
-### Points à arbitrer en début de lot
+### Arbitrages (2026-09-24, avant `lot-start confirm 21`)
 
-1. `lot-test` et `lot-ship` ne produisent pas de rapport : leur friction va-t-elle
-   dans le rapport de `lot-review` (étape suivante), dans la description de PR, ou
-   n'est-elle pas captée ?
-2. Fenêtre de relecture de `harness-sync` : N derniers rapports (N = 3 ?) ou tous
-   les rapports depuis le dernier passage de `harness-sync` ?
-3. Garde CI (livrable 4) : dans ce lot, ou d'abord la section en prose et la garde
-   au lot suivant ?
+1. Friction de `lot-test` et `lot-ship` : captée, avec celle de `lot-start`, dans
+   un fichier par lot (livrable 2) — et non dans le rapport de `lot-review`, que
+   l'arrêt de §14 sépare de `lot-test` par un changement de session.
+2. `harness-sync` : fenêtre = tous les lots depuis son dernier passage, au moins
+   les 3 derniers ; la friction devient des brouillons de lots de correction
+   validés par l'utilisateur, avec mesure de l'effet par clé (livrable 3).
+3. Garde CI : dans ce lot, activée repo par repo par `friction-from-lot`
+   (livrable 4).
 
 ### Hors périmètre (suggestions pour un lot ultérieur)
 
@@ -1338,7 +1363,11 @@ confronté au harnais. Deux manques retenus par l'utilisateur :
   leur prochain lot d'adoption (§12), pas en commit transverse.
 - `outputStyle` natif de Claude Code : non retenu, redondant avec §15 et
   contraire aux rapports de gate, longs par nature.
-- Friction des skills propres à un projet (`.claude/skills/`).
+- Fichier de friction pour les skills propres à un projet (`.claude/skills/`) :
+  `harness-sync` sait router leurs brouillons, mais ces skills ne tiennent pas de
+  section dans `lot-N-friction.md`.
+- `sync-status.py` ne reconnaît pas un lot fusionné par rebase (lot 20) : entrée
+  de friction `lot-start / A3` de ce lot, correction dans un lot dédié.
 
 ---
 
