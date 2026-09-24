@@ -224,8 +224,8 @@ Called with `workflow_call` from each repo's `.github/workflows/ci.yml`. Start f
 
 ## Making the harness consumable
 
-Two repository settings decide whether a consuming repo's `ci.yml` runs at all.
-Both are owner actions, done once, before the first adoption. Until they are
+Two repository settings decide whether a consuming repo's `ci.yml` runs at all,
+and a third lets the harness keep their `CONVENTIONS.md` current. All are owner actions, done once, before the first adoption. Until they are
 done, every caller fails on its first push — not with a conventions diff, with a
 checkout or a workflow-resolution error.
 
@@ -251,8 +251,7 @@ with **Contents: Read-only**, then publish it under the name the caller template
 expects:
 
 ```bash
-for r in kreadevis kreadevis-frontend meal-planner-backend meal-planner-frontend \
-         elya elya-frontend summerize-youtube deployment; do
+for r in $(jq -r '.projects[]' projects.json); do
   gh secret set HARNESS_READ_TOKEN --repo "SelimLBOURAYA/$r" --body "$TOKEN"
 done
 ```
@@ -265,8 +264,7 @@ above does not fill. Publish the token there too, or the master stays out of
 reach on every dependency PR:
 
 ```bash
-for r in kreadevis kreadevis-frontend meal-planner-backend meal-planner-frontend \
-         elya elya-frontend summerize-youtube deployment; do
+for r in $(jq -r '.projects[]' projects.json); do
   gh secret set HARNESS_READ_TOKEN --app dependabot --repo "SelimLBOURAYA/$r" --body "$TOKEN"
 done
 ```
@@ -276,6 +274,24 @@ the pull request leaves `CONVENTIONS.md` untouched, the step logs a warning and
 carries over the verification that ran on the base branch. It still fails when
 the change edits `CONVENTIONS.md`, and outside a pull request, where the secret
 was available and its absence is a real fault.
+
+**3. Let the harness open the sync pull requests.** The portfolio is listed once,
+in [`projects.json`](projects.json). When `CONVENTIONS.md` (or that list) changes
+on `main`, `.github/workflows/sync-projects.yml` opens or refreshes one pull
+request per listed project — branch `chore/sync-harness-files`, base `develop` —
+and closes a leftover one once the project has caught up. It never merges: you do.
+It can also be run by hand (**Actions → sync-projects → Run workflow**, optionally
+naming some projects). It needs a fine-grained personal access token limited to the
+listed repositories with **Contents: Read and write** and **Pull requests: Read and
+write**, stored on the harness only:
+
+```bash
+gh secret set HARNESS_SYNC_TOKEN --repo SelimLBOURAYA/claude-harness --body "$TOKEN"
+```
+
+A new project joins the token's repository list and `projects.json` in the same
+step (`bootstrap-project`, step 5). Like the read token, put its expiry in a
+calendar reminder: once it lapses, the next master change turns every project red.
 
 ## Development
 
