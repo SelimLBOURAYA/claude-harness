@@ -18,3 +18,15 @@
 - `lot-start / B2` — the step that opens this file did not exist yet when lot 21
   was confirmed (this lot adds it): the section was written after the
   development commits instead of right after the sync commit.
+
+## lot-test
+- `lot-test / 2` — the skill selects its rules by `Stack`, with a backend and a
+  frontend branch only; `Stack = harness` (shell and Python suites, fixture
+  repositories, workflow steps extracted and executed) has no branch, so the
+  matrix was built from the lot's criteria alone.
+- `lot-test / 3.1` — `Coverage tool` is `none` and the threshold `n/a`: the
+  « open the coverage report and look at it » step has nothing to open, and the
+  skill does not say what stands in for it on an uninstrumented stack.
+- `lot-test / 5` — the installed plugin (1.0.0) predates this lot, so the loaded
+  skill had no friction step; the section was written from the lot's own
+  `SKILL.md`. Inherent to a lot that changes the gate it runs under.
