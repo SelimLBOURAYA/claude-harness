@@ -1,0 +1,17 @@
+{
+  "owner": "SelimLBOURAYA",
+  "base_branch": "develop",
+  "synced_files": [
+    "CONVENTIONS.md"
+  ],
+  "projects": [
+    "deployment",
+    "elya",
+    "elya-frontend",
+    "kreadevis",
+    "kreadevis-frontend",
+    "meal-planner-backend",
+    "meal-planner-frontend",
+    "summerize-youtube"
+  ]
+}
