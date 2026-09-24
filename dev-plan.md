@@ -1303,7 +1303,7 @@ confronté au harnais. Deux manques retenus par l'utilisateur :
    le push final ; ce qui échoue après le push va dans la description de la PR.
 3. **`harness-sync` relit la friction et propose des lots de correction**
    (arbitrage 2) : nouvelle étape qui lit les fichiers de friction de **tous les
-   lots depuis son dernier passage, et au moins des 3 derniers**, regroupe les
+   lots portant une clé ouverte ou inefficace, et au moins des 3 derniers**, regroupe les
    entrées par clé, et produit dans son rapport des **brouillons de lots de
    correction**. Un brouillon n'entre dans un fichier de lots qu'après validation de
    l'utilisateur : skill du plugin → `claude-harness/dev-plan.md`, skill propre au
@@ -1328,7 +1328,7 @@ confronté au harnais. Deux manques retenus par l'utilisateur :
   sections dont `None.` → vert ; lot < seuil → non contrôlé.
 - `rules/deepseek.json` contient la règle de plancher (test de contenu).
 - Les cinq `SKILL.md` du gate nomment le fichier de friction et leur section ;
-  `harness-sync` nomme la fenêtre (depuis le dernier passage, au moins 3) et
+  `harness-sync` nomme la fenêtre (clés ouvertes ou inefficaces, au moins 3) et
   l'interdiction d'écrire un `SKILL.md`.
 - Invariant existant : `CONVENTIONS.md` reste le master, aucune copie ne diverge
   dans ce repo.
@@ -1351,9 +1351,13 @@ confronté au harnais. Deux manques retenus par l'utilisateur :
 1. Friction de `lot-test` et `lot-ship` : captée, avec celle de `lot-start`, dans
    un fichier par lot (livrable 2) — et non dans le rapport de `lot-review`, que
    l'arrêt de §14 sépare de `lot-test` par un changement de session.
-2. `harness-sync` : fenêtre = tous les lots depuis son dernier passage, au moins
-   les 3 derniers ; la friction devient des brouillons de lots de correction
-   validés par l'utilisateur, avec mesure de l'effet par clé (livrable 3).
+2. `harness-sync` : fenêtre = tous les lots portant une clé ouverte ou
+   inefficace, au moins les 3 derniers ; la friction devient des brouillons de
+   lots de correction validés par l'utilisateur, avec mesure de l'effet par clé
+   (livrable 3). Amendé le 2026-09-24 après la revue du lot 21 (constat 9) : la
+   fenêtre initiale « depuis son dernier passage » supposait une trace du dernier
+   passage que `harness-sync` ne conserve pas ; une clé encore vivante reste dans
+   la fenêtre quel que soit son âge.
 3. Garde CI : dans ce lot, activée repo par repo par `friction_from_lot`
    (livrable 4).
 
