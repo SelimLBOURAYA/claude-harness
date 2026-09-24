@@ -30,3 +30,14 @@
 - `lot-test / 5` — the installed plugin (1.0.0) predates this lot, so the loaded
   skill had no friction step; the section was written from the lot's own
   `SKILL.md`. Inherent to a lot that changes the gate it runs under.
+
+## lot-review
+- `lot-review / 1` — the target `develop...HEAD` read the local `develop`, which
+  was behind `origin/develop` and still lacked lot 20: the diff showed 39 files
+  instead of 23. The skill never fetches nor names the remote branch. Cost: one
+  wrong diff read, the target switched to `origin/develop...HEAD` by hand.
+- `lot-review / 2` — no PR is open before `lot-ship`, so `--comment` has nothing
+  to post to on every lot that follows the gate order; only `--fix` ran.
+- `lot-review / 5` — the installed plugin (1.0.0) predates this lot, so the
+  loaded skill has no friction step; this section was written from
+  `CONVENTIONS.md` §13.
