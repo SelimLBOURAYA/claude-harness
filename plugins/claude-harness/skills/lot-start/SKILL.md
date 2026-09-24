@@ -76,11 +76,19 @@ The script ships next to this file. Agents that do not load plugins run it from
 the harness clone:
 `~/ENV/projets/claude-harness/plugins/claude-harness/skills/lot-start/sync-status.py`.
 
-It maps every merge on develop to its lot by branch name, and prints JSON:
+It maps every merge on develop to its lot by branch name, and prints JSON.
+A lot merged **without** a merge commit (rebase or squash, the usual GitHub
+setting) leaves no branch name on develop; its audit commit
+`docs(N): add the lot audit report`, which `lot-ship` requires before any push,
+is taken as the proof instead. So a row left 🔄 by the previous lot is closed
+here as soon as its pull request is merged. A row that lists its sub-lots
+(`3.1 ✅, 3.3 🔄`) has each landed sub-lot marked, and turns ✅ once the last one
+landed.
 
 | Field | Meaning |
 |---|---|
 | `updates` | Lots merged on develop whose row is not ✅ yet: the table is stale |
+| `sub_updates` | Sub-lots listed in a 🔄 row whose audit commit is on develop |
 | `stops` | What you must **ask**, never decide |
 | `in_progress` | Rows marked 🔄 |
 | `candidate` | First ⬜ row in file order, ⏸️ and ❄️ skipped, **after** the updates |
@@ -91,7 +99,7 @@ Every other case is in `stops` and exits 3:
 
 | `kind` | Situation | What you do |
 |---|---|---|
-| `ambiguous` | Sub-lots (`2.1`, `2.2`) on one flat `feat/lot-2-*` branch, or a branch shared by several open rows | Ask which lots the merge completes |
+| `ambiguous` | Sub-lots (`2.1`, `2.2`) on one flat `feat/lot-2-*` branch, a branch shared by several open rows, or a sub-lot audit landed while the lots file names a sub-lot the row does not list | Ask which lots the merge completes |
 | `done-without-merge` | A row is ✅ but develop has neither its merge nor a commit scoped to it | Ask whether the status is wrong or the lot shipped another way |
 | `merge-without-lot` | A lot-shaped branch was merged but no row maps to it | Ask which row it belongs to |
 | `scope-already-merged` | The candidate is ⬜ but develop already carries commits scoped to it | Ask whether it is done, partly done, or mislabelled |
