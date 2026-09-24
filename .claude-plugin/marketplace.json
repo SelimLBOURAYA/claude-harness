@@ -6,14 +6,14 @@
   },
   "metadata": {
     "description": "Central agentic harness for the SelimLBOURAYA portfolio: lot gate skills, git guard hooks and reusable CI workflows.",
-    "version": "1.0.0"
+    "version": "1.0.1"
   },
   "plugins": [
     {
       "name": "claude-harness",
       "source": "./plugins/claude-harness",
       "description": "Lot gate skills (lot-test, lot-review, lot-audit, lot-ship), git guard and CLAUDE/AGENTS mirror hooks.",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "author": {
         "name": "SelimLBOURAYA"
       },
