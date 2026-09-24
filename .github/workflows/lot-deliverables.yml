@@ -21,6 +21,11 @@ on:
         required: false
         type: boolean
         default: true
+      friction_from_lot:
+        description: "First lot that must ship docs/audits/lot-N-friction.md (CONVENTIONS.md section 13); empty = not required yet"
+        required: false
+        type: string
+        default: ""
 
 permissions:
   contents: read
@@ -101,6 +106,44 @@ jobs:
           done
           exit $status
 
+      - name: Each lot from the threshold ships its friction file
+        if: steps.lots.outputs.list != '' && inputs.friction_from_lot != ''
+        env:
+          LOTS: ${{ steps.lots.outputs.list }}
+          FROM: ${{ inputs.friction_from_lot }}
+        run: |
+          # Lot numbers are per repository, so the threshold is too: each caller
+          # sets it when it adopts the friction record, and nothing breaks at the
+          # promotion of the harness (lot 21).
+          if ! printf '%s' "$FROM" | grep -qE '^[0-9]+$'; then
+            echo "::error::friction_from_lot must be a lot number, got '$FROM'"
+            exit 1
+          fi
+          status=0
+          for n in $LOTS; do
+            base=${n%%[a-z]}
+            [ "$base" -ge "$FROM" ] || continue
+            f="docs/audits/lot-$n-friction.md"
+            if [ ! -f "$f" ]; then
+              echo "::error::$f is missing: the gate skills of lot $n did not record their friction"
+              status=1
+              continue
+            fi
+            # One section per gate skill, and a section says something: an
+            # entry, or None. A bare heading is a skill that did not record.
+            for skill in lot-start lot-test lot-review lot-audit lot-ship; do
+              body=$(awk -v h="## $skill" '
+                $0 ~ /^## / { inside = ($0 == h || $0 ~ "^" h "[ \t]+$"); if (inside) found = 1; next }
+                inside && NF { print; exit }
+                END { if (!found) print "__missing__" }' "$f")
+              case "$body" in
+                __missing__) echo "::error file=$f::$f has no '## $skill' section"; status=1 ;;
+                "") echo "::error file=$f::the '## $skill' section of $f is empty; write None. when there is nothing to record"; status=1 ;;
+              esac
+            done
+          done
+          exit $status
+
       - name: The branch stays inside the lots it declares
         if: steps.lots.outputs.list != '' && (github.event_name == 'pull_request' || github.event_name == 'pull_request_target')
         env:
@@ -119,7 +162,7 @@ jobs:
             # lot report: it belongs to every frontend branch, whatever it declares.
             case "$f" in */lot-0-integration.md) continue ;; esac
 
-            n=$(basename "$f" .md | sed -E 's/^lot-([0-9]+[a-z]?)(-review)?$/\1/')
+            n=$(basename "$f" .md | sed -E 's/^lot-([0-9]+[a-z]?)(-review|-friction)?$/\1/')
             # seq only produces plain integers, so lot 2b never appears in a
             # range that covers it. A suffixed lot belongs to the range holding
             # its number.

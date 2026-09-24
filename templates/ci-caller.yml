@@ -58,6 +58,10 @@ jobs:
     with:
       stack: "{{STACK}}"                    # Gate parameters: Stack
       lots_file: "{{LOTS_FILE}}"
+      # First lot that must ship docs/audits/lot-N-friction.md (CONVENTIONS.md
+      # section 13). "0" for a new repository; a repository adopting the friction
+      # record mid-way sets the number of its next lot, never a past one.
+      friction_from_lot: "0"
 
   migrations-immutable:
     uses: SelimLBOURAYA/claude-harness/.github/workflows/migrations-immutable.yml@main

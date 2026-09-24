@@ -3,8 +3,9 @@ name: ci
 # The harness running its own gate. Only the workflows that apply to a repo that
 # IS the harness: harness-invariants compares CONVENTIONS.md against the master
 # at ref main, which here would compare this repo to itself at a ref that does
-# not carry it yet, and lot-deliverables expects a consuming project's layout.
-# Both are exercised by the consuming repos instead.
+# not carry it yet, so the consuming repos exercise it instead. lot-deliverables
+# runs here since lot 21: the harness writes the same reports as any project,
+# and its own friction record starts at lot 22.
 
 on:
   push:
@@ -25,6 +26,13 @@ jobs:
 
   branch-naming:
     uses: ./.github/workflows/branch-naming.yml
+
+  lot-deliverables:
+    uses: ./.github/workflows/lot-deliverables.yml
+    with:
+      stack: harness
+      lots_file: dev-plan.md
+      friction_from_lot: "22"
 
   # The harness is the one repository that can exercise the `harness` branch of
   # lint.yml on real code today: `deployment` and `summerize-youtube` still have
