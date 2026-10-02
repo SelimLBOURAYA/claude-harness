@@ -42,6 +42,7 @@
 | 19 | `feat/lot-19-lot-start-guard` | A – Harness | Cadrage du démarrage : skill `lot-start`, verrou d'écriture, réinjection de l'état au démarrage et après compaction | claude-harness, les 8 repos (via `main`) | ✅ |
 | 20 | `feat/lot-20-plugin-currency` | A – Harness | Fraîcheur du plugin installé : un harnais en retard rend le verrou de lot muet au lieu de le signaler | claude-harness, les 8 repos (via `main`) |✅ |
 | 21 | `feat/lot-21-response-floor-friction` | A – Harness | Plancher de complétude dans §15 et remontée de friction des skills vers `harness-sync` | claude-harness, les 8 repos (via `main`) | 🔄 |
+| 22 | `feat/lot-22-friction-fixes` | A – Harness | Correctifs de la friction remontée par elya et elya-frontend, et un seul écrivain de `CONVENTIONS.md` dans les projets | claude-harness, les 8 repos (via `main`) | ⬜ |
 
 Légende des statuts *(P6-D10)* : ⬜ à faire · 🔄 en cours (livré sur la branche, PR non
 mergée) · ✅ mergé sur `develop` · ⏸️ planifié mais dormant · ❄️ gelé.
@@ -1372,6 +1373,141 @@ confronté au harnais. Deux manques retenus par l'utilisateur :
   section dans `lot-N-friction.md`.
 - `sync-status.py` ne reconnaît pas un lot fusionné par rebase (lot 20) : entrée
   de friction de `lot-start`, étape A3, de ce lot ; correction dans un lot dédié.
+
+---
+
+## LOT 22 — Correctifs de friction et un seul écrivain de `CONVENTIONS.md` ⬜
+
+Branche `feat/lot-22-friction-fixes`, depuis `develop`. Repo touché :
+`claude-harness` ; les 8 repos en héritent à la promotion `develop` → `main`.
+
+### Origine
+
+Revue du 2026-10-02, en deux temps :
+
+1. **Deux écrivains de `CONVENTIONS.md`.** Depuis le workflow `sync-projects`,
+   la copie de `CONVENTIONS.md` dans un projet n'est écrite que par sa PR
+   `chore/sync-harness-files` (§12, point 3). Pourtant `harness-sync` dit encore
+   de la « recopier » (`SKILL.md`, étape 4), contre le clone local qui peut être
+   sur une branche non promue (invariant 2), et le message d'erreur de
+   `harness-invariants.yml` dit « Re-copy it ».
+2. **Premiers fichiers de friction du lot 21**, relus : elya `lot-5-friction.md`,
+   elya-frontend `lot-2-friction.md` et `lot-3-friction.md`. Toutes ont été
+   produites par le harnais actuel (`main` = `develop` = `30b4930`, copie
+   installée) : aucune n'est déjà corrigée en attente de promotion.
+
+Clés de friction traitées (CONVENTIONS §13) : `lot-start / A3`, `lot-start / B1`,
+`lot-start / A6`, `lot-start / B3`, `lot-test / 1`, `lot-test / 2`,
+`lot-test / 3.1`, `lot-review / 1`, `lot-review / 2`, `lot-review / 4`,
+`lot-audit / 0`, `lot-audit / 2`, `lot-audit / 4`, `lot-audit / 7`,
+`lot-audit / Rules`.
+
+### Livrables
+
+1. **Un seul écrivain de `CONVENTIONS.md`** :
+   - `harness-sync`, tableau des fichiers gérés et étape 4 : la skill n'écrit
+     jamais `CONVENTIONS.md`. Elle signale l'écart et sa résolution : merger la
+     PR `chore/sync-harness-files` ouverte, sinon relancer
+     `gh workflow run sync-projects.yml --repo SelimLBOURAYA/claude-harness -f projects=<projet>`.
+   - `harness-sync`, invariant 2 : comparaison contre `origin/main` fetché du
+     clone, pas contre son working tree ; sans objet dans `claude-harness`, qui
+     porte le master.
+   - `harness-invariants.yml` : le message d'erreur renvoie vers la PR de synchro
+     et le workflow au lieu de « Re-copy it ».
+   - Checklist de `lot-audit` (`lot-audit / 4`, EF 2) : même comparaison contre
+     `origin/main` fetché.
+2. **Diff contre `origin/develop` fetché dans `lot-test`** (`lot-test / 1`,
+   elya 5) : le `develop` local périmé listait 92 fichiers au lieu de 23. Même
+   correction que f6dc183 pour `lot-review` et `lot-audit`.
+3. **Upstream des branches de lot** (`lot-review / 1`, elya 5, EF 2, EF 3) :
+   `git switch -c feat/lot-N-… origin/develop` règle l'upstream de la branche sur
+   `develop`, et `gh pr view` sans argument cherche alors une PR de tête
+   `develop` — pendant une promotion ouverte, il trouverait la PR de promotion.
+   `lot-start` A6 crée la branche avec `--no-track` ; `lot-review` étape 1 nomme
+   la branche à `gh pr view`.
+4. **Sous-tickets absents de la ligne** (`lot-start / A3`, `B1`, elya 5 ;
+   arbitrage 2) : dès que le `Lots file` contient un titre `Ticket LOT-N.M`, la
+   ligne N doit lister tous ses sous-lots (`5.1 ✅, 5.2 ❄️, 5.3 🔄`).
+   Sinon `sync-status.py` s'arrête sur un stop `unlisted-subticket`, au lieu de
+   passer la ligne ✅ et de proposer le lot suivant.
+5. **`lot-review` sans `--comment`** (`lot-review / 2`, elya 5 ×2, EF 2 ;
+   arbitrage 3) : aucune PR n'existe au moment de la revue, l'option ne fait
+   jamais rien. Retirée, avec la section « Inline comments posted » du modèle ;
+   le rapport `lot-N-review.md` est la trace. Description de la skill alignée
+   (`CLAUDE.md`, `AGENTS.md`, `README.md`, squelette `templates/project/`).
+6. **Fork `code-review --fix`** (`lot-review / 2`, EF 2, EF 3, elya 5) : rien
+   n'est édité avant le retour du fork ; tout changement hors du diff source du
+   lot est annulé, sauf la ligne de statut du `Lots file` ; les constats qui
+   demandent une décision sont posés à l'utilisateur en un seul lot de questions.
+7. **Deux champs de revue** (`lot-review / 4`, `lot-audit / 0`, elya 5 ×2, EF 2 ;
+   arbitrage 4) : le modèle du rapport porte **Read at** (HEAD lu par la revue)
+   et **Reviewed at** (HEAD après le commit de correctifs, c'est-à-dire le code
+   que l'audit verra). `lot-audit` étape 0 s'arrête si un commit postérieur à
+   **Reviewed at** touche autre chose que `docs/audits/`.
+8. **`security-review` en ligne** (`lot-audit / 2`, elya 5 ×2 ; arbitrage 5) :
+   autorisé sans sous-agent quand le diff du lot tient dans le contexte ; le
+   rapport le dit.
+9. **Fin explicite de `lot-audit`** (`lot-audit / Rules`, elya 5.3) : la skill
+   ne se termine qu'au commit de son rapport ; un retour après l'étape 2 n'est
+   pas une fin.
+10. **Développement enchaîné après la confirmation** (`lot-start / B3`, EF 3,
+    récurrent ; arbitrage 6) : sans question en attente, B3 commence le
+    développement dans le même tour.
+11. **Verrou d'un lot mergé** (`lot-start / A6`, EF 2, EF 3 ; arbitrage 7) :
+    `session-context.sh` supprime `.claude/current-lot` quand le lot qu'il nomme
+    est mergé sur `origin/develop` (ref locale, sans fetch : une ref périmée ne
+    supprime rien). Supprimer le verrou retire un droit et n'en donne aucun ; la
+    règle « seul le prompt de l'utilisateur crée le verrou » est inchangée.
+12. **Harness ref des rapports** (`lot-audit / 7`, EF 2 ; arbitrage 8) : le
+    `gitCommitSha` de la copie installée du plugin (enregistrement le plus
+    récent, comme `plugin-currency.py`), à défaut `origin/main` fetché pour un
+    agent sans plugin. S'applique aux modèles de `lot-review` et `lot-audit`.
+13. **Checklist d'architecture** (`lot-audit / 4`, elya 5 ×2) : « Exactly one
+    `docs/audits/lot-*.md` » contredit le gate ; remplacé par « seuls les
+    livrables du lot N : `lot-N-friction.md`, `lot-N-review.md`, `lot-N.md` ».
+14. **Matrice de `lot-test` côté frontend** (`lot-test / 2`, `3.1`, EF 2) :
+    lignes routes, guards et interceptors ; note sur les loaders lazy, qui ne
+    sont couverts qu'une fois la route parcourue.
+
+### Tests (`./tests/run.sh`)
+
+- `sync-status.py` : fixture avec `Ticket LOT-5.3` non listé dans une ligne
+  dont 5.1 est mergé → stop `unlisted-subticket`, exit 3, ligne non passée ✅ ;
+  ligne listant tous ses sous-lots → comportement actuel.
+- `session-context.sh` : verrou d'un lot mergé sur `origin/develop` → supprimé ;
+  verrou d'un lot non mergé → conservé.
+- Contenu des skills : plus de « re-cop » dans `harness-sync` ni dans
+  `harness-invariants.yml` ; `lot-test` nomme `origin/develop` ; `lot-start` A6
+  porte `--no-track` ; `lot-review` sans `--comment`, avec **Read at** et
+  **Reviewed at** ; checklist sans « Exactly one ».
+- Fixture de friction : les clés du lot sont reconnues par
+  `friction-digest.py`.
+
+### Critères de validation
+
+- Aucun texte du harnais ne demande de recopier `CONVENTIONS.md` à la main.
+- Chaque clé listée dans « Origine » est traitée par un livrable.
+- `./tests/run.sh` vert ; gate complet du lot (`lot-test → lot-review → lot-audit
+  → lot-ship`), `lot-review` sous profil `claude`, dans une autre session que le
+  développement.
+
+### Arbitrages (2026-10-02, avant `lot-start`)
+
+1. Livré comme un lot avec gate complet, pas comme un chore.
+2. Sous-tickets : liste obligatoire dans la ligne, stop `unlisted-subticket`
+   (livrable 4), plutôt qu'une déduction de l'état des tickets, que les commits
+   d'audit scopés `docs(5)` ne permettent pas.
+3. `--comment` retiré de `lot-review` (livrable 5).
+4. Deux champs **Read at** / **Reviewed at** (livrable 7).
+5. `security-review` en ligne autorisé (livrable 8).
+6. `lot-start` B3 enchaîne le développement (livrable 10).
+7. Le hook supprime le verrou d'un lot mergé (livrable 11).
+8. Harness ref = copie installée, `origin/main` en repli (livrable 12).
+
+### Hors périmètre (suggestions pour un lot ultérieur)
+
+- `ReportFindings` absent dans le fork de `code-review` (elya 5.3) : sans coût,
+  relève de Claude Code, pas du harnais.
 
 ---
 
