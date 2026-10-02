@@ -396,4 +396,41 @@ out=$(sync "$M"); rc=$?
 assert_eq 3 "$rc" "subticket merge: exit 3"
 assert_eq "unlisted-subticket" "$(field "$out" '.stops[0].kind')" "subticket merge: a stop, not a closed row"
 
+# --- 14. a merge of the flat branch does not close a row with an open sub-lot
+L=$(new_repo subticket-listed <<'EOF2'
+# Lots
+
+| Lot | Branche | Statut | Objet |
+|---|---|---|---|
+| 5 | `feat/lot-5-auth` | 🔄 | Auth (5.1 ✅, 5.3 🔄) |
+
+### Ticket LOT-5.1 — Backend
+
+### Ticket LOT-5.3 — Hardening
+EOF2
+)
+merge_pr "$L" feat/lot-5-auth 12
+out=$(sync "$L"); rc=$?
+assert_eq 3 "$rc" "listed open sub-lot: exit 3"
+assert_eq "0" "$(field "$out" '.updates | length')" "listed open sub-lot: the row stays open"
+assert_contains "$(field "$out" '.stops[0].detail')" "5.3" "listed open sub-lot: the stop names it"
+
+# --- 15. prose citing another repository's sub-lot is not a sub-lot of the row
+P=$(new_repo subticket-prose <<'EOF2'
+# Lots
+
+| Lot | Branche | Statut | Objet |
+|---|---|---|---|
+| 5 | `feat/lot-5-auth` | 🔄 | Auth |
+
+## LOT 5 — Auth 🔄
+
+Depends on the backend lot 5.3 (elya).
+EOF2
+)
+merge_pr "$P" feat/lot-5-auth 12
+out=$(sync "$P"); rc=$?
+assert_eq 0 "$(field "$out" '.stops | length')" "prose sub-lot: no stop"
+assert_eq "5" "$(field "$out" '.updates[0].lot')" "prose sub-lot: the row closes on its merge"
+
 finish

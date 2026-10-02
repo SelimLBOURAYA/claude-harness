@@ -246,16 +246,16 @@ def lock_merged(root, lock):
     was confirmed on the same row) never reads as this lot's merge. The local ref
     is read as it is, never fetched: a stale ref proves nothing, and the lock stays.
     """
-    ref = develop_ref(root)
     try:
         confirmed = datetime.datetime.strptime(lock.get("confirmed", ""), "%Y-%m-%dT%H:%M:%SZ")
     except ValueError:
         return None
+    ref = develop_ref(root)
     if ref is None:
         return None
     since = confirmed.replace(tzinfo=datetime.timezone.utc).timestamp()
     out = run_git(root, "log", "--first-parent", "-200", "--format=%h%x09%ct%x09%s", ref)
-    base = lot_base(lock["lot"])
+    lot = lock["lot"].lower()
     for line in (out or "").splitlines():
         parts = line.split("\t", 2)
         if len(parts) != 3 or int(parts[1]) < since:
@@ -263,8 +263,9 @@ def lock_merged(root, lock):
         sha, _, subject = parts
         if merged_branch(subject)[0] == lock["branch"]:
             return "merge %s of %s" % (sha, lock["branch"])
-        if any(lot_base(token) == base for token in audit_scope(subject)):
-            return "audit commit %s of lot %s" % (sha, base)
+        # Exact scope, as sync-status.py reads it: the audit of 5.2 is not 5.3's.
+        if lot in audit_scope(subject):
+            return "audit commit %s of lot %s" % (sha, lock["lot"])
     return None
 
 

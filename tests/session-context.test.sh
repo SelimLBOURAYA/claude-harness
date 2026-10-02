@@ -92,9 +92,16 @@ assert_ok "rebased lot: the lock file is gone" -- test ! -f "$REPO/.claude/curre
 printf 'lot=2\nbranch=feat/lot-2-b\n' > "$REPO/.claude/current-lot"
 body=$(text "$(context startup "$REPO")")
 assert_ok "unreadable confirmation time: the lock file is kept" -- test -f "$REPO/.claude/current-lot"
+# The audit of a sibling sub-lot, after the confirmation, is not this lot's.
+printf 'lot=2.3\nbranch=feat/lot-2-b\nconfirmed=2026-09-21T00:00:00Z\n' > "$REPO/.claude/current-lot"
+git -C "$REPO" switch -q develop
+git -C "$REPO" commit -q --allow-empty -m "docs(2.1): add the lot audit report"
+git -C "$REPO" switch -q feat/lot-2-b
+body=$(text "$(context startup "$REPO")")
+assert_ok "sibling sub-lot audit: the lock file is kept" -- test -f "$REPO/.claude/current-lot"
 printf 'lot=2\nbranch=feat/lot-2-b\nconfirmed=2026-09-21T00:00:00Z\n' > "$REPO/.claude/current-lot"
 git -C "$REPO" switch -q develop
-git -C "$REPO" reset -q --hard HEAD~1
+git -C "$REPO" reset -q --hard HEAD~2
 git -C "$REPO" switch -q feat/lot-2-b
 
 # --- deepseek rules only under a base URL ---------------------------------

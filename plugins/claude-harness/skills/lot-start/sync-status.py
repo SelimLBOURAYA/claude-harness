@@ -114,9 +114,12 @@ def listed_sub_lots(line, lot_id):
 
 
 def unlisted_sub_lots(text, row_id, subs):
-    """Sub-lots the lots file names (`LOT-5.3`) that the status row does not list."""
+    """Sub-lots the lots file titles (`### Ticket LOT-5.3`) that the status row does
+    not list. Headings only: prose citing another repository's lot (`elya lot 3.3`)
+    names no sub-lot of this row."""
     base = lotfile.lot_base(row_id).lower()
-    in_file = {s.lower() for s in re.findall(r"lot[ -]?(%s\.[0-9]+)" % re.escape(base), text, re.I)}
+    pattern = re.compile(r"^#{1,4}\s.*?\blot[ -]?(%s\.[0-9]+)" % re.escape(base), re.I | re.M)
+    in_file = {s.lower() for s in pattern.findall(text)}
     return sorted(in_file - {sub.lower() for sub, _ in subs})
 
 
@@ -124,8 +127,8 @@ def unlisted_stop(row_id, landed, unlisted):
     return {
         "kind": "unlisted-subticket",
         "detail": "lot %s: %s is on develop, but the lots file also names %s, absent "
-        "from the status row; list every sub-lot in the row with its status "
-        "(`%s ✅, …`) and say which are done"
+        "from the status row; list every sub-lot in the row with its own status "
+        "(`%s <status>, …`) and say which are done"
         % (row_id, landed, ", ".join(unlisted), unlisted[0]),
     }
 
@@ -143,9 +146,9 @@ def landed_without_merge(rows, lines, text, commits, cited, updates, sub_updates
         if row["status"] != lotfile.IN_PROGRESS:
             continue
         subs = listed_sub_lots(lines[row["line"]], row["id"])
-        unlisted = unlisted_sub_lots(text, row["id"], subs)
         if not subs:
             landed = audit_commit(commits, row["id"], cited)
+            unlisted = unlisted_sub_lots(text, row["id"], subs) if landed else []
             if landed and unlisted:
                 evidence = "the audit commit %s" % landed["sha"]
                 stops.append(unlisted_stop(row["id"], evidence, unlisted))
@@ -160,6 +163,7 @@ def landed_without_merge(rows, lines, text, commits, cited, updates, sub_updates
         landed = {sub: hit for sub, hit in landed.items() if hit}
         if not landed:
             continue
+        unlisted = unlisted_sub_lots(text, row["id"], subs)
         if unlisted:
             evidence = "the audit of %s" % ", ".join(sorted(landed))
             stops.append(unlisted_stop(row["id"], evidence, unlisted))
@@ -296,9 +300,23 @@ def main():
             )
             continue
         row = open_rows[0]
-        unlisted = unlisted_sub_lots(text, row["id"], listed_sub_lots(lines[row["line"]], row["id"]))
+        subs = listed_sub_lots(lines[row["line"]], row["id"])
+        unlisted = unlisted_sub_lots(text, row["id"], subs)
         if unlisted:
             stops.append(unlisted_stop(row["id"], "merge %s (%s)" % (sha, branch), unlisted))
+            continue
+        # A flat branch carries every sub-lot: its merge does not say which ones
+        # it completes while the row still lists one open.
+        pending = [sub for sub, status in subs if status != lotfile.DONE]
+        if pending:
+            stops.append(
+                {
+                    "kind": "ambiguous",
+                    "detail": "merge %s (%s) lands on lot %s, whose row still lists %s "
+                    "open; which sub-lots does it complete?"
+                    % (sha, branch, row["id"], ", ".join(pending)),
+                }
+            )
             continue
         updates.append(
             {"lot": row["id"], "branch": branch, "pr": pr, "sha": sha, "date": date}
