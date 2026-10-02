@@ -172,7 +172,7 @@ missing line is a drift that `harness-sync` and `harness-invariants.yml` report.
 |---|---|
 | `lot-start` | Syncs the lots file status table with develop, asks every ambiguity, creates the branch, waits for `lot-start confirm N`, opens `docs/audits/lot-N-friction.md` |
 | `lot-test` | Tests written and green, coverage gate at the repo threshold |
-| `lot-review` | Code review of the lot, inline PR comments, applied fixes (`claude` profile only) |
+| `lot-review` | Code review of the lot, applied fixes, questions on the findings that need a decision (`claude` profile only) |
 | `lot-audit` | Security, performance and architecture audit → `docs/audits/lot-N.md` |
 | `lot-ship` | Commits, push, PR to `develop`, then stop until merge |
 | `harness-sync` | Detects and fixes drift between docs, skills and reality; digests the gate friction into proposed correction lots |
@@ -197,7 +197,7 @@ Gate, mandatory in order: `lot-test → lot-review → lot-audit → lot-ship`, 
 
 | `lot-lock-guard.py` | `PreToolUse` on `Edit`, `Write`, `MultiEdit`, `NotebookEdit` | On a `feat/lot-N-*` branch, denies every write until `.claude/current-lot` names that lot and that branch; asks for any write on `develop` or `main`; always lets the lots file through, never the lock itself. The repository is resolved from the written path. Writes made through `Bash` are not covered: a documented limit. |
 | `lot-confirm.sh` | `UserPromptSubmit` | Writes `.claude/current-lot` when the whole user prompt is `lot-start confirm N` or `/claude-harness:lot-start confirm N`, for a lot of the status table, on its `feat/lot-N-*` branch. The model cannot forge a user prompt. |
-| `session-context.sh` | `SessionStart` (`startup`, `resume`, `clear`, `compact`) | Re-injects branch, working tree, last merges on develop, the lot lock and the open rows of the status table; flags a compaction summary as untrusted; adds `rules/deepseek.json` when `ANTHROPIC_BASE_URL` is set. Capped at ~2K tokens, never blocks. |
+| `session-context.sh` | `SessionStart` (`startup`, `resume`, `clear`, `compact`) | Re-injects branch, working tree, last merges on develop, the lot lock and the open rows of the status table; removes the lock of a lot that landed on develop after its confirmation (merge of its branch, or its audit commit); flags a compaction summary as untrusted; adds `rules/deepseek.json` when `ANTHROPIC_BASE_URL` is set. Capped at ~2K tokens, never blocks. |
 
 `session-context.sh` reads that freshness through `hooks/plugin-currency.py`, a
 helper it calls from its own tree rather than a hook of its own: the check must be

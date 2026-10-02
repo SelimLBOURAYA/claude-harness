@@ -43,7 +43,19 @@ if [ -n "$root" ]; then
   ref=develop
   git -C "$root" rev-parse -q --verify origin/develop >/dev/null 2>&1 && ref=origin/develop
   commits=$(git -C "$root" log --first-parent --oneline -10 "$ref" 2>/dev/null || true)
+  # Lot 22: the lock of a lot that has since landed on develop is never cleared
+  # by anyone else, and a session reopened on the old branch read it as live.
+  # Removing it only takes a right away: the next lot still needs the user's
+  # `lot-start confirm N` to write a new one.
+  merged=$(python3 "$here/lotfile.py" lock-merged "$root" 2>/dev/null || true)
+  if [ -n "$merged" ]; then
+    stale=$(python3 "$here/lotfile.py" lock "$root" 2>/dev/null | tr '\n' ' ')
+    rm -f "$root/.claude/current-lot"
+  fi
   lock=$(python3 "$here/lotfile.py" lock "$root" 2>/dev/null | tr '\n' ' ')
+  if [ -n "$merged" ]; then
+    lock="none confirmed (removed the lock ${stale% }: its lot landed on $ref, $merged)"
+  fi
   table=$(python3 "$here/lotfile.py" table "$root" 2>/dev/null || true)
   lots=$(python3 "$here/lotfile.py" lots-file "$root" 2>/dev/null || true)
 
