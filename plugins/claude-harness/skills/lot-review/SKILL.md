@@ -110,8 +110,14 @@ stated scope, not against a general sense of taste.
 Invoke the harness-provided review skill on the target:
 
 ```
-Skill(code-review) with arguments: --fix
+Skill(code-review) with arguments: --fix feat/lot-N-<slug> (diff against origin/develop)
 ```
+
+Name the branch and the base. Without a target, `code-review` diffs against the
+branch's upstream, and a lot branch has none until `lot-ship` pushes it
+(`lot-start` creates it with `--no-track`): the fallback base is then `main`,
+and every unpromoted commit of `develop` lands in the review as if this lot had
+written it.
 
 `--fix` applies the retained findings to the **working tree**. It does not
 commit; committing is Step 3. No `--comment`: there is no PR to comment on

@@ -134,7 +134,8 @@ the rest apply to both.
 - [ ] Changes limited to the lot's scope in the `Lots file` — no scope creep
 - [ ] No half-implemented feature belonging to a future lot
 - [ ] The only `docs/audits/` files the PR adds are the lot's own gate
-  deliverables: `lot-N-friction.md`, `lot-N-review.md`, `lot-N.md` (P5-#13)
+  deliverables: `lot-N-friction.md`, `lot-N-review.md`, `lot-N.md`, and on a
+  frontend the `integration-check` report `lot-0-integration.md` (P5-#13)
 - [ ] The `Lots file` modified only on status lines
 
 ---
