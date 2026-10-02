@@ -92,7 +92,9 @@ jobs:
           fi
           if ! cmp -s CONVENTIONS.md "$master"; then
             echo "::error::CONVENTIONS.md differs from the harness master at ref $CONVENTIONS_REF."
-            echo "Re-copy it, never hand-edit the local copy (CONVENTIONS.md section 12)."
+            echo "Never edit or re-copy it by hand (CONVENTIONS.md section 12): merge the open"
+            echo "chore/sync-harness-files pull request of this repository, or, if none is open,"
+            echo "re-run the sync-projects workflow of claude-harness for this repository."
             diff CONVENTIONS.md "$master" | head -40
             exit 1
           fi

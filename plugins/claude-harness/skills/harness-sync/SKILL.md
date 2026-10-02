@@ -20,7 +20,7 @@ repository, fixes it, and proposes improvements. Never touches application code.
 |---|---|
 | `CLAUDE.md` | Source of truth for project conventions, gate parameters and the census |
 | `AGENTS.md` | **Byte-identical** mirror of `CLAUDE.md` |
-| `CONVENTIONS.md` | **Byte-identical** to the harness master `claude-harness/CONVENTIONS.md` — never hand-edited, only re-copied |
+| `CONVENTIONS.md` | **Byte-identical** to the harness master at `main` — never written by this skill: only the harness `sync-projects` workflow writes it, through a pull request |
 | `Lots file` | Modified only with user approval (status column excepted) |
 | `README.md` | Aligned with the real stack |
 | `.claude/settings.json` | Marketplace and plugin declaration |
@@ -52,7 +52,7 @@ Run each of these. Each failure is a drift row in the Step 3 report.
 | # | Invariant | How |
 |---|---|---|
 | 1 | Mirror | `cmp CLAUDE.md AGENTS.md` silent |
-| 2 | Conventions copy | `cmp CONVENTIONS.md ~/ENV/projets/claude-harness/CONVENTIONS.md` silent |
+| 2 | Conventions copy | `git -C ~/ENV/projets/claude-harness fetch -q origin main`, then `git -C ~/ENV/projets/claude-harness show origin/main:CONVENTIONS.md \| cmp - CONVENTIONS.md` silent. The `main` of the clone, never its working tree, which may sit on a branch that was never promoted. Not applicable in `claude-harness` itself, which holds the master |
 | 3 | Plugin declared **with the ref** | `.claude/settings.json` declares the `claude-harness` marketplace with `"ref": "main"`. **No ref is a drift**: the harness default branch is `develop`, so a refless declaration makes every unpromoted merge active here |
 | 4 | Gate parameters complete | `## Gate parameters` present, every parameter of the harness `README.md` contract has a row, `n/a` where it does not apply — a missing row is a drift, `n/a` is not |
 | 5 | Census ⇔ skills | Every `.claude/skills/*/SKILL.md`, every `docs/audits/*.md` and every managed file appears in `## Project documents` |
@@ -140,7 +140,12 @@ Distinguish clearly:
 
 - Targeted edits, no wholesale rewrite.
 - Every edit to `CLAUDE.md` replicated byte for byte in `AGENTS.md`.
-- `CONVENTIONS.md` is **re-copied** from the harness master, never hand-edited.
+- `CONVENTIONS.md` is **never written here**, not even re-copied: the harness
+  `sync-projects` workflow is its only writer (`CONVENTIONS.md` §12). Report the
+  drift with its resolution: if
+  `gh pr list --head chore/sync-harness-files --state open` shows a sync pull
+  request, the user merges it; otherwise the user re-runs
+  `gh workflow run sync-projects.yml --repo SelimLBOURAYA/claude-harness -f projects=<project>`.
 - The `Lots file` is never modified without explicit approval (status excepted).
 - No application code, migration or secret is touched.
 
