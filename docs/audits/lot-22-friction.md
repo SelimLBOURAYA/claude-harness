@@ -21,3 +21,21 @@
   a skill-content assertion. Cost: nothing, but the skill is silent on this stack.
 - `lot-test / 3.1` — `Coverage tool` is `none`: sections 3.1 (open the report) and
   3.2 (review the exclusions) have nothing to act on. Cost: none.
+
+## lot-review
+- `lot-review / 2` — the installed copy (1.1.1) says `--comment --fix` with no
+  target. No PR existed, so `--comment` had nothing to do (this lot removes it),
+  and the branch has no upstream since it was created `--no-track`: a targetless
+  `code-review` would have diffed against `main`. The branch and
+  `origin/develop` were named explicitly; the review itself found the same gap in
+  the lot's new text (finding 2). Cost: none here, a wrong base otherwise.
+- `lot-review / 3` — two fixes were cleanups (finding 5's duplicate python calls,
+  finding 8) in the same hunks as defects; the skill asks to split `fix` and
+  `refactor` commits, which would have meant splitting hunks. Kept in one `fix`
+  commit. Cost: a judgement call the skill does not settle.
+- `lot-review / 4` — the installed template's **Harness ref** is the clone's
+  `HEAD`, which here is the lot branch itself; the installed copy has no
+  `--installed-sha`, so the lot's own `plugin-currency.py --installed-sha
+  --plugin-root <cache>/1.1.1` gave 30b4930. Its single **Reviewed at** field was
+  replaced by this lot's **Read at** / **Reviewed at** pair, so that the audit of
+  this lot reads the fields its new step 0 expects. Cost: two extra commands.
