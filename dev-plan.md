@@ -41,8 +41,8 @@
 | 18 | `feat/lot-18-reaudit-fixes` | D – Clôture | Correctifs ouverts par le ré-audit du lot 15 | claude-harness | ✅ |
 | 19 | `feat/lot-19-lot-start-guard` | A – Harness | Cadrage du démarrage : skill `lot-start`, verrou d'écriture, réinjection de l'état au démarrage et après compaction | claude-harness, les 8 repos (via `main`) | ✅ |
 | 20 | `feat/lot-20-plugin-currency` | A – Harness | Fraîcheur du plugin installé : un harnais en retard rend le verrou de lot muet au lieu de le signaler | claude-harness, les 8 repos (via `main`) |✅ |
-| 21 | `feat/lot-21-response-floor-friction` | A – Harness | Plancher de complétude dans §15 et remontée de friction des skills vers `harness-sync` | claude-harness, les 8 repos (via `main`) | 🔄 |
-| 22 | `feat/lot-22-friction-fixes` | A – Harness | Correctifs de la friction remontée par elya et elya-frontend, et un seul écrivain de `CONVENTIONS.md` dans les projets | claude-harness, les 8 repos (via `main`) | ⬜ |
+| 21 | `feat/lot-21-response-floor-friction` | A – Harness | Plancher de complétude dans §15 et remontée de friction des skills vers `harness-sync` | claude-harness, les 8 repos (via `main`) | ✅ |
+| 22 | `feat/lot-22-friction-fixes` | A – Harness | Correctifs de la friction remontée par elya et elya-frontend, et un seul écrivain de `CONVENTIONS.md` dans les projets | claude-harness, les 8 repos (via `main`) | 🔄 |
 
 Légende des statuts *(P6-D10)* : ⬜ à faire · 🔄 en cours (livré sur la branche, PR non
 mergée) · ✅ mergé sur `develop` · ⏸️ planifié mais dormant · ❄️ gelé.
@@ -1256,7 +1256,9 @@ branche `feat/lot-N-*` accepte les écritures sans confirmation. Correctif :
 
 ---
 
-## LOT 21 — Ce qu'une réponse concise ne coupe jamais, et la friction des skills 🔄
+## LOT 21 — Ce qu'une réponse concise ne coupe jamais, et la friction des skills ✅
+
+**Mergé** le 2026-09-24 (PR #41, merge `adff88b`).
 
 Branche `feat/lot-21-response-floor-friction`, depuis `develop`. Repo touché :
 `claude-harness` ; les 8 repos en héritent à la promotion `develop` → `main`
@@ -1376,7 +1378,7 @@ confronté au harnais. Deux manques retenus par l'utilisateur :
 
 ---
 
-## LOT 22 — Correctifs de friction et un seul écrivain de `CONVENTIONS.md` ⬜
+## LOT 22 — Correctifs de friction et un seul écrivain de `CONVENTIONS.md` 🔄
 
 Branche `feat/lot-22-friction-fixes`, depuis `develop`. Repo touché :
 `claude-harness` ; les 8 repos en héritent à la promotion `develop` → `main`.
