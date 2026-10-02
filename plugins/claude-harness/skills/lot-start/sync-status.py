@@ -17,7 +17,8 @@ reports, as JSON on stdout:
 
 A mapping is applied only when it names exactly one lot. Anything else is a stop,
 never an arbitration: an ambiguous merge (sub-lots on one flat branch, a branch
-shared by several open rows), a lot marked done with no trace on develop, a
+shared by several open rows), a row about to close while the lots file names a
+sub-lot the row does not list, a lot marked done with no trace on develop, a
 lot-shaped merge with no row, or merged commits already carrying the candidate's
 scope.
 
@@ -47,26 +48,13 @@ sys.dont_write_bytecode = True  # no __pycache__ inside the plugin tree
 import lotfile  # noqa: E402  (path set above: the module ships with the hooks)
 
 CITED_SHA = re.compile(r"`([0-9a-f]{7,40})`")
-MERGE_PR = re.compile(r"^Merge pull request #(\d+) from [^/\s]+/(\S+)")
-MERGE_BRANCH = re.compile(r"^Merge (?:remote-tracking )?branch '([^']+)'")
 SCOPE = re.compile(r"^[a-z]+\(([^)]*)\)!?:")
-# The lot-audit deliverable commit (CONVENTIONS.md §13). lot-ship pushes nothing
-# before it, so on develop it proves the lot's pull request landed, including
-# through a rebase or squash merge that leaves no merge commit behind.
-AUDIT = re.compile(r"^docs\(([^)]*)\)!?: add the lot audit report", re.I)
 STATUS_MARK = "|".join(re.escape(status) + "️?" for status in lotfile.STATUSES)
 
 
 def fail(message):
     print(json.dumps({"error": message}, ensure_ascii=False, indent=2))
     sys.exit(2)
-
-
-def develop_ref(root):
-    for ref in ("origin/develop", "develop"):
-        if lotfile.run_git(root, "rev-parse", "--verify", "-q", ref) is not None:
-            return ref
-    return None
 
 
 def history(root, ref):
@@ -85,16 +73,6 @@ def history(root, ref):
 def reconciled(full_sha, cited):
     """True when the lots file already cites this commit (a recorded answer)."""
     return any(full_sha.startswith(token) for token in cited)
-
-
-def merged_branch(subject):
-    match = MERGE_PR.match(subject)
-    if match:
-        return match.group(2), match.group(1)
-    match = MERGE_BRANCH.match(subject)
-    if match:
-        return match.group(1), None
-    return None, None
 
 
 def scope_covers(subject, lot_id):
@@ -122,11 +100,9 @@ def audit_commit(commits, lot_id, cited):
     """Last unreconciled audit commit whose scope names exactly this lot."""
     found = None
     for pos, (sha, date, subject, full) in enumerate(commits):
-        match = AUDIT.match(subject)
-        if not match or reconciled(full, cited):
+        if reconciled(full, cited):
             continue
-        tokens = [t for t in re.split(r"[,\s]+", match.group(1).lower()) if t]
-        if lot_id.lower() in tokens:
+        if lot_id.lower() in lotfile.audit_scope(subject):
             found = {"sha": sha, "date": date, "pos": pos}
     return found
 
@@ -137,6 +113,23 @@ def listed_sub_lots(line, lot_id):
     return [(sub, lotfile.status_of(mark)) for sub, mark in re.findall(pattern, line)]
 
 
+def unlisted_sub_lots(text, row_id, subs):
+    """Sub-lots the lots file names (`LOT-5.3`) that the status row does not list."""
+    base = lotfile.lot_base(row_id).lower()
+    in_file = {s.lower() for s in re.findall(r"lot[ -]?(%s\.[0-9]+)" % re.escape(base), text, re.I)}
+    return sorted(in_file - {sub.lower() for sub, _ in subs})
+
+
+def unlisted_stop(row_id, landed, unlisted):
+    return {
+        "kind": "unlisted-subticket",
+        "detail": "lot %s: %s is on develop, but the lots file also names %s, absent "
+        "from the status row; list every sub-lot in the row with its status "
+        "(`%s ✅, …`) and say which are done"
+        % (row_id, landed, ", ".join(unlisted), unlisted[0]),
+    }
+
+
 def landed_without_merge(rows, lines, text, commits, cited, updates, sub_updates, stops):
     """In-progress rows whose pull request landed with no merge commit.
 
@@ -144,36 +137,32 @@ def landed_without_merge(rows, lines, text, commits, cited, updates, sub_updates
     lists its sub-lots is done once every pending one has its audit commit there;
     the sub-lots that landed are marked even when the row stays open. Sub-lots
     named in the lots file but missing from the row cannot be ruled out: stop.
+    The lot 5 of elya (2026-10-01) closed on the audit of 5.1 while 5.3 was open.
     """
     for row in rows:
         if row["status"] != lotfile.IN_PROGRESS:
             continue
         subs = listed_sub_lots(lines[row["line"]], row["id"])
+        unlisted = unlisted_sub_lots(text, row["id"], subs)
         if not subs:
             landed = audit_commit(commits, row["id"], cited)
-            if landed:
+            if landed and unlisted:
+                evidence = "the audit commit %s" % landed["sha"]
+                stops.append(unlisted_stop(row["id"], evidence, unlisted))
+            elif landed:
                 updates.append(dict(landed, lot=row["id"], branch=None, pr=None, evidence="audit"))
                 row["status"] = lotfile.DONE
                 row["merge"] = updates[-1]
             continue
 
-        base = lotfile.lot_base(row["id"]).lower()
-        in_file = {s.lower() for s in re.findall(r"lot[ -]?(%s\.[0-9]+)" % re.escape(base), text, re.I)}
-        unlisted = sorted(in_file - {sub.lower() for sub, _ in subs})
         pending = [sub for sub, status in subs if status != lotfile.DONE]
         landed = {sub: audit_commit(commits, sub, cited) for sub in pending}
         landed = {sub: hit for sub, hit in landed.items() if hit}
         if not landed:
             continue
         if unlisted:
-            stops.append(
-                {
-                    "kind": "ambiguous",
-                    "detail": "lot %s: the audit of %s is on develop, but the lots file "
-                    "also names %s, absent from the status row; is the lot complete?"
-                    % (row["id"], ", ".join(sorted(landed)), ", ".join(unlisted)),
-                }
-            )
+            evidence = "the audit of %s" % ", ".join(sorted(landed))
+            stops.append(unlisted_stop(row["id"], evidence, unlisted))
             continue
         for sub, hit in landed.items():
             sub_updates.append(dict(hit, lot=sub, parent=row["id"]))
@@ -248,7 +237,7 @@ def main():
     table = lotfile.status_table(lines)
     if table is None:
         fail("%s has no status table (a table with a Lot and a Statut column)" % path)
-    ref = develop_ref(root)
+    ref = lotfile.develop_ref(root)
     if ref is None:
         fail("neither origin/develop nor develop exists; run `git fetch` first")
 
@@ -264,7 +253,7 @@ def main():
     claimed = set()
 
     for sha, date, subject, full in commits:
-        branch, pr = merged_branch(subject)
+        branch, pr = lotfile.merged_branch(subject)
         if not branch:
             continue
         exact = [row for row in rows if row["branch"] and row["branch"] == branch]
@@ -307,6 +296,10 @@ def main():
             )
             continue
         row = open_rows[0]
+        unlisted = unlisted_sub_lots(text, row["id"], listed_sub_lots(lines[row["line"]], row["id"]))
+        if unlisted:
+            stops.append(unlisted_stop(row["id"], "merge %s (%s)" % (sha, branch), unlisted))
+            continue
         updates.append(
             {"lot": row["id"], "branch": branch, "pr": pr, "sha": sha, "date": date}
         )

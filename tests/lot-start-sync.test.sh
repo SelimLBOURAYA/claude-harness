@@ -338,8 +338,62 @@ commit_on "$X" "docs(3.1): add the lot audit report"
 before=$(sha256sum "$X/lots.md")
 out=$(sync "$X" --apply); rc=$?
 assert_eq 3 "$rc" "unlisted: exit 3"
-assert_eq "ambiguous" "$(field "$out" '.stops[0].kind')" "unlisted: asked, not decided"
+assert_eq "unlisted-subticket" "$(field "$out" '.stops[0].kind')" "unlisted: asked, not decided"
 assert_contains "$(field "$out" '.stops[0].detail')" "3.2" "unlisted: the stop names the missing sub-lot"
 assert_eq "$before" "$(sha256sum "$X/lots.md")" "unlisted: nothing written"
+
+# --- 12. a row listing no sub-lot does not close on the audit of one ------
+# The lot 5 of elya (2026-10-01): row 5 listed nothing, the lots file had a
+# ticket per sub-lot, and the audit of 5.1 closed the row while 5.3 was open.
+E=$(new_repo subticket <<'EOF'
+# Lots
+
+| Lot | Branche | Statut | Objet |
+|---|---|---|---|
+| 5 | `feat/lot-5-<slug>` | 🔄 | Auth |
+| 6 | `feat/lot-6-<slug>` | ⬜ | Docker |
+
+## LOT 5 — Auth 🔄
+
+### Ticket LOT-5.1 — Backend ✅
+
+### Ticket LOT-5.3 — Hardening ⬜
+
+## LOT 6 — Docker ⬜
+EOF
+)
+commit_on "$E" "docs(5): add the lot audit report"
+before=$(sha256sum "$E/lots.md")
+out=$(sync "$E" --apply --start 6); rc=$?
+assert_eq 3 "$rc" "subticket: exit 3"
+assert_eq "unlisted-subticket" "$(field "$out" '.stops[0].kind')" "subticket: a stop, not a closed row"
+assert_contains "$(field "$out" '.stops[0].detail')" "5.3" "subticket: the stop names the open ticket"
+assert_eq "5" "$(field "$out" '.in_progress[0]')" "subticket: lot 5 stays in progress"
+assert_eq "$before" "$(sha256sum "$E/lots.md")" "subticket: nothing written"
+# The user's answer, the row listing its sub-lots, lets the sync go on.
+sed -i 's/| 🔄 | Auth |/| 🔄 | Auth (5.1 ✅, 5.3 🔄) |/' "$E/lots.md"
+git -C "$E" commit -qam "docs: list the sub-lots of lot 5"
+out=$(sync "$E" --apply --start 5); rc=$?
+assert_eq 0 "$rc" "subticket: once listed, exit 0"
+assert_eq "0" "$(field "$out" '.updates | length')" "subticket: row 5 stays open while 5.3 is pending"
+assert_eq "5" "$(field "$out" '.started')" "subticket: lot 5 can go on with its next sub-lot"
+
+# --- 13. a merge of the row's own branch does not close it either ---------
+M=$(new_repo subticket-merge <<'EOF'
+# Lots
+
+| Lot | Branche | Statut | Objet |
+|---|---|---|---|
+| 5 | `feat/lot-5-auth` | 🔄 | Auth |
+
+### Ticket LOT-5.1 — Backend
+
+### Ticket LOT-5.3 — Hardening
+EOF
+)
+merge_pr "$M" feat/lot-5-auth 12
+out=$(sync "$M"); rc=$?
+assert_eq 3 "$rc" "subticket merge: exit 3"
+assert_eq "unlisted-subticket" "$(field "$out" '.stops[0].kind')" "subticket merge: a stop, not a closed row"
 
 finish
