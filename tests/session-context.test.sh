@@ -88,6 +88,10 @@ git -C "$REPO" switch -q feat/lot-2-b
 body=$(text "$(context startup "$REPO")")
 assert_contains "$body" "audit commit" "rebased lot: the audit commit is the evidence"
 assert_ok "rebased lot: the lock file is gone" -- test ! -f "$REPO/.claude/current-lot"
+# A lock whose confirmation time cannot be read proves nothing: it stays.
+printf 'lot=2\nbranch=feat/lot-2-b\n' > "$REPO/.claude/current-lot"
+body=$(text "$(context startup "$REPO")")
+assert_ok "unreadable confirmation time: the lock file is kept" -- test -f "$REPO/.claude/current-lot"
 printf 'lot=2\nbranch=feat/lot-2-b\nconfirmed=2026-09-21T00:00:00Z\n' > "$REPO/.claude/current-lot"
 git -C "$REPO" switch -q develop
 git -C "$REPO" reset -q --hard HEAD~1
