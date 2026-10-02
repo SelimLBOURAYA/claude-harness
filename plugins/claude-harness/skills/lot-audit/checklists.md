@@ -121,7 +121,11 @@ the rest apply to both.
 - [ ] `CLAUDE.md` and `AGENTS.md` byte-identical
 - [ ] `## Gate parameters` still accurate after the lot's changes
 - [ ] Documents census updated in the **same commit** as any added document (§12)
-- [ ] `CONVENTIONS.md` identical to the harness master
+- [ ] `CONVENTIONS.md` identical to the harness master at `main`, fetched first:
+  `git -C ~/ENV/projets/claude-harness fetch -q origin main`, then
+  `git -C ~/ENV/projets/claude-harness show origin/main:CONVENTIONS.md | cmp - CONVENTIONS.md`.
+  A difference is reported, never fixed here: the copy is only ever written by
+  the harness `sync-projects` pull request (`CONVENTIONS.md` §12)
 - [ ] Commit messages in English, Conventional Commits, no U+2014 (§7, §10)
 - [ ] No commented-out code left in the diff (§3)
 
@@ -129,7 +133,8 @@ the rest apply to both.
 
 - [ ] Changes limited to the lot's scope in the `Lots file` — no scope creep
 - [ ] No half-implemented feature belonging to a future lot
-- [ ] Exactly one `docs/audits/lot-*.md` added by this PR (P5-#13)
+- [ ] The only `docs/audits/` files the PR adds are the lot's own gate
+  deliverables: `lot-N-friction.md`, `lot-N-review.md`, `lot-N.md` (P5-#13)
 - [ ] The `Lots file` modified only on status lines
 
 ---

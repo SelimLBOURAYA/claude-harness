@@ -28,8 +28,20 @@ lot-test  →  lot-review  →  [lot-audit]  →  lot-ship
 head of the branch:
 
 - File missing → **stop**. Tell the user to run `lot-review` first.
-- File present but its recorded commit is behind `HEAD` → **stop**. Code landed
-  after the review; re-run `lot-review`.
+- File present: read its **Reviewed at** SHA, the code once reviewed and fixed,
+  and list what landed after it:
+
+  ```bash
+  git -C "$AUDIT_REPO" diff --name-only <Reviewed at>..HEAD
+  ```
+
+  Any path other than `docs/audits/*`, `CLAUDE.md` and `AGENTS.md` (the census)
+  → **stop**. Code landed after the review; re-run `lot-review`. The review
+  report's own commit and the friction sections are expected there, and are not
+  a reason to stop.
+- A report written before lot 22 has no **Read at** line, and its **Reviewed
+  at** is the SHA the review read: take its **Fix commit** instead, when it
+  names one.
 
 Auditing unreviewed code produces a report about the wrong version of the lot.
 
@@ -81,7 +93,7 @@ Consequences for the rest of the skill:
 - Every path (`CLAUDE.md`, the `Lots file`, `docs/audits/lot-N.md`) resolves
   **inside** `$AUDIT_REPO`, including the report written in step 7.
 - The one deliberate exception is the harness ref of step 7, read from the
-  harness clone with its own explicit `-C`.
+  installed plugin, or from the harness clone with its own explicit `-C`.
 
 ## Prerequisites
 
@@ -106,7 +118,12 @@ Task Progress:
 - [ ] Step 5 — Coverage exclusions review
 - [ ] Step 6 — Migration hygiene
 - [ ] Step 7 — Consolidated report
+- [ ] Commit the deliverable — the report and its friction section, committed
 ```
+
+The skill ends at the last box, not before. Handing back after the security
+step, or with the report written but not committed, is stopping in the middle:
+the user then has to ask for the audit a second time (elya lot 5.3).
 
 ### Step 1 — Context
 
@@ -134,6 +151,12 @@ It reviews the working directory, which step 0b established is `$AUDIT_REPO`.
 Give it the diff scope (`branch changes vs origin/develop`) and custom instructions
 built from that repository's `CLAUDE.md`: stack, the secrets it handles, the
 routes it exposes, and the lot's specific risks.
+
+`security-review` asks for a discovery sub-task, then one false-positive filter
+per finding. When the lot's diff already fits in this session's context, run
+those phases **inline**, without sub-agents, and say so in the report: the
+procedure is the same, only the process boundary changes. Sub-agents remain the
+way for a diff too large to hold.
 
 If the skill is unavailable, fall back to the manual checklist in
 [checklists.md](checklists.md) and say so in the report — a skipped step is
@@ -179,7 +202,7 @@ Write the report to **`$AUDIT_REPO/docs/audits/lot-N.md`**, in English:
 ```markdown
 # Lot Audit — Lot N — [branch name]
 
-**Harness ref:** [short SHA of the claude-harness clone that ran this audit]
+**Harness ref:** [short SHA of the installed harness that ran this audit, see below]
 **Scope:** N modified files | **Verdict:** Ready for PR / Fix warnings / Blocked
 
 ## Summary
@@ -220,10 +243,20 @@ The **harness ref** line is mandatory: a report must say which version of the
 harness produced it, otherwise a finding cannot be traced to the checklist that
 raised it.
 
-Get the value with:
+It is the harness that actually ran: the installed copy of the plugin, not the
+checkout of the local clone, which may sit on a working branch (elya-frontend
+lot 2 recorded `chore/review-audit-origin-develop`). Get the value with:
 
 ```bash
-rtk proxy git -C ~/ENV/projets/claude-harness rev-parse --short HEAD
+python3 <this skill's base directory>/../../hooks/plugin-currency.py --installed-sha
+```
+
+Empty output (an agent that loads no plugin) → the `main` of the clone, fetched
+first:
+
+```bash
+git -C ~/ENV/projets/claude-harness fetch -q origin main
+git -C ~/ENV/projets/claude-harness rev-parse --short origin/main
 ```
 
 **Severity levels**
@@ -283,7 +316,8 @@ pull request. Left in the working tree, the audit did not happen.
 - Do not fix findings unless the user asks — report first. The fixes belong to
   `lot-review`, which ran before this step.
 - The report is committed before this skill reports back, never left in the
-  working tree.
+  working tree. Reporting back earlier is not a shorter audit, it is an
+  unfinished one.
 - Stay within the lot's diff and its direct dependencies.
 - Empty diff → one sentence: nothing to audit.
 - Never modify the `Lots file` without explicit approval (status column excepted).
