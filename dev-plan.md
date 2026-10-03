@@ -42,7 +42,8 @@
 | 19 | `feat/lot-19-lot-start-guard` | A – Harness | Cadrage du démarrage : skill `lot-start`, verrou d'écriture, réinjection de l'état au démarrage et après compaction | claude-harness, les 8 repos (via `main`) | ✅ |
 | 20 | `feat/lot-20-plugin-currency` | A – Harness | Fraîcheur du plugin installé : un harnais en retard rend le verrou de lot muet au lieu de le signaler | claude-harness, les 8 repos (via `main`) |✅ |
 | 21 | `feat/lot-21-response-floor-friction` | A – Harness | Plancher de complétude dans §15 et remontée de friction des skills vers `harness-sync` | claude-harness, les 8 repos (via `main`) | ✅ |
-| 22 | `feat/lot-22-friction-fixes` | A – Harness | Correctifs de la friction remontée par elya et elya-frontend, et un seul écrivain de `CONVENTIONS.md` dans les projets | claude-harness, les 8 repos (via `main`) | 🔄 |
+| 22 | `feat/lot-22-friction-fixes` | A – Harness | Correctifs de la friction remontée par elya et elya-frontend, et un seul écrivain de `CONVENTIONS.md` dans les projets | claude-harness, les 8 repos (via `main`) | ✅ |
+| 23 | `feat/lot-23-sync-automerge` | A – Harness | Merge automatique des PR de synchro de `CONVENTIONS.md`, et les deux constats reportés de la revue du lot 22 | claude-harness, les 8 repos (via `main`) | ⬜ |
 
 Légende des statuts *(P6-D10)* : ⬜ à faire · 🔄 en cours (livré sur la branche, PR non
 mergée) · ✅ mergé sur `develop` · ⏸️ planifié mais dormant · ❄️ gelé.
@@ -1378,7 +1379,9 @@ confronté au harnais. Deux manques retenus par l'utilisateur :
 
 ---
 
-## LOT 22 — Correctifs de friction et un seul écrivain de `CONVENTIONS.md` 🔄
+## LOT 22 — Correctifs de friction et un seul écrivain de `CONVENTIONS.md` ✅
+
+Done : mergé dans `develop` par c75069e (PR #44), promu sur `main`.
 
 Branche `feat/lot-22-friction-fixes`, depuis `develop`. Repo touché :
 `claude-harness` ; les 8 repos en héritent à la promotion `develop` → `main`.
@@ -1510,6 +1513,67 @@ Clés de friction traitées (CONVENTIONS §13) : `lot-start / A3`, `lot-start / 
 
 - `ReportFindings` absent dans le fork de `code-review` (elya 5.3) : sans coût,
   relève de Claude Code, pas du harnais.
+
+---
+
+## LOT 23 — Merge automatique des PR de synchro et constats reportés du lot 22 ⬜
+
+Branche `feat/lot-23-sync-automerge`, depuis `develop`. Repo touché :
+`claude-harness` ; les 8 repos en héritent à la promotion `develop` → `main`.
+
+### Origine
+
+1. Les PR `chore/sync-harness-files` ouvertes par `sync-projects` dans les 8
+   repos se mergent à la main, une par une, alors qu'elles ne portent qu'une
+   copie du master.
+2. Deux constats de `lot-22-review.md` reportés à un lot dédié (constats 4 et 6).
+
+### Livrables
+
+1. **Job planifié de merge** dans `claude-harness` : un workflow
+   `merge-sync-prs.yml` (`schedule` + `workflow_dispatch`), avec le jeton
+   `HARNESS_SYNC_TOKEN`. Pour chaque projet de `projects.json`, il merge
+   (`gh pr merge --merge`) la PR ouverte de tête `chore/sync-harness-files`
+   vers `base_branch` **seulement si** :
+   - son auteur est le compte du jeton ;
+   - elle ne touche que les `synced_files` de `projects.json` ;
+   - tous ses checks sont terminés et verts (aucune protection de branche :
+     `--auto` mergerait tout de suite, CI rouge comprise).
+
+   Sinon, la PR est laissée ouverte et le job écrit pourquoi.
+2. **CONVENTIONS §7** : exception à « never auto-merged », limitée aux PR de
+   synchro et à ces trois conditions. Commentaire de `sync-projects.yml` aligné.
+3. **Verrou d'un sous-lot** (constat 4, `lotfile.py`) : un verrou qui nomme un
+   sous-lot (`5.3`) n'est supprimé que sur le commit d'audit de ce sous-lot
+   exact ; la preuve par merge de la branche plate reste réservée aux verrous
+   de lot entier.
+4. **`lot-audit` étape 0** (constat 6) : après **Reviewed at**, une modification
+   de `CLAUDE.md` / `AGENTS.md` n'est acceptée que si ses hunks restent dans
+   `## Project documents`. Les commits de correction de `lot-review` (avant
+   **Reviewed at**) et ceux de `lot-audit` (après l'étape 0) ne sont pas
+   concernés.
+
+### Tests (`./tests/run.sh`)
+
+- Script de merge, `gh` simulé : PR conforme et verte → mergée ; check rouge ou
+  en cours, auteur différent, fichier hors `synced_files` → non mergée.
+- `session-context.sh` : verrou `5.3` conservé au merge d'un sous-lot frère,
+  supprimé au commit d'audit de 5.3.
+- Contenu de `lot-audit` : l'exemption de `CLAUDE.md` / `AGENTS.md` est limitée
+  à `## Project documents`.
+
+### Critères de validation
+
+- Aucune PR de synchro n'est mergée avec un check rouge ou en cours.
+- `./tests/run.sh` vert ; gate complet du lot, `lot-review` sous profil
+  `claude`, dans une autre session que le développement.
+
+### Arbitrages (2026-10-03)
+
+1. Exception à §7 acceptée pour les seules PR de synchro.
+2. Job planifié dans `claude-harness`, pas de workflow dans les 8 repos.
+3. Merge commit (`--merge`).
+4. Les deux constats reportés du lot 22 entrent dans ce lot.
 
 ---
 
