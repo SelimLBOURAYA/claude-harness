@@ -118,7 +118,15 @@ fix is always the same:
 
 then close the session and reopen it. The `SessionStart` hook warns by itself when
 the installed copy lags behind `main`, with the installed version, its date and the
-SHA `main` carries — do not develop a lot under that warning.
+SHA `main` carries — do not develop a lot under that warning. It compares the
+`plugins/` tree, not the version: a commit of documents on `main` raises nothing,
+and an unbumped version cannot hide a stale copy.
+
+If the warning survives a refresh, the version was not bumped and Claude Code saw
+nothing to install. Remove the stale cache directory it names
+(`~/.claude/plugins/cache/claude-harness/claude-harness/<version>`), then run
+`claude plugin install claude-harness@claude-harness --scope user` and reopen the
+session.
 
 ## Uninstallation
 

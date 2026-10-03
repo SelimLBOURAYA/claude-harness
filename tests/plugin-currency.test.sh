@@ -23,13 +23,14 @@ SEED="$WORK/seed"
 git init -q -b main "$SEED"
 git -C "$SEED" config user.email test@example.com
 git -C "$SEED" config user.name Test
-printf 'one\n' > "$SEED/file"
+mkdir -p "$SEED/plugins/claude-harness"
+printf 'one\n' > "$SEED/plugins/claude-harness/hook"
 git -C "$SEED" add -A
 git -C "$SEED" commit -qm "feat: first"
 git -C "$SEED" remote add origin "$REMOTE"
 git -C "$SEED" push -q origin main
 OLD=$(git -C "$SEED" rev-parse HEAD)
-printf 'two\n' >> "$SEED/file"
+printf 'two\n' >> "$SEED/plugins/claude-harness/hook"
 git -C "$SEED" commit -qam "feat: second"
 git -C "$SEED" push -q origin main
 NEW=$(git -C "$SEED" rev-parse HEAD)
@@ -171,5 +172,26 @@ assert_eq "" "$(printf '%s' "$body" | grep '⚠' || true)" "hook: a fresh plugin
 # The hook finds the module beside itself, so the installed copy is what runs.
 assert_ok "the hook calls the check that ships in its own tree" -- \
   grep -qF 'plugin-currency.py' "$VERSION_DIR/hooks/session-context.sh"
+
+# --- only plugins/ is a lag (lot 23) ---------------------------------------
+# A commit of documents moves main's SHA without touching what the cache holds.
+printf 'plan\n' > "$SEED/dev-plan.md"
+git -C "$SEED" add -A
+git -C "$SEED" commit -qm "docs: plan the next lot"
+git -C "$SEED" push -q origin main
+DOCS=$(git -C "$SEED" rev-parse HEAD)
+git -C "$PLUGINS/marketplaces/$MP" pull -q
+installed "$NEW"
+assert_eq "" "$(check)" "a documents-only commit on main is not a lag"
+installed "$OLD"
+assert_contains "$(check)" "while \`main\` is at ${DOCS:0:7}" \
+  "a plugins/ change under a later documents commit still warns"
+# A clone that never fetched main's tip cannot show plugins/ unchanged: the
+# warning stands, since that clone needs the same refresh.
+printf 'three\n' >> "$SEED/plugins/claude-harness/hook"
+git -C "$SEED" commit -qam "feat: third"
+git -C "$SEED" push -q origin main
+installed "$DOCS"
+assert_contains "$(check)" "⚠" "a tip the clone does not hold yet warns"
 
 finish
