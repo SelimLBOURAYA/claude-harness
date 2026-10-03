@@ -59,3 +59,9 @@
   `ci.yml`, `projects.json` and `dev-plan.md` ("Self-Modification"), so those
   three were not read and are listed as unverified in the report. Cost: a partial
   step 2 and step 4.
+
+## lot-ship
+- `lot-ship / 2` – the snippets name the plain and the rtk-wrapped VCS calls, and compound
+  shell batches mentioning it; the worktree isolation guard refuses them (same
+  cause as `lot-start / A3`). Every call went through `/usr/bin/git`, one simple
+  command at a time. Cost: four refused batches.
