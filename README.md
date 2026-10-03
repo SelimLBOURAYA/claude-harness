@@ -216,7 +216,7 @@ Called with `workflow_call` from each repo's `.github/workflows/ci.yml`. Start f
 
 | Workflow | Checks |
 |---|---|
-| `harness-invariants.yml` | Mirror, marketplace ref `main`, `CONVENTIONS.md` = master, no `skill/`, census ⇔ skills, lots file status table, plugin version bump on any change under `plugins/` |
+| `harness-invariants.yml` | Mirror, marketplace ref `main`, `CONVENTIONS.md` = master, no `skill/`, census ⇔ skills, lots file status table (the plugin version bump is a job of this repository's own `ci.yml` since lot 23) |
 | `commit-format.yml` | Conventional Commits, ASCII title without U+2014 |
 | `branch-naming.yml` | `feat/lot-N-slug`, `fix/`, `chore/`, `docs/`; PR base `develop` |
 | `migrations-immutable.yml` | Migration files added only, destructive changes marked `contract` |
