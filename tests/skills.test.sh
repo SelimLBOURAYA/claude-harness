@@ -343,6 +343,18 @@ assert_ok "lot-audit allows security-review inline" -- \
   grep -qF 'those phases **inline**' "$AUDIT_SKILL"
 assert_ok "lot-audit ends at the commit of its report" -- \
   grep -qF 'The skill ends at the last box' "$AUDIT_SKILL"
+# Lot 23: CLAUDE.md / AGENTS.md pass after the review for their census only. The
+# section filter of the skill is run as written: a census line is cut out, a
+# gate parameter is not.
+assert_ok "lot-audit limits the CLAUDE.md exemption to the census" -- \
+  grep -qF 'changed outside ## Project documents' "$AUDIT_SKILL"
+filter=$(grep -oF "awk '/^## /{skip=(\$0 ~ /^## Project documents/)} !skip'" "$AUDIT_SKILL" | head -n1)
+assert_ok "lot-audit ships its section filter" -- test -n "$filter"
+doc() { printf '# P\n\n## Gate parameters\n\n| `Stack` | `%s` |\n\n## Project documents\n\n| %s |\n\n## Validation gate\n\nrun\n' "$1" "$2"; }
+census_only=$(diff <(doc harness a | eval "$filter") <(doc harness "a b" | eval "$filter") >/dev/null; echo $?)
+assert_eq "0" "$census_only" "a census-only change passes the filter"
+gate_changed=$(diff <(doc harness a | eval "$filter") <(doc backend a | eval "$filter") >/dev/null; echo $?)
+assert_eq "1" "$gate_changed" "a gate parameter change does not"
 assert_eq "" "$(grep -n 'Exactly one `docs/audits/lot-\*.md`' "$CHECKLISTS" || true)" \
   "the checklist no longer contradicts the gate deliverables"
 # Harness ref: the installed copy, in both reports.
