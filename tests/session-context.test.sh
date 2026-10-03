@@ -99,9 +99,22 @@ git -C "$REPO" commit -q --allow-empty -m "docs(2.1): add the lot audit report"
 git -C "$REPO" switch -q feat/lot-2-b
 body=$(text "$(context startup "$REPO")")
 assert_ok "sibling sub-lot audit: the lock file is kept" -- test -f "$REPO/.claude/current-lot"
+# Lot 23: the flat branch is shared by the sub-lots, so its merge may carry a
+# sibling (2.1) while 2.3 is still open; only 2.3's own audit drops its lock.
+git -C "$REPO" switch -q develop
+git -C "$REPO" merge -q --no-ff -m "Merge pull request #8 from someone/feat/lot-2-b" feat/lot-2-b
+git -C "$REPO" switch -q feat/lot-2-b
+body=$(text "$(context startup "$REPO")")
+assert_ok "sub-lot lock, flat branch merged: the lock file is kept" -- test -f "$REPO/.claude/current-lot"
+git -C "$REPO" switch -q develop
+git -C "$REPO" commit -q --allow-empty -m "docs(2.3): add the lot audit report"
+git -C "$REPO" switch -q feat/lot-2-b
+body=$(text "$(context startup "$REPO")")
+assert_contains "$body" "audit commit" "sub-lot lock: its own audit commit is the evidence"
+assert_ok "sub-lot lock, own audit: the lock file is gone" -- test ! -f "$REPO/.claude/current-lot"
 printf 'lot=2\nbranch=feat/lot-2-b\nconfirmed=2026-09-21T00:00:00Z\n' > "$REPO/.claude/current-lot"
 git -C "$REPO" switch -q develop
-git -C "$REPO" reset -q --hard HEAD~2
+git -C "$REPO" reset -q --hard HEAD~4
 git -C "$REPO" switch -q feat/lot-2-b
 
 # --- deepseek rules only under a base URL ---------------------------------
