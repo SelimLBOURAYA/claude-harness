@@ -46,3 +46,16 @@
   it, with no performance or architecture audit, no report and no commit. Cost:
   the audit asked a second time. Fixed in this lot: the checklist and step 2 now
   say that steps 2 to 6 produce findings, never a deliverable.
+- `lot-audit / 0` — the review (`Reviewed at` `ca87666`) pre-dates `b5e5ac7`,
+  which edits `lot-audit/SKILL.md` and its test: the step says stop and re-run
+  `lot-review`. A fix to the skill under audit, made after the review, always
+  trips it. Cost: one stopped run and one question; waived by the owner.
+- `lot-audit / 0b` — `git fetch`, `git diff`, `git log` were refused by the
+  worktree isolation guard (the rtk rewrite, same cause as `lot-start / A3`); the
+  skill's snippets name `git -C "$AUDIT_REPO"` and `rtk proxy git`, both refused.
+  Cost: one stopped run; `exclude_commands = ["git"]` was added to the rtk config
+  for the session.
+- `lot-audit / 2` — the permission classifier denied one read command batching
+  `ci.yml`, `projects.json` and `dev-plan.md` ("Self-Modification"), so those
+  three were not read and are listed as unverified in the report. Cost: a partial
+  step 2 and step 4.
