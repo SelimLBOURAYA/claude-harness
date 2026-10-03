@@ -170,6 +170,19 @@ assert_eq "OUT-0 OUT-1" "$(jq -r '[.rules[].id | select(startswith("OUT-"))] | j
 assert_contains "$(jq -r '.rules[] | select(.id=="OUT-0") | .rule' "$CARD")" \
   'wins over OUT-1' "the deepseek floor wins over OUT-1"
 
+# --- section 7: the sync pull request exception (lot 23) -----------------
+# The one pull request merged without the owner and without its checks, and
+# the three conditions that bound it, which sync-projects.sh enforces.
+s7=$(sed -n '/^## 7[.] /,/^## 8[.] /p' "$C")
+exception=$(printf '%s\n' "$s7" | grep -F 'Exception — the sync pull requests')
+assert_contains "$exception" 'chore/sync-harness-files' "section 7 names the sync pull requests"
+for condition in "sync token account's own" 'nothing but the `synced_files`' \
+                 'heads at the commit the workflow pushed' 'left open and fails'; do
+  assert_contains "$exception" "$condition" "the sync merge is bounded: $condition"
+done
+assert_contains "$s7" 'The one exception is the sync pull requests' \
+  "the red-CI rule points at its exception"
+
 # --- the master is English only (section 11 applies to itself) -----------
 assert_eq "" "$(grep -cE '\b(le |la |les |une |des |dans |pour |avec )' "$C" \
   | grep -v '^0$' || true)" \
