@@ -133,7 +133,7 @@ assert_eq "0" "$(grep -c '^pr merge' "$WORK/gh.log")" "a pull request with anoth
 : > "$WORK/gh.log"; GH_MERGE_FAIL=1 run_sync; rc=$?
 refused "a moved head" "cannot merge sync PR #7 at $(pushed stale): left open"
 assert_eq "3" "$(grep -c '^pr merge' "$WORK/gh.log")" "the merge is retried, then given up"
-: > "$WORK/gh.log"; GH_LOGIN= run_sync; rc=$?
+: > "$WORK/gh.log"; GH_LOGIN='' run_sync; rc=$?
 refused "an unreadable token account" "cannot read the token account"
 assert_eq "0" "$(grep -c '^pr merge' "$WORK/gh.log")" "no merge without the token account"
 
