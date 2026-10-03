@@ -54,3 +54,14 @@
   written in a detached worktree (`.claude/worktrees/lot-22-audit`) and brought
   back to the lot branch by fast-forward. The skill does not foresee a session
   that cannot write in `$AUDIT_REPO`. Cost: one worktree, one extra merge.
+
+## lot-ship
+- `lot-ship / 2` — in a worktree-isolated session the rtk rewrite of `git`
+  (`rtk git …`) is refused by the isolation guard, which cannot tell where the
+  wrapped command runs; every git call went through `/usr/bin/git`. Cost: four
+  refused commands.
+- `lot-ship / 3` — the lot branch is checked out in the shared checkout, so the
+  worktree holds the commits on a detached `HEAD`: the push names the refspec
+  (`HEAD:feat/lot-22-friction-fixes`) instead of the documented
+  `git push -u origin feat/lot-N-<slug>`, and the shared checkout is left one
+  fast-forward behind. Cost: one manual `git merge --ff-only` for the user.
