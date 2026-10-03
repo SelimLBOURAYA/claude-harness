@@ -141,7 +141,13 @@ Task Progress:
 
 The skill ends at the last box, not before. Handing back after the security
 step, or with the report written but not committed, is stopping in the middle:
-the user then has to ask for the audit a second time (elya lot 5.3).
+the user then has to ask for the audit a second time (elya lot 5.3, lot 23).
+
+**Steps 2 to 6 produce findings, never a deliverable.** The only deliverable is
+`docs/audits/lot-N.md`, committed. Whatever a step returns, including the full
+report of the `security-review` skill, is an input kept for step 7: never present
+it to the user as the audit's result, and never end the turn on it. After each
+step, the next action is the next unchecked box.
 
 ### Step 1 — Context
 
@@ -175,6 +181,10 @@ per finding. When the lot's diff already fits in this session's context, run
 those phases **inline**, without sub-agents, and say so in the report: the
 procedure is the same, only the process boundary changes. Sub-agents remain the
 way for a diff too large to hold.
+
+`security-review` ends with a complete-looking report. It is **not** the audit:
+keep its findings for the **Security** table of step 7, then go straight to
+step 3 in the same turn.
 
 If the skill is unavailable, fall back to the manual checklist in
 [checklists.md](checklists.md) and say so in the report — a skipped step is

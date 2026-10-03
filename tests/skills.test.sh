@@ -116,6 +116,13 @@ assert_ok "lot-audit invokes the security-review skill" -- \
   grep -q 'Skill(security-review)' "$SKILLS/lot-audit/SKILL.md"
 assert_eq "" "$(grep -n 'subagent_type' "$SKILLS/lot-audit/SKILL.md" || true)" \
   "lot-audit no longer launches a security-review subagent"
+# Lot 23: the session of lot 23 ended on the security-review report, taking it
+# for the audit. Steps 2 to 6 are inputs of step 7, said at the checklist and at
+# the step that returns a finished-looking report.
+assert_ok "lot-audit says steps 2 to 6 are not a deliverable" -- \
+  grep -qF 'Steps 2 to 6 produce findings, never a deliverable' "$SKILLS/lot-audit/SKILL.md"
+assert_ok "lot-audit says security-review is not the audit" -- \
+  grep -qF 'It is **not** the audit' "$SKILLS/lot-audit/SKILL.md"
 # The checklist path must resolve from the skill directory.
 assert_file "$SKILLS/lot-audit/checklists.md" "lot-audit ships its checklists"
 assert_ok "lot-audit links its checklists" -- \
