@@ -25,3 +25,17 @@
   recorded in lot 22); the matrix was built per deliverable. Cost: none.
 - `lot-test / 3.1` — `Coverage tool` is `none`: 3.1 and 3.2 have nothing to act
   on. Cost: none.
+
+## lot-review
+- `lot-review / 1` — the snippet's `git -C "$REVIEW_REPO" …` and `rtk proxy git
+  -C …` forms are refused by the worktree isolation guard (same cause as
+  `lot-start / A3`); every call went through a plain `/usr/bin/git` from the
+  worktree. The worktree is also shallow, so `origin/develop` showed one commit
+  and the merge style of develop could not be read from history. Cost: four
+  refused commands.
+- `lot-review / 2` — `code-review --fix` warned that its `lotfile.py` fix would
+  trip `lot-audit` step 0 as "code after the review"; it does not, the fix commit
+  comes before **Reviewed at**. Cost: one check, a misleading caution.
+- `lot-review / 3` — the `workflows` suite skips its shell lint when `shellcheck`
+  is not installed, so the edited `sync-projects.sh` was not linted locally; only
+  CI lints it. Cost: none, a check that did not run.
