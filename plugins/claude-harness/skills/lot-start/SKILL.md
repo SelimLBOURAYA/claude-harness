@@ -99,7 +99,8 @@ Every other case is in `stops` and exits 3:
 
 | `kind` | Situation | What you do |
 |---|---|---|
-| `ambiguous` | Sub-lots (`2.1`, `2.2`) on one flat `feat/lot-2-*` branch, a branch shared by several open rows, or a sub-lot audit landed while the lots file names a sub-lot the row does not list | Ask which lots the merge completes |
+| `ambiguous` | Sub-lots (`2.1`, `2.2`) on one flat `feat/lot-2-*` branch, or a branch shared by several open rows | Ask which lots the merge completes |
+| `unlisted-subticket` | A row is about to close (merge or audit commit on develop) while the lots file names a sub-lot (`Ticket LOT-5.3`) that the row does not list | Ask which sub-lots are done, then record them **in the row** (`5.1 ✅, 5.3 🔄`): a row with sub-lots lists all of them, and the script tracks each one from there |
 | `done-without-merge` | A row is ✅ but develop has neither its merge nor a commit scoped to it | Ask whether the status is wrong or the lot shipped another way |
 | `merge-without-lot` | A lot-shaped branch was merged but no row maps to it | Ask which row it belongs to |
 | `scope-already-merged` | The candidate is ⬜ but develop already carries commits scoped to it | Ask whether it is done, partly done, or mislabelled |
@@ -149,8 +150,14 @@ List the lot's acceptance criteria, restated in your own words. Then:
 ### Step A6 — Create the branch, then hand the confirmation to the user
 
 ```bash
-git -C "$LOT_REPO" switch -c feat/lot-N-<slug> origin/develop
+git -C "$LOT_REPO" switch --no-track -c feat/lot-N-<slug> origin/develop
 ```
+
+`--no-track` is not optional. Without it, a branch started from
+`origin/develop` tracks `develop`: a bare `git push` targets `develop`, and a
+bare `gh pr view` looks for a pull request whose head is `develop`, which during
+an open promotion is the promotion pull request (lot 22). `lot-ship` sets the
+real upstream with its first `git push -u origin <branch>`.
 
 `N` is the lot ID without any sub-version (flat branches, §7): lot `2.1` works on
 `feat/lot-2-<slug>`. If the lots file names the branch in its `Branche` column,
@@ -206,11 +213,16 @@ git -C "$LOT_REPO" add docs/audits/lot-N-friction.md CLAUDE.md AGENTS.md
 git -C "$LOT_REPO" commit -m "docs(N): record the lot-start friction"
 ```
 
-### Step B3 — Hand over to development
+### Step B3 — Start the development
 
 Report in three lines: lot confirmed, what the sync changed (or « table already
-up to date »), the first development step. Development then follows §2 steps 4
+up to date »), the first development step. Then **start that step in the same
+turn**: the user's `lot-start confirm N` is the go, and stopping at the report
+costs one prompt per lot for nothing (lot 22). Development follows §2 steps 4
 to 8, and `lot-test` is the next gate skill.
+
+The one exception is a question still pending (a criterion the confirmation did
+not settle): ask it, and stop.
 
 ## Rules
 

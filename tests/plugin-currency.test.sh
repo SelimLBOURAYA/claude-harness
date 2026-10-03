@@ -124,6 +124,10 @@ assert_eq "" "$(check)" "no recorded SHA: silent"
 installed "$OLD"
 assert_eq "" "$(check --plugin-root "$REPO_ROOT/plugins/claude-harness")" \
   "a development checkout is not an installation"
+# --- the Harness ref of the reports: the SHA of the copy that ran (lot 22) --
+assert_eq "${OLD:0:7}" "$(check --installed-sha)" "installed-sha: the installed copy's SHA"
+assert_eq "" "$(check --installed-sha --plugin-root "$REPO_ROOT/plugins/claude-harness")" \
+  "installed-sha: nothing for a development checkout"
 printf 'not json at all\n' > "$PLUGINS/installed_plugins.json"
 assert_eq "" "$(check)" "unreadable installed_plugins.json: silent"
 mv "$PLUGINS/known_marketplaces.json" "$PLUGINS/known_marketplaces.json.bak"

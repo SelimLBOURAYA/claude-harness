@@ -92,8 +92,8 @@ assert_ok "lot-review forbids switching the profile itself" -- \
 # It drives the generic review skill with both flags.
 assert_ok "lot-review invokes the code-review skill" -- \
   grep -q 'Skill(code-review)' "$REVIEW"
-assert_ok "lot-review posts inline comments and applies fixes" -- \
-  grep -q -- '--comment --fix' "$REVIEW"
+assert_ok "lot-review applies fixes" -- \
+  grep -qF 'Skill(code-review) with arguments: --fix' "$REVIEW"
 # Its deliverable is what lot-audit gates on, and it must be verifiable.
 assert_ok "lot-review writes its deliverable" -- \
   grep -q 'lot-N-review.md' "$REVIEW"
@@ -300,5 +300,58 @@ assert_ok "harness-sync never edits a SKILL.md for friction" -- \
   grep -qF '**Never edit a `SKILL.md` from this skill**' "$SYNC_SKILL"
 assert_ok "harness-sync drafts need the user's approval" -- \
   grep -qF "only on the user's approval" "$SYNC_SKILL"
+
+# --- lot 22: the friction of elya and elya-frontend -------------------------
+INVARIANTS="$REPO_ROOT/.github/workflows/harness-invariants.yml"
+CHECKLISTS="$SKILLS/lot-audit/checklists.md"
+# One writer of CONVENTIONS.md in a project: the sync-projects pull request.
+assert_eq "" "$(grep -n 're-copied from\|Re-copy it' "$SYNC_SKILL" "$INVARIANTS" || true)" \
+  "nothing asks for a hand re-copy of CONVENTIONS.md"
+assert_ok "harness-sync routes a stale copy to the sync pull request" -- \
+  grep -qF 'gh workflow run sync-projects.yml' "$SYNC_SKILL"
+assert_ok "harness-invariants routes a stale copy to the sync pull request" -- \
+  grep -qF 'chore/sync-harness-files pull request' "$INVARIANTS"
+for f in "$SYNC_SKILL" "$CHECKLISTS"; do
+  assert_ok "$(basename "$(dirname "$f")")/$(basename "$f") compares with the fetched main" -- \
+    grep -qF 'show origin/main:CONVENTIONS.md' "$f"
+done
+# Diffs against the fetched origin/develop, never the local develop.
+assert_ok "lot-test diffs against the fetched origin/develop" -- \
+  grep -qF 'git diff --name-status origin/develop...HEAD' "$SKILLS/lot-test/SKILL.md"
+# A lot branch tracks nothing until lot-ship pushes it, and gh names the branch.
+assert_ok "lot-start creates the branch without tracking develop" -- \
+  grep -qF 'switch --no-track -c feat/lot-N-' "$START"
+assert_ok "lot-review names the branch to gh pr view" -- \
+  grep -qF 'gh pr view "$(git branch --show-current)"' "$SKILLS/lot-review/SKILL.md"
+# lot-start: sub-lots, and the development starts on the confirmation.
+assert_ok "lot-start documents the unlisted-subticket stop" -- grep -qF '`unlisted-subticket`' "$START"
+assert_ok "lot-start B3 starts the development in the same turn" -- \
+  grep -qF 'start that step in the same' "$START"
+# lot-review: no PR to comment on, two SHAs.
+REVIEW="$SKILLS/lot-review/SKILL.md"
+assert_eq "" "$(grep -n -- '--comment --fix\|Inline comments posted' "$REVIEW" || true)" \
+  "lot-review no longer posts inline comments"
+assert_ok "lot-review records the SHA it read" -- grep -qF '**Read at:**' "$REVIEW"
+assert_ok "lot-review records the SHA once fixed" -- grep -qF '**Reviewed at:**' "$REVIEW"
+assert_ok "lot-review keeps the fork inside the lot's diff" -- \
+  grep -qF "Keep its fixes inside the lot's source diff" "$REVIEW"
+# lot-audit: what may follow the review, inline security review, the end.
+AUDIT_SKILL="$SKILLS/lot-audit/SKILL.md"
+assert_ok "lot-audit lists what landed after Reviewed at" -- \
+  grep -qF 'diff --name-only <Reviewed at>..HEAD' "$AUDIT_SKILL"
+assert_ok "lot-audit allows security-review inline" -- \
+  grep -qF 'those phases **inline**' "$AUDIT_SKILL"
+assert_ok "lot-audit ends at the commit of its report" -- \
+  grep -qF 'The skill ends at the last box' "$AUDIT_SKILL"
+assert_eq "" "$(grep -n 'Exactly one `docs/audits/lot-\*.md`' "$CHECKLISTS" || true)" \
+  "the checklist no longer contradicts the gate deliverables"
+# Harness ref: the installed copy, in both reports.
+for s in lot-review lot-audit; do
+  assert_ok "$s takes the harness ref from the installed copy" -- \
+    grep -qF 'plugin-currency.py --installed-sha' "$SKILLS/$s/SKILL.md"
+done
+# lot-test: the frontend rows of the matrix.
+assert_ok "lot-test matrix has a route guard row" -- \
+  grep -qF '| Route guard (frontend) |' "$SKILLS/lot-test/SKILL.md"
 
 finish

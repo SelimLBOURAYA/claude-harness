@@ -23,8 +23,13 @@ hard-coded: `<plugins>/cache/<marketplace>/<plugin>/<version>/hooks/`.
 CLI:
 
     plugin-currency.py [--plugin-root DIR] [--plugins-dir DIR] [--timeout SECONDS]
+    plugin-currency.py --installed-sha [--plugin-root DIR] [--plugins-dir DIR]
 
 Exit status is always 0: the verdict is the output, not the code.
+
+--installed-sha prints the short SHA of the installed copy this file runs from,
+and nothing when it is not an installed copy: the `Harness ref` of the review and
+audit reports, i.e. the harness that actually ran, not the clone's checkout (lot 22).
 
 Standard library only (V6), like the other hooks.
 """
@@ -184,6 +189,16 @@ def warning(plugin, entry, tip):
     )
 
 
+def installed_sha(root, plugins):
+    """Short SHA of the installed copy at `root`, or an empty string."""
+    found = identity(root, plugins)
+    if found is None:
+        return ""
+    marketplace, plugin, _, version_dir = found
+    entry = installed_entry(plugins, "%s@%s" % (plugin, marketplace), version_dir)
+    return short((entry or {}).get("gitCommitSha"))
+
+
 def check(root, plugins, timeout):
     """The warning line, or an empty string when there is nothing to say."""
     found = identity(root, plugins)
@@ -208,8 +223,14 @@ def main(argv):
     parser.add_argument("--plugin-root")
     parser.add_argument("--plugins-dir")
     parser.add_argument("--timeout", type=float, default=DEFAULT_TIMEOUT)
+    parser.add_argument("--installed-sha", action="store_true")
     args = parser.parse_args(argv[1:])
 
+    if args.installed_sha:
+        line = installed_sha(plugin_root(args.plugin_root), plugins_dir(args.plugins_dir))
+        if line:
+            print(line)
+        return 0
     line = check(plugin_root(args.plugin_root), plugins_dir(args.plugins_dir), args.timeout)
     if line:
         print(line)

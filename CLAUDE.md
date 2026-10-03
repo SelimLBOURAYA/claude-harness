@@ -76,7 +76,7 @@ with the plugin enabled they are announced as `claude-harness:<name>`.
 |---|---|---|
 | `lot-start` | before any lot development, and on `lot-start confirm N` | Syncs the status table with develop, asks every ambiguity, creates the branch; the user's `lot-start confirm N` writes the lock that opens writes; opens `docs/audits/lot-N-friction.md` |
 | `lot-test` | lot code complete | Tests written and green, coverage gate at the repo threshold |
-| `lot-review` | after `lot-test` | Code review of the lot, inline PR comments and applied fixes; **requires the `claude` profile** |
+| `lot-review` | after `lot-test` | Code review of the lot, applied fixes and one batch of questions for the findings that need a decision; **requires the `claude` profile** |
 | `lot-audit` | after `lot-review` | Security, performance and architecture audit; writes `docs/audits/lot-N.md` |
 | `lot-ship` | after `lot-audit` | Commits, push, PR to `develop`, then stop until merge |
 | `harness-sync` | harness or docs may have drifted | Detects and fixes drift between docs, skills and reality; turns the gate friction into proposed correction lots |
@@ -143,6 +143,9 @@ Every blocking invariant is also enforced in CI, which is the only agent-agnosti
 | `docs/audits/lot-21-review.md` | Lot 21 code-review report |
 | `docs/audits/lot-21.md` | Lot 21 audit report — security, performance, architecture |
 | `docs/audits/lot-21-friction.md` | Lot 21 friction record — what each gate skill's own run cost |
+| `docs/audits/lot-22-friction.md` | Lot 22 friction record — what each gate skill's own run cost |
+| `docs/audits/lot-22-review.md` | Lot 22 code-review report |
+| `docs/audits/lot-22.md` | Lot 22 audit report — security, performance, architecture |
 | `docs/audits/portfolio/p4-meta-harness-2026-09-17-v2.md` | P4 portfolio audit (supersedes the removed morning v1) |
 | `docs/audits/portfolio/p5-harness-cicd-2026-09-17.md` | P5 CI/CD guards audit |
 | `docs/audits/portfolio/p6-meta-portfolio-2026-09-17.md` | P6 cross-cutting portfolio audit |

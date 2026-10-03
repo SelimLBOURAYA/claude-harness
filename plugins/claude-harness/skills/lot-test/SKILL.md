@@ -44,9 +44,19 @@ fill it. Guessing a validation command is how a lot ships untested.
 
 1. Read the lot's section in the `Lots file` — the acceptance criteria are the
    test list in disguise.
-2. Diff the branch against `develop` and list what was added or modified:
+2. Diff the branch against the **fetched** `origin/develop` and list what was
+   added or modified:
+
+   ```bash
+   git fetch -q origin develop
+   git diff --name-status origin/develop...HEAD
+   ```
+
+   Never the local `develop`: it only moves on a `git pull` made on it, and a
+   stale one puts every lot merged since into the diff as if this lot had
+   written it (elya lot 5: 92 files listed instead of 23).
    - backend: services, controllers, entities, mappers, migrations;
-   - frontend: components, services, guards, interceptors, stores.
+   - frontend: components, services, guards, interceptors, stores, routes.
 3. Write the corresponding tests (section 2).
 4. Run the `Validation command` until green (section 3).
 5. Commit the tests **in the same lot, on the same branch**, alongside the code
@@ -89,6 +99,9 @@ Rows that recur across the portfolio and are easy to forget:
 | Authentication on protected routes | Unauthenticated → 401; valid credentials → 200 |
 | Export injection (CSV, spreadsheet) | A cell starting with `=`, `+`, `-` or `@` is neutralised |
 | Authorisation / ownership | A user cannot read or mutate another user's row |
+| Route (frontend) | Navigating to the path renders its component, through the real router |
+| Route guard (frontend) | Denied → redirect to the documented route; allowed → the route renders |
+| HTTP interceptor (frontend) | The header or error handling it adds is asserted on the request the HTTP testing controller sees |
 
 ### Backend specifics (`Stack = backend`)
 
@@ -107,6 +120,10 @@ Rows that recur across the portfolio and are easy to forget:
 - Services: assert request URL, method and body against the HTTP testing
   controller, and the state exposed to consumers.
 - Guards and interceptors: pure tests with the collaborators mocked.
+- Lazy routes: a `loadComponent` / `loadChildren` loader is only covered once the
+  route is navigated. A routes file read low after the lot's own specs needs a
+  routes spec that navigates each lazy path (`app.routes.spec.ts`), not an
+  exclusion.
 - A green frontend suite proves nothing about the real backend. The front ↔
   backend contract is the `integration-check` skill's job, and its deliverable
   `docs/audits/lot-0-integration.md` is required before any frontend PR.

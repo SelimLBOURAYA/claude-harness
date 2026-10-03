@@ -15,8 +15,11 @@ CLI, for the shell hooks:
   lotfile.py has-lot <root> <id>    exit 0 when <id> is a row of the status table,
                                     or a sub-lot of one (3.3 on a row 3)
   lotfile.py lock <root>            the lock, one key=value per line, empty when none
+  lotfile.py lock-merged <root>     exit 0 and print the evidence when the locked lot
+                                    landed on develop after its confirmation
 """
 
+import datetime
 import os
 import re
 import subprocess
@@ -37,6 +40,14 @@ STATUSES = (DONE, TODO, IN_PROGRESS, PAUSED, FROZEN)
 LOT_BRANCH = re.compile(r"^feat/lot-([0-9]+[a-z]?)(?:-|$)")
 # Any lot-shaped branch, whatever its type prefix.
 ANY_LOT_BRANCH = re.compile(r"^(?:feat|fix|chore)/lot-([0-9]+[a-z]?)(?:-|$)")
+
+# What a lot leaves on develop once its pull request landed: a merge commit
+# naming its branch, or, through a rebase or squash merge that leaves none, the
+# lot-audit deliverable commit (CONVENTIONS.md section 13), which lot-ship
+# requires before any push.
+MERGE_PR = re.compile(r"^Merge pull request #(\d+) from [^/\s]+/(\S+)")
+MERGE_BRANCH = re.compile(r"^Merge (?:remote-tracking )?branch '([^']+)'")
+AUDIT = re.compile(r"^docs\(([^)]*)\)!?: add the lot audit report", re.I)
 
 
 def run_git(cwd, *args):
@@ -74,6 +85,32 @@ def repo_root(path):
 
 def current_branch(root):
     return run_git(root, "rev-parse", "--abbrev-ref", "HEAD")
+
+
+def develop_ref(root):
+    for ref in ("origin/develop", "develop"):
+        if run_git(root, "rev-parse", "--verify", "-q", ref) is not None:
+            return ref
+    return None
+
+
+def merged_branch(subject):
+    """(branch, pull request number) of a merge commit subject, (None, None) else."""
+    match = MERGE_PR.match(subject)
+    if match:
+        return match.group(2), match.group(1)
+    match = MERGE_BRANCH.match(subject)
+    if match:
+        return match.group(1), None
+    return None, None
+
+
+def audit_scope(subject):
+    """Lot IDs an audit commit subject is scoped to, [] when it is not one."""
+    match = AUDIT.match(subject)
+    if not match:
+        return []
+    return [token for token in re.split(r"[,\s]+", match.group(1).lower()) if token]
 
 
 def gate_parameters(root):
@@ -200,6 +237,38 @@ def read_lock(root):
     return lock if lock.get("lot") and lock.get("branch") else None
 
 
+def lock_merged(root, lock):
+    """Evidence that the locked lot landed on develop after it was confirmed.
+
+    The proof is the one sync-status.py accepts: a first-parent merge of the
+    locked branch, or an audit commit scoped to the lot. Only commits made after
+    the confirmation count, so the audit of an earlier sub-lot (5.1, before 5.3
+    was confirmed on the same row) never reads as this lot's merge. The local ref
+    is read as it is, never fetched: a stale ref proves nothing, and the lock stays.
+    """
+    try:
+        confirmed = datetime.datetime.strptime(lock.get("confirmed", ""), "%Y-%m-%dT%H:%M:%SZ")
+    except ValueError:
+        return None
+    ref = develop_ref(root)
+    if ref is None:
+        return None
+    since = confirmed.replace(tzinfo=datetime.timezone.utc).timestamp()
+    out = run_git(root, "log", "--first-parent", "-200", "--format=%h%x09%ct%x09%s", ref)
+    lot = lock["lot"].lower()
+    for line in (out or "").splitlines():
+        parts = line.split("\t", 2)
+        if len(parts) != 3 or int(parts[1]) < since:
+            continue
+        sha, _, subject = parts
+        if merged_branch(subject)[0] == lock["branch"]:
+            return "merge %s of %s" % (sha, lock["branch"])
+        # Exact scope, as sync-status.py reads it: the audit of 5.2 is not 5.3's.
+        if lot in audit_scope(subject):
+            return "audit commit %s of lot %s" % (sha, lock["lot"])
+    return None
+
+
 # --------------------------------------------------------------------------
 # CLI
 
@@ -250,6 +319,12 @@ def main(argv):
         for key, value in lock.items():
             print("%s=%s" % (key, value))
         return 0
+    if command == "lock-merged":
+        lock = read_lock(target)
+        evidence = lock_merged(target, lock) if lock else None
+        if evidence:
+            print(evidence)
+        return 0 if evidence else 1
     print(__doc__, file=sys.stderr)
     return 2
 
