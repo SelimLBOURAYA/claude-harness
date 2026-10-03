@@ -39,3 +39,10 @@
 - `lot-review / 3` — the `workflows` suite skips its shell lint when `shellcheck`
   is not installed, so the edited `sync-projects.sh` was not linted locally; only
   CI lints it. Cost: none, a check that did not run.
+
+## lot-audit
+- `lot-audit / 2` — `security-review` returns a complete-looking report and the
+  step did not say it was an input of step 7: the first run ended its turn on
+  it, with no performance or architecture audit, no report and no commit. Cost:
+  the audit asked a second time. Fixed in this lot: the checklist and step 2 now
+  say that steps 2 to 6 produce findings, never a deliverable.
