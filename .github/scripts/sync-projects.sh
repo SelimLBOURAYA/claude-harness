@@ -55,12 +55,12 @@ trap 'rm -rf "$work"' EXIT
 
 # open_pr <repo> : number of the open sync pull request, empty when there is none
 open_pr() {
-  gh pr list --repo "$1" --head "$branch" --state open --json number --jq '.[0].number // empty'
+  gh pr list --repo "$1" --head "$branch" --base "$base" --state open \
+    --json number --jq '.[0].number // empty'
 }
 
 # The account behind the token: a sync pull request it did not open is not merged.
 sync_login=$(gh api user --jq '.login' 2>/dev/null || true)
-[ -n "$sync_login" ] || echo "::error::cannot read the token account (gh api user): no sync pull request is merged"
 synced_json=$(jq -c '.synced_files' "$manifest")
 
 # merge_pr <repo> <number> <pushed sha> : merges the sync pull request when it is
@@ -69,7 +69,10 @@ synced_json=$(jq -c '.synced_files' "$manifest")
 # of a pull request that was just pushed asynchronously.
 merge_pr() {
   local repo=$1 number=$2 head=$3 view author extra attempt
-  [ -n "$sync_login" ] || return 1
+  if [ -z "$sync_login" ]; then
+    echo "::error::$repo: cannot read the token account (gh api user): sync PR #$number left open"
+    return 1
+  fi
   view=$(gh pr view "$number" --repo "$repo" --json author,files) || {
     echo "::error::$repo: cannot read sync PR #$number"; return 1; }
   author=$(jq -r '.author.login // ""' <<<"$view")

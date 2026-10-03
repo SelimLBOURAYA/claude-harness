@@ -258,9 +258,12 @@ def lock_merged(root, lock):
     if ref is None:
         return None
     since = confirmed.replace(tzinfo=datetime.timezone.utc).timestamp()
-    out = run_git(root, "log", "--first-parent", "-200", "--format=%h%x09%ct%x09%s", ref)
     lot = lock["lot"].lower()
     sub_lot = "." in lot
+    # A sub-lot has only its audit commit as evidence, and a merge-commit pull
+    # request leaves it on the second parent: read every commit develop reaches.
+    walk = ["-200"] if sub_lot else ["--first-parent", "-200"]
+    out = run_git(root, "log", *walk, "--format=%h%x09%ct%x09%s", ref)
     for line in (out or "").splitlines():
         parts = line.split("\t", 2)
         if len(parts) != 3 or int(parts[1]) < since:
