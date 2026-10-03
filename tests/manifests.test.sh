@@ -99,7 +99,7 @@ done < <(find "$REPO_ROOT" -name '*.md' -not -path "$REPO_ROOT/.git/*" | sort)
 # the hook and reachable from the sync skill.
 for text in 'Unknown skill: claude-harness' 'plugin marketplace update claude-harness' \
             "the owner's runbook" 'close the session and reopen' \
-            'propagate the master'; do
+            'check the `sync-projects` run'; do
   assert_ok "the README documents '$text'" -- grep -qF "$text" "$REPO_ROOT/README.md"
 done
 assert_ok "the README documents the freshness helper" -- \

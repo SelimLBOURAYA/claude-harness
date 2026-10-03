@@ -146,6 +146,9 @@ Every blocking invariant is also enforced in CI, which is the only agent-agnosti
 | `docs/audits/lot-22-friction.md` | Lot 22 friction record — what each gate skill's own run cost |
 | `docs/audits/lot-22-review.md` | Lot 22 code-review report |
 | `docs/audits/lot-22.md` | Lot 22 audit report — security, performance, architecture |
+| `docs/audits/lot-23-friction.md` | Lot 23 friction record — what each gate skill's own run cost |
+| `docs/audits/lot-23-review.md` | Lot 23 code-review report |
+| `docs/audits/lot-23.md` | Lot 23 audit report — security, performance, architecture |
 | `docs/audits/portfolio/p4-meta-harness-2026-09-17-v2.md` | P4 portfolio audit (supersedes the removed morning v1) |
 | `docs/audits/portfolio/p5-harness-cicd-2026-09-17.md` | P5 CI/CD guards audit |
 | `docs/audits/portfolio/p6-meta-portfolio-2026-09-17.md` | P6 cross-cutting portfolio audit |

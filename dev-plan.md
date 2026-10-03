@@ -42,7 +42,8 @@
 | 19 | `feat/lot-19-lot-start-guard` | A – Harness | Cadrage du démarrage : skill `lot-start`, verrou d'écriture, réinjection de l'état au démarrage et après compaction | claude-harness, les 8 repos (via `main`) | ✅ |
 | 20 | `feat/lot-20-plugin-currency` | A – Harness | Fraîcheur du plugin installé : un harnais en retard rend le verrou de lot muet au lieu de le signaler | claude-harness, les 8 repos (via `main`) |✅ |
 | 21 | `feat/lot-21-response-floor-friction` | A – Harness | Plancher de complétude dans §15 et remontée de friction des skills vers `harness-sync` | claude-harness, les 8 repos (via `main`) | ✅ |
-| 22 | `feat/lot-22-friction-fixes` | A – Harness | Correctifs de la friction remontée par elya et elya-frontend, et un seul écrivain de `CONVENTIONS.md` dans les projets | claude-harness, les 8 repos (via `main`) | 🔄 |
+| 22 | `feat/lot-22-friction-fixes` | A – Harness | Correctifs de la friction remontée par elya et elya-frontend, et un seul écrivain de `CONVENTIONS.md` dans les projets | claude-harness, les 8 repos (via `main`) | ✅ |
+| 23 | `feat/lot-23-sync-automerge` | A – Harness | Merge automatique des PR de synchro de `CONVENTIONS.md`, version du plugin pour l'auto-update, et les deux constats reportés de la revue du lot 22 | claude-harness, les 8 repos (via `main`) | 🔄 |
 
 Légende des statuts *(P6-D10)* : ⬜ à faire · 🔄 en cours (livré sur la branche, PR non
 mergée) · ✅ mergé sur `develop` · ⏸️ planifié mais dormant · ❄️ gelé.
@@ -1378,7 +1379,9 @@ confronté au harnais. Deux manques retenus par l'utilisateur :
 
 ---
 
-## LOT 22 — Correctifs de friction et un seul écrivain de `CONVENTIONS.md` 🔄
+## LOT 22 — Correctifs de friction et un seul écrivain de `CONVENTIONS.md` ✅
+
+Done : mergé dans `develop` par c75069e (PR #44), promu sur `main`.
 
 Branche `feat/lot-22-friction-fixes`, depuis `develop`. Repo touché :
 `claude-harness` ; les 8 repos en héritent à la promotion `develop` → `main`.
@@ -1510,6 +1513,100 @@ Clés de friction traitées (CONVENTIONS §13) : `lot-start / A3`, `lot-start / 
 
 - `ReportFindings` absent dans le fork de `code-review` (elya 5.3) : sans coût,
   relève de Claude Code, pas du harnais.
+
+---
+
+## LOT 23 — Merge automatique des PR de synchro et constats reportés du lot 22 🔄
+
+Branche `feat/lot-23-sync-automerge`, depuis `develop`. Repo touché :
+`claude-harness` ; les 8 repos en héritent à la promotion `develop` → `main`.
+
+### Origine
+
+1. Les PR `chore/sync-harness-files` ouvertes par `sync-projects` dans les 8
+   repos se mergent à la main, une par une, alors qu'elles ne portent qu'une
+   copie du master.
+2. Deux constats de `lot-22-review.md` reportés à un lot dédié (constats 4 et 6).
+
+### Livrables
+
+1. **Merge des PR de synchro par `sync-projects`** (arbitrage B du 2026-10-03) :
+   `.github/scripts/sync-projects.sh` merge (`gh pr merge --merge
+   --delete-branch`) la PR `chore/sync-harness-files` qu'il vient d'ouvrir ou de
+   mettre à jour, **seulement si** :
+   - son auteur est le compte du jeton `HARNESS_SYNC_TOKEN` ;
+   - elle ne touche que les `synced_files` de `projects.json` ;
+   - sa tête est le commit que le script vient de pousser
+     (`--match-head-commit`).
+
+   Sinon, la PR est laissée ouverte, le script écrit pourquoi et le projet est
+   compté en échec. Pas d'attente des checks : les projets appellent les
+   workflows du harness à `@main`, donc un rouge révélé par la PR de synchro
+   existe déjà sur leur `develop` ; la fusion ne fait que remettre
+   `CONVENTIONS.md` à jour, et le rouge reste visible sur le CI de `develop`.
+   Pas de second workflow, pas de planification.
+2. **CONVENTIONS §7** : exception à « never auto-merged » et à « never merge a
+   pull request whose CI is red », limitée aux PR de synchro et à ces trois
+   conditions, avec la raison ci-dessus. Commentaire de `sync-projects.yml`
+   aligné.
+3. **Verrou d'un sous-lot** (constat 4, `lotfile.py`) : un verrou qui nomme un
+   sous-lot (`5.3`) n'est supprimé que sur le commit d'audit de ce sous-lot
+   exact ; la preuve par merge de la branche plate reste réservée aux verrous
+   de lot entier.
+4. **`lot-audit` étape 0** (constat 6) : après **Reviewed at**, une modification
+   de `CLAUDE.md` / `AGENTS.md` n'est acceptée que si ses hunks restent dans
+   `## Project documents`. Les commits de correction de `lot-review` (avant
+   **Reviewed at**) et ceux de `lot-audit` (après l'étape 0) ne sont pas
+   concernés.
+5. **Version du plugin** : la version de `plugin.json` et `marketplace.json`
+   est restée `1.1.1` pendant les lots 20 (correctifs), 21 et 22 ; la mise à jour
+   de Claude Code, qui compare les versions, n'installait donc rien. Passage en
+   `1.2.0`, et toute modification sous `plugins/` change la version.
+   - **5a — cause** : le contrôle « A change under plugins/ carries a version
+     bump » (lot 20) est une étape de `harness-invariants.yml`, que le `ci.yml`
+     du harness n'appelle pas, et qui s'arrête dans les projets faute de
+     `.claude-plugin/marketplace.json`. Il ne tournait nulle part. Il devient un
+     job `plugin-version` du `ci.yml` du harness, sur chaque PR.
+   - **5b** : un test de `./tests/run.sh` échoue si `ci.yml` n'appelle plus ce
+     contrôle.
+6. **Avertissement de fraîcheur** (`plugin-currency.py`) : la comparaison par
+   SHA est conservée, restreinte à `plugins/` : avertissement seulement si
+   `plugins/` diffère entre le SHA installé et celui de `main`, calculé dans le
+   clone de la marketplace. Un commit de documents ne déclenche plus
+   d'avertissement, et le signal ne dépend pas d'une version qu'on peut oublier
+   de bumper. Plus de comparaison de versions.
+
+### Tests (`./tests/run.sh`)
+
+- `sync-projects.sh`, `gh` simulé : PR conforme → mergée ; auteur différent,
+  fichier hors `synced_files` ou tête différente → non mergée, projet en échec.
+- `session-context.sh` : verrou `5.3` conservé au merge d'un sous-lot frère,
+  supprimé au commit d'audit de 5.3.
+- Contenu de `lot-audit` : l'exemption de `CLAUDE.md` / `AGENTS.md` est limitée
+  à `## Project documents`.
+- Version : le `ci.yml` du harness appelle le contrôle de version ; une PR qui
+  touche `plugins/` sans bump → échec.
+- `plugin-currency.py` : SHA de `main` différent mais `plugins/` identique →
+  aucun avertissement ; `plugins/` différent → avertissement.
+
+### Critères de validation
+
+- Aucune PR de synchro n'est mergée si elle touche autre chose que les
+  `synced_files`, si son auteur n'est pas le compte du jeton, ou si sa tête
+  n'est pas le commit poussé par le script.
+- Après promotion, la mise à jour installe le plugin sans action manuelle.
+- `./tests/run.sh` vert ; gate complet du lot, `lot-review` sous profil
+  `claude`, dans une autre session que le développement.
+
+### Arbitrages (2026-10-03)
+
+1. Exception à §7 acceptée pour les seules PR de synchro.
+2. Merge dans `sync-projects.sh`, sans attente des checks (option B) : pas de
+   second workflow, pas de workflow dans les 8 repos.
+3. Merge commit (`--merge`).
+4. Les deux constats reportés du lot 22 entrent dans ce lot.
+5. Version du plugin, contrôle branché dans le CI du harness (5a, 5b) et
+   avertissement restreint à `plugins/` entrent dans ce lot.
 
 ---
 

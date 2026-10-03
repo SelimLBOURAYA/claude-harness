@@ -141,7 +141,7 @@ why the agent never runs it on its own initiative.
   - **CI**: the validation gate runs on `develop`, on `main` and on every PR targeting them. When a project publishes images, `main` feeds the **production** tags (`latest` + short SHA) and `develop` feeds the **dev** tags (`dev` + short SHA); a dev tag is never deployed to production.
   - Exception — a production hotfix explicitly requested on `main`: branch `fix/[short-description]` from `main`, PR to `main`, and tell the user the same fix must be replayed on `develop`.
 - **Enforcement**: these rules are enforced by the `claude-harness` plugin's git guard hook (a `PreToolUse` guard that denies the forbidden `git`/`gh` invocations) and, agent-agnostically, by the reusable CI workflows. The hook is a convenience; the CI is the guard that no agent can skip.
-- **No branch protection**: every repository is private and single-maintainer, so `main` carries no server-side protection rule. That makes one rule non-negotiable: **never merge a pull request whose CI is red.** Nothing else will stop it.
+- **No branch protection**: every repository is private and single-maintainer, so `main` carries no server-side protection rule. That makes one rule non-negotiable: **never merge a pull request whose CI is red.** Nothing else will stop it. The one exception is the sync pull requests, under **PRs** below.
 - **Migrations — expand then contract**: a migration that has been applied anywhere is **immutable**. Never drop a column, rename a column or table, or add a `NOT NULL` constraint in the same version as the code that stops using it. Expand first (add the new column, backfill, dual-write), ship it, and only in a **later** version contract (drop the old one) in a changeset explicitly marked `contract`. Enforced by `migrations-immutable.yml`, which additionally requires the `schema-contract` label on the pull request.
 - **Commits**: Conventional Commits, short messages, in **English**.
   - Format: `<type>(<scope>): <message>` — `type` ∈ `feat | fix | refactor | test | chore | docs`.
@@ -149,6 +149,7 @@ why the agent never runs it on its own initiative.
 - **Branches**: one branch per lot/ticket — `feat/lot-[N]-[short-description]` (flat, **no** sub-version `N.M`), branched from `develop`. For a cross-cutting chore: `chore/[short-description]`, also from `develop`.
 - **PRs**:
   - Opened against `develop` after explicit user approval, never auto-merged.
+  - **Exception — the sync pull requests** (`chore/sync-harness-files`, §12): the harness `sync-projects` workflow merges them at once, without waiting for their checks, and only when the pull request is the sync token account's own, touches nothing but the `synced_files` of `projects.json`, and still heads at the commit the workflow pushed. Any other is left open and fails the workflow run. Why the red rule above does not apply: the projects call the harness workflows at `@main`, so a red that a sync pull request shows is already red on the project's `develop`; the merge only brings the copy up to date, and the red stays visible on `develop`. No agent merges a sync pull request by hand.
   - **Title**: same format as the main commit (`<type>(<lot>): <message>`).
   - **Body**: exactly two sections — `## Summary` (bullets describing the changes) then `## Test plan` (`- [ ]` checklist of local verifications, ticked if already passed). No additional section unless it adds real info (e.g. `## DB migration` when there is a changeset).
 - Prefer creating a **new commit** rather than amending an existing one (unless explicitly asked).
@@ -300,7 +301,7 @@ The master is **`claude-harness/CONVENTIONS.md`**, this file.
 
 1. Edit it here, in a harness pull request. Never edit a project's copy: the reverse path is forbidden.
 2. `harness-invariants.yml` compares every repository's `CONVENTIONS.md` against this file at the harness `main` branch, so a project falls out of date **loudly**.
-3. Propagation is automatic: when this file changes on the harness `main`, the `sync-projects` workflow opens one pull request per project listed in `projects.json` (branch `chore/sync-harness-files`, base `develop`) carrying the new copy. The user merges them; an agent never hand-copies the master into a project outside such a pull request.
+3. Propagation is automatic: when this file changes on the harness `main`, the `sync-projects` workflow opens one pull request per project listed in `projects.json` (branch `chore/sync-harness-files`, base `develop`) carrying the new copy, and merges each one at once under the conditions of the sync pull request exception (§7). One it leaves open is the user's to merge; an agent never hand-copies the master into a project outside such a pull request.
 
 ---
 

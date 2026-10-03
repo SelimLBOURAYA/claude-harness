@@ -58,6 +58,72 @@ jobs:
       - name: Run the validation gate
         run: ./tests/run.sh
 
+  # Lot 23. This check lived in harness-invariants.yml from lot 20, which this
+  # repository does not call and where the consuming repositories, having no
+  # plugin tree, skipped it: it ran nowhere, and the version stayed at 1.1.1
+  # through lots 20 to 22 while the plugin changed. It runs here, on the one
+  # repository it is about, and tests/workflows.test.sh fails if it is unwired.
+  plugin-version:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: A change under plugins/ carries a version bump
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          # Claude Code keys the installed copy by version
+          # (plugins/cache/<marketplace>/<plugin>/<version>) and its refresh
+          # compares versions only, so two different plugin contents under one
+          # number are indistinguishable: the refresh is a no-op, and the session
+          # keeps running the previous guards. The version moves with the content,
+          # in the same pull request - which is what makes this checkable without
+          # comparing against main, where the promotion lags by design.
+          manifest=.claude-plugin/marketplace.json
+          # Never a silent skip: a skip is how this check ran nowhere for three lots.
+          [ -f "$manifest" ] || { echo "::error::no $manifest: the plugin version cannot be checked."; exit 1; }
+
+          bump=$(jq -r '.metadata.version // ""' "$manifest")
+          declared=$(jq -r '.plugins[0].version // ""' "$manifest")
+          plugin=$(jq -r '.version' plugins/claude-harness/.claude-plugin/plugin.json)
+          if [ "$bump" != "$declared" ] || [ "$bump" != "$plugin" ]; then
+            echo "::error::the version fields disagree: marketplace metadata $bump, plugins[0] $declared, plugin.json $plugin."
+            echo "Bump all three together; three numbers for one plugin is three chances to refresh nothing."
+            exit 1
+          fi
+
+          if [ -z "$BASE_SHA" ]; then
+            echo "::warning::no base commit on this event: the bump is not verified, only the agreement of the three version fields."
+            exit 0
+          fi
+          git fetch --no-tags --depth=1 origin "$BASE_SHA" >/dev/null 2>&1 || true
+          if ! git cat-file -e "${BASE_SHA}^{commit}" 2>/dev/null; then
+            echo "::warning::the base commit $BASE_SHA is unreachable, so this change is verified against nothing."
+            echo "The version bump of this pull request was not checked on this run."
+            exit 0
+          fi
+
+          if [ -z "$(git diff --name-only "$BASE_SHA" HEAD -- plugins .claude-plugin)" ]; then
+            echo "nothing under plugins/ or .claude-plugin/ changed: version $bump stands"
+            exit 0
+          fi
+
+          before=$(git show "$BASE_SHA:$manifest" 2>/dev/null | jq -r '.metadata.version // ""' 2>/dev/null || true)
+          if [ "$bump" = "$before" ]; then
+            echo "::error::this change touches plugins/ or .claude-plugin/ and leaves the version at $bump."
+            echo "Bump it in $manifest (metadata and plugins[0]) and in plugins/claude-harness/.claude-plugin/plugin.json in this same pull request."
+            echo "The installed copy is keyed by version: under an unchanged number, a refresh is indistinguishable from a no-op."
+            exit 1
+          fi
+          # A lower number is no better than an unchanged one: its cache
+          # directory may already exist on a machine, holding older content.
+          if [ -n "$before" ] && [ "$(printf '%s\n%s\n' "$before" "$bump" | sort -V | tail -n1)" != "$bump" ]; then
+            echo "::error::this change moves the version backwards, $before -> $bump."
+            echo "The installed copy is keyed by version: an earlier number may name a cache directory that already holds older content."
+            exit 1
+          fi
+          echo "version $before -> $bump"
+
   mirror:
     runs-on: ubuntu-latest
     steps:

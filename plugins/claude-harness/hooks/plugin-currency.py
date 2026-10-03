@@ -10,8 +10,12 @@ confirmation hook were not installed at all, and a missing hook writes nothing
 could not tell "guard satisfied" from "guard absent" (incident of 2026-09-22,
 repo elya, lot 3.3).
 
-This module answers one question for the SessionStart hook: is the installed
-SHA the one `main` carries? When it is not, it prints the warning the hook puts
+This module answers one question for the SessionStart hook: does the installed
+copy hold the `plugins/` tree `main` carries? It compares the installed SHA with
+main's tip, then, when they differ, `plugins/` between the two in the
+marketplace clone (lot 23): a commit of documents is not a lag, and no version
+number is trusted, since an unbumped one is what left the copy stale through
+lots 20 to 22. When it does not, it prints the warning the hook puts
 at the top of its state re-injection. When it cannot tell - no installed entry,
 no marketplace clone, no remote, offline - it prints nothing and exits 0: the
 hook must never block a session, and a guess would be worse than the silence it
@@ -163,6 +167,28 @@ def remote_tip(clone, ref, timeout):
     return None
 
 
+def plugin_unchanged(clone, installed, tip, timeout):
+    """True when `plugins/` is the same at the installed SHA and at main's tip.
+
+    Only the plugin tree is what Claude Code copies into its cache, so a commit
+    of documents on main (a plan, an audit report) is not a lag (lot 23). The
+    comparison is by content, never by version: a version left unbumped is the
+    very failure this warning exists to catch. When the clone cannot answer -
+    the tip not fetched yet, the installed SHA unknown to it - the answer is
+    False, and the warning stands: a clone behind main needs the same refresh.
+    """
+    try:
+        result = subprocess.run(
+            ["git", "-C", clone, "diff", "--quiet", installed, tip, "--", "plugins"],
+            capture_output=True,
+            timeout=timeout,
+            stdin=subprocess.DEVNULL,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return False
+    return result.returncode == 0
+
+
 def short(sha):
     return (sha or "")[:7]
 
@@ -214,6 +240,8 @@ def check(root, plugins, timeout):
     clone, ref = marketplace_ref(plugins, marketplace)
     tip = remote_tip(clone, ref, timeout)
     if not tip or tip.startswith(installed) or installed.startswith(tip):
+        return ""
+    if plugin_unchanged(clone, installed, tip, timeout):
         return ""
     return warning(plugin, entry, tip)
 

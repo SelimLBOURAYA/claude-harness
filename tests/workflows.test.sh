@@ -614,8 +614,19 @@ fi
 # --- lot 20: the plugin version moves with the plugin content -------------
 # Extracted and run for real, like the coverage steps above. A grep for
 # "version" would pass on a step whose comparison never fires.
-extract_step "A change under plugins/ carries a version bump" > "$COVWORK/bump.sh"
+# Lot 23: the step is a job of this repository's own ci.yml. In
+# harness-invariants.yml it was tested here and green, yet ran nowhere: this
+# repository does not call that workflow, and the projects skipped it. So the
+# wiring is asserted too, not only the script.
+CI="$WF/ci.yml"
+extract_step_from "$CI" "A change under plugins/ carries a version bump" > "$COVWORK/bump.sh"
 assert_ok "the version-bump step has an extractable script" -- test -s "$COVWORK/bump.sh"
+assert_ok "ci.yml runs the version check as its own job" -- \
+  python3 -c 'import sys,yaml; w=yaml.safe_load(open(sys.argv[1])); j=w["jobs"]["plugin-version"]; assert any(s.get("name")=="A change under plugins/ carries a version bump" for s in j["steps"])' "$CI"
+assert_ok "ci.yml runs on the pull requests to develop" -- \
+  python3 -c 'import sys,yaml; w=yaml.safe_load(open(sys.argv[1])); on=w.get("on", w.get(True)); assert "develop" in on["pull_request"]["branches"]' "$CI"
+assert_eq "" "$(grep -n 'carries a version bump' "$WF/harness-invariants.yml" || true)" \
+  "the version check is not left where it never runs"
 
 BUMPWORK=$(mktemp -d)
 trap 'rm -rf "$COVWORK" "$BUMPWORK"' EXIT
@@ -706,18 +717,19 @@ expect_bump 0 "$C4" "0000000000000000000000000000000000000000" \
   "an unreachable base commit: skipped, not failed"
 assert_contains "$BUMP" "is unreachable" "an unreachable base commit: said out loud"
 
-# A consuming repository has no plugin tree: the step must not fail there.
-N="$BUMPWORK/consumer"
+# A tree with no manifest fails out loud (lot 23): the silent skip it had in
+# harness-invariants is how the check ran nowhere for three lots.
+N="$BUMPWORK/nomanifest"
 mkdir -p "$N"
 git -C "$N" init -q -b develop
 git -C "$N" config user.email test@example.com
 git -C "$N" config user.name Test
 printf 'x\n' > "$N/file"
-git -C "$N" add -A && git -C "$N" commit -qm "feat: consumer"
+git -C "$N" add -A && git -C "$N" commit -qm "feat: no manifest"
 NOBASE=$(git -C "$N" rev-parse HEAD)
-CONSUMER=$(cd "$N" && BASE_SHA="$NOBASE" bash "$COVWORK/bump.sh" 2>&1; echo "|$?")
-assert_eq "0" "${CONSUMER##*|}" "a repository with no plugin tree skips"
-assert_contains "$CONSUMER" "not the harness repository" "and says why it skipped"
+NOMANIFEST=$(cd "$N" && BASE_SHA="$NOBASE" bash "$COVWORK/bump.sh" 2>&1; echo "|$?")
+assert_eq "1" "${NOMANIFEST##*|}" "a tree with no manifest fails, never skips"
+assert_contains "$NOMANIFEST" "cannot be checked" "and says why"
 
 # --- lot 21: a lot from the threshold ships its friction file --------------
 # Executed like the coverage steps: the shell is extracted and run on fixtures.

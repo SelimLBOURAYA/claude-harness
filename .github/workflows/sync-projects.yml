@@ -3,7 +3,10 @@ name: sync-projects
 # Propagates the harness-managed files (projects.json) to every project, as one
 # pull request per project against its develop branch. Runs when they change on
 # main, which is the ref harness-invariants compares the projects against, and
-# on demand. The pull requests are never merged here: the owner merges them.
+# on demand. Each pull request is then merged at once, when it is the token
+# account's own, touches only the synced files and heads at the pushed commit
+# (CONVENTIONS.md section 7, the sync pull request exception); any other is left
+# open and fails the run.
 
 on:
   push:
