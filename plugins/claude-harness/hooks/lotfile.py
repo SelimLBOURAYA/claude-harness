@@ -245,6 +245,10 @@ def lock_merged(root, lock):
     the confirmation count, so the audit of an earlier sub-lot (5.1, before 5.3
     was confirmed on the same row) never reads as this lot's merge. The local ref
     is read as it is, never fetched: a stale ref proves nothing, and the lock stays.
+
+    A sub-lot lock (5.3) is dropped on its own audit commit only (lot 23): its
+    sub-lots share the flat branch feat/lot-5-*, so the merge of that branch may
+    carry a sibling (5.2) while 5.3 is still being developed.
     """
     try:
         confirmed = datetime.datetime.strptime(lock.get("confirmed", ""), "%Y-%m-%dT%H:%M:%SZ")
@@ -256,12 +260,13 @@ def lock_merged(root, lock):
     since = confirmed.replace(tzinfo=datetime.timezone.utc).timestamp()
     out = run_git(root, "log", "--first-parent", "-200", "--format=%h%x09%ct%x09%s", ref)
     lot = lock["lot"].lower()
+    sub_lot = "." in lot
     for line in (out or "").splitlines():
         parts = line.split("\t", 2)
         if len(parts) != 3 or int(parts[1]) < since:
             continue
         sha, _, subject = parts
-        if merged_branch(subject)[0] == lock["branch"]:
+        if not sub_lot and merged_branch(subject)[0] == lock["branch"]:
             return "merge %s of %s" % (sha, lock["branch"])
         # Exact scope, as sync-status.py reads it: the audit of 5.2 is not 5.3's.
         if lot in audit_scope(subject):
