@@ -61,23 +61,31 @@ seed() { # seed <project> <conventions content>
 seed stale "master v1"
 seed fresh "master v2"
 
-# gh stub: records every call; `pr list` answers from $WORK/open-<repo-name>.
+# gh stub: records every call; `pr list` answers from $WORK/open-<repo-name>,
+# `api user` with $GH_LOGIN, `pr view` with $GH_PR_AUTHOR and $GH_PR_FILES, and
+# `pr merge` fails when $GH_MERGE_FAIL is set (a head that moved, say).
 mkdir -p "$WORK/bin"
 cat > "$WORK/bin/gh" <<'EOF'
 #!/usr/bin/env bash
 echo "$*" >> "$GH_LOG"
-if [ "$1 $2" = "pr list" ]; then
-  repo=$4; f="$GH_STATE/open-${repo#*/}"
-  [ -f "$f" ] && cat "$f"
-fi
+case "$1 $2" in
+  "pr list") repo=$4; f="$GH_STATE/open-${repo#*/}"; [ -f "$f" ] && cat "$f" ;;
+  "api user") printf '%s\n' "${GH_LOGIN-sync-bot}" ;;
+  "pr create") echo "Creating pull request" >&2; echo "https://github.com/$4/pull/12" ;;
+  "pr view") files='[{"path":"CONVENTIONS.md"}]'
+             printf '{"author":{"login":"%s"},"files":%s}\n' \
+               "${GH_PR_AUTHOR:-sync-bot}" "${GH_PR_FILES:-$files}" ;;
+  "pr merge") [ -z "${GH_MERGE_FAIL:-}" ] || exit 1 ;;
+esac
 exit 0
 EOF
 chmod +x "$WORK/bin/gh"
 
 run_sync() {
-  GH_LOG="$WORK/gh.log" GH_STATE="$WORK" PATH="$WORK/bin:$PATH" \
+  GH_LOG="$WORK/gh.log" GH_STATE="$WORK" PATH="$WORK/bin:$PATH" SYNC_MERGE_DELAY=0 \
     SYNC_REMOTE_BASE="$REMOTES" bash "$H/.github/scripts/sync-projects.sh" "$@" > "$WORK/out.log" 2>&1
 }
+pushed() { git --git-dir="$REMOTES/$1.git" rev-parse chore/sync-harness-files; }
 
 : > "$WORK/gh.log"
 assert_ok "a first sync succeeds" -- run_sync
@@ -93,12 +101,39 @@ assert_contains "$(grep '^pr create' "$WORK/gh.log")" "--repo me/stale --base de
 assert_eq "docs: sync harness-managed files with the harness master" \
   "$(git --git-dir="$REMOTES/stale.git" log -1 --format=%s chore/sync-harness-files)" \
   "the sync commit follows Conventional Commits"
+assert_contains "$(grep '^pr merge' "$WORK/gh.log")" \
+  "pr merge 12 --repo me/stale --merge --delete-branch --match-head-commit $(pushed stale)" \
+  "the new pull request is merged at once, pinned to the pushed commit"
+assert_eq "1" "$(grep -c '^pr merge' "$WORK/gh.log")" "only the stale project's pull request is merged"
 
 # A second run while the pull request is still open refreshes it, never duplicates it.
 printf '7\n' > "$WORK/open-stale"
 : > "$WORK/gh.log"
 assert_ok "a second sync succeeds" -- run_sync
 assert_eq "0" "$(grep -c '^pr create' "$WORK/gh.log")" "an open sync pull request is not duplicated"
+assert_contains "$(grep '^pr merge' "$WORK/gh.log")" "pr merge 7 --repo me/stale" \
+  "the refreshed pull request is merged"
+
+# The merge is refused, the pull request left open and the project failed, when
+# the pull request is not the token account's, carries another file, can no
+# longer be merged at the pushed head, or the token account cannot be read.
+refused() { # refused <label> <reason in the log> ; the caller sets the stub env
+  assert_eq "1" "$rc" "$1 fails the run"
+  assert_contains "$(cat "$WORK/out.log")" "$2" "$1 is reported"
+  assert_contains "$(cat "$WORK/out.log")" "sync failed for: stale" "$1 names the project"
+}
+: > "$WORK/gh.log"; GH_PR_AUTHOR=someone run_sync; rc=$?
+refused "another author" "is by 'someone', not by the token account 'sync-bot': left open"
+assert_eq "0" "$(grep -c '^pr merge' "$WORK/gh.log")" "a pull request by another author is never merged"
+: > "$WORK/gh.log"; GH_PR_FILES='[{"path":"CONVENTIONS.md"},{"path":"ci.yml"}]' run_sync; rc=$?
+refused "an extra file" "touches files outside synced_files (ci.yml): left open"
+assert_eq "0" "$(grep -c '^pr merge' "$WORK/gh.log")" "a pull request with another file is never merged"
+: > "$WORK/gh.log"; GH_MERGE_FAIL=1 run_sync; rc=$?
+refused "a moved head" "cannot merge sync PR #7 at $(pushed stale): left open"
+assert_eq "3" "$(grep -c '^pr merge' "$WORK/gh.log")" "the merge is retried, then given up"
+: > "$WORK/gh.log"; GH_LOGIN= run_sync; rc=$?
+refused "an unreadable token account" "cannot read the token account"
+assert_eq "0" "$(grep -c '^pr merge' "$WORK/gh.log")" "no merge without the token account"
 
 # Once the project caught up, its leftover sync pull request is closed.
 git clone -q "$REMOTES/stale.git" "$WORK/merge" 2>/dev/null

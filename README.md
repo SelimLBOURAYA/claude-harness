@@ -78,14 +78,13 @@ harness is loaded from the copy Claude Code installed, and only a refresh brings
 the new one in.
 
 1. Merge the `develop` → `main` pull request (owner only, never an agent).
-2. If the promotion changed `CONVENTIONS.md`, **propagate the master** to the 8
-   consuming repositories. `harness-invariants.yml` compares each copy with the
-   master at `main` on every run, pull requests included, so each repository is
-   red from the promotion until its copy is refreshed. In each repository, copy
-   the master from `main` into `CONVENTIONS.md` on a branch from `develop` —
-   inside its current lot when one is open, otherwise a
-   `chore/sync-conventions` pull request — and never hand-edit the copy
-   (§12 of `CONVENTIONS.md`, master propagation).
+2. If the promotion changed `CONVENTIONS.md`, check the `sync-projects` run it
+   started: it opens and merges one sync pull request per consuming repository
+   (step 3 of [Making the harness consumable](#making-the-harness-consumable)).
+   A pull request it left open names its reason in the run log; until it is
+   merged, that repository is red, since `harness-invariants.yml` compares each
+   copy with the master at `main`. Never hand-edit a copy (§12 of
+   `CONVENTIONS.md`, master propagation).
 3. On **each machine**, refresh the marketplace:
    `/plugin marketplace update claude-harness`.
 4. **Close and reopen** the sessions of the affected repositories. A session keeps
@@ -93,9 +92,10 @@ the new one in.
 5. In each reopened session, read the first lines of the state re-injection: a
    warning there means the copy is still behind `main`.
 
-The plugin version moves with every change under `plugins/` — enforced by
-`harness-invariants.yml` — so `/plugin` shows a new version whenever a refresh
-brought something in.
+The plugin version moves with every change under `plugins/` — enforced on every
+pull request of this repository by the `plugin-version` job of its own `ci.yml` —
+so a refresh installs a new copy whenever `main` brought something in. Claude Code
+compares versions only: under an unchanged number, a refresh reinstalls nothing.
 
 ## Troubleshooting a stale plugin
 
@@ -283,7 +283,13 @@ was available and its absence is a real fault.
 in [`projects.json`](projects.json). When `CONVENTIONS.md` (or that list) changes
 on `main`, `.github/workflows/sync-projects.yml` opens or refreshes one pull
 request per listed project — branch `chore/sync-harness-files`, base `develop` —
-and closes a leftover one once the project has caught up. It never merges: you do.
+and closes a leftover one once the project has caught up. It then merges each pull
+request at once, but only when it is the token account's own, touches nothing but
+the `synced_files`, and still heads at the commit the run pushed; otherwise it
+leaves it open, says why, and fails the run (§7 of `CONVENTIONS.md`, the sync
+pull request exception). It does not wait for the project's checks: the projects
+call the harness workflows at `@main`, so a red the sync pull request shows is
+already red on their `develop`, where it stays visible after the merge.
 It can also be run by hand (**Actions → sync-projects → Run workflow**, optionally
 naming some projects). It needs a fine-grained personal access token limited to the
 listed repositories with **Contents: Read and write** and **Pull requests: Read and
