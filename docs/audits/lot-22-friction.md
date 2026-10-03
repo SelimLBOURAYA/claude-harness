@@ -39,3 +39,18 @@
   --plugin-root <cache>/1.1.1` gave 30b4930. Its single **Reviewed at** field was
   replaced by this lot's **Read at** / **Reviewed at** pair, so that the audit of
   this lot reads the fields its new step 0 expects. Cost: two extra commands.
+
+## lot-audit
+- `lot-audit / 0` — the installed copy (1.1.1) stops when the review's recorded
+  commit is behind `HEAD`, which the review report's own commit always makes
+  true: the step can never pass as written. This lot fixes it (deliverable 7);
+  step 0 was read as the lot's version, which accepted d0ab2e5 (docs and census
+  only). Cost: none, but a literal reading blocks every lot.
+- `lot-audit / 2` — the installed copy invokes `Skill(security-review)`, whose
+  prompt demands sub-agents; the lot's deliverable 8 (inline phases) was applied
+  ahead of the promotion. Cost: none.
+- `lot-audit / 7` — the audit was finished by a forked session; Claude Code's
+  background isolation refused writes to the shared checkout, so the report was
+  written in a detached worktree (`.claude/worktrees/lot-22-audit`) and brought
+  back to the lot branch by fast-forward. The skill does not foresee a session
+  that cannot write in `$AUDIT_REPO`. Cost: one worktree, one extra merge.
