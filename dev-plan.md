@@ -43,7 +43,7 @@
 | 20 | `feat/lot-20-plugin-currency` | A – Harness | Fraîcheur du plugin installé : un harnais en retard rend le verrou de lot muet au lieu de le signaler | claude-harness, les 8 repos (via `main`) |✅ |
 | 21 | `feat/lot-21-response-floor-friction` | A – Harness | Plancher de complétude dans §15 et remontée de friction des skills vers `harness-sync` | claude-harness, les 8 repos (via `main`) | ✅ |
 | 22 | `feat/lot-22-friction-fixes` | A – Harness | Correctifs de la friction remontée par elya et elya-frontend, et un seul écrivain de `CONVENTIONS.md` dans les projets | claude-harness, les 8 repos (via `main`) | ✅ |
-| 23 | `feat/lot-23-sync-automerge` | A – Harness | Merge automatique des PR de synchro de `CONVENTIONS.md`, et les deux constats reportés de la revue du lot 22 | claude-harness, les 8 repos (via `main`) | ⬜ |
+| 23 | `feat/lot-23-sync-automerge` | A – Harness | Merge automatique des PR de synchro de `CONVENTIONS.md`, version du plugin pour l'auto-update, et les deux constats reportés de la revue du lot 22 | claude-harness, les 8 repos (via `main`) | ⬜ |
 
 Légende des statuts *(P6-D10)* : ⬜ à faire · 🔄 en cours (livré sur la branche, PR non
 mergée) · ✅ mergé sur `develop` · ⏸️ planifié mais dormant · ❄️ gelé.
@@ -1552,6 +1552,13 @@ Branche `feat/lot-23-sync-automerge`, depuis `develop`. Repo touché :
    `## Project documents`. Les commits de correction de `lot-review` (avant
    **Reviewed at**) et ceux de `lot-audit` (après l'étape 0) ne sont pas
    concernés.
+5. **Version du plugin** : la version de `plugin.json` et `marketplace.json`
+   est restée `1.1.1` pendant les lots 21 et 22 ; l'auto-update du catalogue,
+   qui compare les versions, n'installait donc rien. Passage en `1.2.0`, et
+   toute modification sous `plugins/` change la version.
+6. **Avertissement de fraîcheur** (`plugin-currency.py`) : compare la version
+   installée à celle de `plugin.json` sur `main`, plus le SHA de `main` ; un
+   commit de documents ne déclenche plus d'avertissement.
 
 ### Tests (`./tests/run.sh`)
 
@@ -1561,10 +1568,15 @@ Branche `feat/lot-23-sync-automerge`, depuis `develop`. Repo touché :
   supprimé au commit d'audit de 5.3.
 - Contenu de `lot-audit` : l'exemption de `CLAUDE.md` / `AGENTS.md` est limitée
   à `## Project documents`.
+- Version : un diff sous `plugins/` par rapport à `origin/main` sans changement
+  de version → échec.
+- `plugin-currency.py` : même version, SHA de `main` différent → aucun
+  avertissement ; version différente → avertissement.
 
 ### Critères de validation
 
 - Aucune PR de synchro n'est mergée avec un check rouge ou en cours.
+- Après promotion, l'auto-update installe le plugin sans action manuelle.
 - `./tests/run.sh` vert ; gate complet du lot, `lot-review` sous profil
   `claude`, dans une autre session que le développement.
 
@@ -1574,6 +1586,7 @@ Branche `feat/lot-23-sync-automerge`, depuis `develop`. Repo touché :
 2. Job planifié dans `claude-harness`, pas de workflow dans les 8 repos.
 3. Merge commit (`--merge`).
 4. Les deux constats reportés du lot 22 entrent dans ce lot.
+5. Version du plugin et avertissement par version entrent dans ce lot.
 
 ---
 
