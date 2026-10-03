@@ -39,6 +39,24 @@ head of the branch:
   → **stop**. Code landed after the review; re-run `lot-review`. The review
   report's own commit and the friction sections are expected there, and are not
   a reason to stop.
+
+  `CLAUDE.md` and `AGENTS.md` are exempt for their census only: the gate
+  parameters, the skills table and the conventions they also carry are lot
+  content like any other. When either is in the list, compare both versions
+  with the `## Project documents` section cut out:
+
+  ```bash
+  for f in CLAUDE.md AGENTS.md; do
+    diff -q \
+      <(git -C "$AUDIT_REPO" show "<Reviewed at>:$f" | awk '/^## /{skip=($0 ~ /^## Project documents/)} !skip') \
+      <(git -C "$AUDIT_REPO" show "HEAD:$f" | awk '/^## /{skip=($0 ~ /^## Project documents/)} !skip') \
+      > /dev/null || echo "$f changed outside ## Project documents"
+  done
+  ```
+
+  Any line printed → **stop**: re-run `lot-review`. This applies only to the
+  commits after **Reviewed at**: the fix commits of `lot-review` come before it,
+  and the census line this audit adds comes after this step.
 - A report written before lot 22 has no **Read at** line, and its **Reviewed
   at** is the SHA the review read: take its **Fix commit** instead, when it
   names one.
