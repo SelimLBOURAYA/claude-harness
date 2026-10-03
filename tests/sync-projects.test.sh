@@ -96,6 +96,8 @@ assert_eq "" "$(git --git-dir="$REMOTES/fresh.git" branch --list chore/sync-harn
 assert_eq "master v1" "$(git --git-dir="$REMOTES/stale.git" show develop:CONVENTIONS.md)" \
   "develop itself is never written"
 assert_eq "1" "$(grep -c '^pr create' "$WORK/gh.log")" "exactly one pull request is opened"
+assert_contains "$(grep -m1 '^pr list' "$WORK/gh.log")" "--base develop" \
+  "only a sync pull request against the base branch is picked up"
 assert_contains "$(grep '^pr create' "$WORK/gh.log")" "--repo me/stale --base develop --head chore/sync-harness-files" \
   "the pull request targets develop of the stale project"
 assert_eq "docs: sync harness-managed files with the harness master" \
