@@ -9,3 +9,10 @@
 - `lot-review / 2` — the agent classed the pipe-continued heredoc (finding #1)
   as already on `develop` and left it unfixed; replaying both guards showed it
   was a regression of the lot. Cost: one comparison run of the two guards.
+
+## lot-audit
+- `lot-audit / 8` — the first run committed its fixes (03ae5ac) and stopped
+  before steps 8 and 9: no `docs/audits/lot-25.md`, which `lot-deliverables.yml`
+  requires. The owner took the audit as finished; the gap showed only when
+  checking the deliverables before `lot-ship`. Cost: a second full audit run to
+  write the report.
