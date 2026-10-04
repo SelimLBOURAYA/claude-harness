@@ -111,8 +111,8 @@ Write **`docs/audits/lot-0-integration.md`** in the frontend repository:
 # Integration check — <frontend> against <backend>
 
 **Date:** YYYY-MM-DD
-**Frontend:** <branch> @ <short SHA>
-**Backend:** <repo> @ <short SHA>, started with <command>
+**Frontend SHA:** <branch> @ <short SHA>
+**Backend SHA:** <repo> @ <short SHA>, started with <command>
 **Verdict:** Pass / Pass with findings / Fail
 
 ## Scenario
