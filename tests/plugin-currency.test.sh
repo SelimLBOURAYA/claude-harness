@@ -45,7 +45,7 @@ out=$(check)
 assert_contains "$out" "⚠ The installed \`$PLUGIN\` plugin is $VPATH" "stale: names the installed version"
 assert_contains "$out" "while \`main\` declares 1.1.0" "stale: names the version main declares"
 assert_contains "$out" "lot-start" "stale: says which guards may be missing"
-assert_contains "$out" "marketplace update" "stale: says how to fix it"
+assert_contains "$out" "claude plugin update $PLUGIN@$MP --scope user" "stale: names the update the agent runs"
 assert_eq "1" "$(printf '%s\n' "$out" | wc -l | tr -d ' ')" "stale: one line"
 
 # --- the same version as main says nothing --------------------------------
