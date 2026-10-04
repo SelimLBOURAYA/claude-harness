@@ -194,7 +194,7 @@ Gate, mandatory in order: `lot-test → lot-review → lot-audit → lot-ship`, 
 
 | Hook | Event | Role |
 |---|---|---|
-| `git-guard.py` | `PreToolUse` on `Bash` | Denies pushes to `main`, force pushes, `--no-verify`, `reset --hard`, remote branch deletion, `gh pr create` without `--base develop`, and `gh pr merge`. Gate deliverables are not its business: `lot-deliverables.yml` owns that rule, and owns it alone. Asks for confirmation on every other push or PR creation, and on anything it cannot parse. |
+| `git-guard.py` | `PreToolUse` on `Bash` | Denies pushes to `main`, force pushes, `--no-verify`, `reset --hard`, remote branch deletion, `gh pr create` without `--base develop`, and any `gh pr merge` but a lot pull request (`feat/lot-*` into `develop`) whose checks are all green, read through `gh pr view`; `--delete-branch` is denied. Gate deliverables are not its business: `lot-deliverables.yml` owns that rule, and owns it alone. Asks for confirmation on every other push or PR creation, and on anything it cannot parse. |
 | `mirror-sync.sh` | `PostToolUse` on `Edit`, `Write`, `Bash` | Keeps `AGENTS.md` byte-identical to `CLAUDE.md`, including after shell edits (`cp`, `mv`, `sed -i`, redirections). |
 
 | `lot-lock-guard.py` | `PreToolUse` on `Edit`, `Write`, `MultiEdit`, `NotebookEdit` | On a `feat/lot-*` branch, denies every write until `.claude/current-lot` names that branch; always lets the lots file through, never the lock itself. The repository is resolved from the written path. Writes made through `Bash` are not covered: a documented limit. |
