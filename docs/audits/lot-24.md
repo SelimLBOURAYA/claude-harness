@@ -1,14 +1,15 @@
 # Lot Audit — Lot 24 — feat/lot-24-harness-freeze
 
 **Harness ref:** 1.2.0 (`98cddbd`, as the installed copy's `plugin-currency.py --installed-sha` reports it)
-**Scope:** 46 modified files | **Verdict:** Fix warnings
+**Scope:** 46 modified files | **Fix commit:** `eda3f75` | **Verdict:** Ready for PR once `lot-review` covers `eda3f75`
 
 Audited at `f46663b`, against `origin/develop` (`d06edac`), fetched. The review
 report (`docs/audits/lot-24-review.md`, **Reviewed at** `6486d03`) covers the
 head: the only commit after it is the review report and its census line, and
 `CLAUDE.md` = `AGENTS.md` are unchanged outside `## Project documents`. The
 installed skill (1.2.0) ran this audit: it reports and does not fix, so the
-fix-in-audit behaviour of deliverable 4 is not applied here.
+fix-in-audit behaviour of deliverable 4 is not applied here. The one Warning
+was fixed afterwards on the owner's request (`eda3f75`).
 
 ## Summary
 | Dimension    | Critical | Warning | Info |
@@ -28,7 +29,7 @@ environment.
 
 | Severity | Location | Finding | Action |
 |----------|----------|---------|--------|
-| Warning | `plugins/claude-harness/hooks/git-guard.py:525` | The merge guard checks a different pull request from the one gh merges when the command sets `GH_REPO` (or `GH_HOST`) as a prefix. `strip_wrappers` drops `GH_REPO=o/other` and `env GH_REPO=o/other`, and `pull_request_state` runs `gh pr view 12` with the hook's own environment, so it reads PR 12 of the session repository. The real `gh pr merge 12` honours `GH_REPO`, so it merges PR 12 of `o/other`, whatever its base (even `main`) and whatever its checks. Reproduced: both forms exit 0 when the local PR 12 is a green lot PR, and the fake `gh` logged `GH_REPO=` empty. The `security-review` filter drops it (precedent: environment variables are trusted), but here the actor the guard constrains is the agent, which writes the prefix itself. Since the repositories have no branch protection, this hook is the only agent-side stop on a red or `main` merge (GIT-5). | open, owner decision: deny `gh pr merge` when the segment assigns `GH_REPO` or `GH_HOST`, or forward those assignments to `gh pr view`. About 15 minutes with a test in `tests/git-guard.test.sh`. Under the installed 1.2.0 audit, code after **Reviewed at** means re-running `lot-review` |
+| Warning | `plugins/claude-harness/hooks/git-guard.py:525` | The merge guard checks a different pull request from the one gh merges when the command sets `GH_REPO` (or `GH_HOST`) as a prefix. `strip_wrappers` drops `GH_REPO=o/other` and `env GH_REPO=o/other`, and `pull_request_state` runs `gh pr view 12` with the hook's own environment, so it reads PR 12 of the session repository. The real `gh pr merge 12` honours `GH_REPO`, so it merges PR 12 of `o/other`, whatever its base (even `main`) and whatever its checks. Reproduced: both forms exit 0 when the local PR 12 is a green lot PR, and the fake `gh` logged `GH_REPO=` empty. The `security-review` filter drops it (precedent: environment variables are trusted), but here the actor the guard constrains is the agent, which writes the prefix itself. Since the repositories have no branch protection, this hook is the only agent-side stop on a red or `main` merge (GIT-5). | fixed in `eda3f75` (owner decision): `gh pr merge` is denied when any part of the command line assigns `GH_REPO` or `GH_HOST` (prefix, `env`, `export`, `bash -c`); `--repo` still works. Five cases in `tests/git-guard.test.sh`, four of them red on the unfixed guard. Under the installed 1.2.0 audit, code after **Reviewed at** means re-running `lot-review` |
 | Info | `plugins/claude-harness/hooks/git-guard.py:583` | `gh api -X PUT repos/<o>/<r>/pulls/<n>/merge` (or the GraphQL `mergePullRequest`) bypasses every `gh pr merge` check: `guard_gh` only looks at `gh pr`. This was already true before the lot, when `gh pr merge` was denied outright. | no action: no skill uses `gh api` to merge; noted for the next change the freeze allows |
 | Info | `plugins/claude-harness/hooks/git-guard.py:545` | The guard requires every check that is *reported* to be green, but it cannot know the full set the CI will report. A merge run just after a push, before every workflow has registered its checks, passes on a partial set. | no action: `lot-ship` step 5 runs `gh pr checks --watch` first and pins `--match-head-commit`; review finding 7 already rejected requiring the pin in the guard |
 
@@ -77,8 +78,6 @@ n/a (`Migrations directory` is `n/a`).
   (friction `lot-test / 3.1`). The review ran it through Docker (finding 18).
 
 ## Recommended next steps
-1. Owner decision on the `GH_REPO` finding: fix it in this lot (a `fix(24)`
-   commit, then `lot-review` again under the installed 1.2.0 rule), or record
-   it for the next change the freeze allows. It falls under freeze clause (a), a
-   security flaw.
+1. `lot-review` again, in a new session, to cover `eda3f75` (the installed
+   1.2.0 rule for code after **Reviewed at**), then `lot-audit` again.
 2. Then `lot-ship`. The `Validation command` must be green before the PR.
