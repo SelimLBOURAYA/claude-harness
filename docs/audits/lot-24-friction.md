@@ -49,3 +49,9 @@
   that holds only its report, which contradicts step 2 (inline when the diff
   fits) and the rule never to end the turn on that report. Followed `lot-audit`.
   Cost: none.
+
+## lot-ship
+- `lot-ship / 4` — the installed skill (1.2.0) stops after the PR and forbids
+  the merge, while the lot's own `lot-ship` merges once the CI is green. This
+  run follows the installed one: PR opened, no merge, until the promotion.
+  Cost: none, an ambiguity until the promotion.
