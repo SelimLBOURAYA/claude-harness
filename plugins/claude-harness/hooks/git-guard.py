@@ -124,15 +124,17 @@ def split_heredocs(command):
     """Separate the heredoc bodies of a command from its shell text (lot 25).
 
     A heredoc body is data, not shell: an apostrophe in it is not a quote.
-    Returns (text, heredocs): `text` is the command without the bodies, and
-    `heredocs` lists (operator line, body) pairs. Returns None when a heredoc is
-    not terminated. Only a `<<` outside quotes and comments opens a heredoc, as
-    in the shell; `<<<` is a here-string, kept in the text.
+    Returns (text, bodies): `text` is the command without the bodies, a newline
+    outside quotes ending a command there as in the shell, and `bodies` lists the
+    heredoc bodies. Returns None when a heredoc is not terminated. Only a `<<`
+    outside quotes and comments opens a heredoc, as in the shell; `<<<` is a
+    here-string, kept in the text.
     """
     text = []
-    heredocs = []
+    bodies = []
     pending = []  # (delimiter, strip_tabs) opened on the current line
     quote = None
+    arithmetic = 0  # depth of `((...))`, where `<<` is a shift, not a heredoc
     index = 0
     size = len(command)
     while index < size:
@@ -159,8 +161,19 @@ def split_heredocs(command):
             text.append(command[index:end])
             index = end
             continue
+        elif command.startswith("((", index):
+            arithmetic += 1
+            text.append("((")
+            index += 2
+            continue
+        elif arithmetic and command.startswith("))", index):
+            arithmetic -= 1
+            text.append("))")
+            index += 2
+            continue
         elif (
-            command.startswith("<<", index)
+            not arithmetic
+            and command.startswith("<<", index)
             and not command.startswith("<<<", index)
             and (index == 0 or command[index - 1] != "<")
         ):
@@ -190,7 +203,6 @@ def split_heredocs(command):
                 index = cursor
                 continue
         elif char == "\n" and pending:
-            line = "".join(text).rsplit("\n", 1)[-1]
             position = index + 1
             for word, strip_tabs in pending:
                 body = []
@@ -204,24 +216,31 @@ def split_heredocs(command):
                     if (current.lstrip("\t") if strip_tabs else current) == word:
                         break
                     body.append(current)
-                heredocs.append((line, "\n".join(body)))
+                bodies.append("\n".join(body))
             pending = []
-            text.append("\n")
+            text.append(" ;\n")
             index = position
+            continue
+        elif char == "\n":
+            # A newline ends a command: `git status<newline>git push` is two.
+            text.append(" ;\n")
+            index += 1
             continue
         text.append(char)
         index += 1
     if pending:
         return None
-    return "".join(text), heredocs
+    return "".join(text), bodies
 
 
-def reads_as_shell(line):
-    """True when a command of the line is a shell, which runs a heredoc as code.
+def runs_a_shell(text):
+    """True when a command of the text is a shell, which may run a heredoc as code.
 
-    A line that cannot be lexed counts as a shell: its body is then inspected.
+    The whole command counts, not the heredoc's line: in `cat <<EOF |` with
+    `bash` after the body, the shell reads the heredoc from a later line. A text
+    that cannot be lexed counts as a shell: the bodies are then inspected.
     """
-    tokens = tokenize(line)
+    tokens = tokenize(text)
     if tokens is None:
         return True
     return any(
@@ -231,10 +250,11 @@ def reads_as_shell(line):
 
 
 def shell_text(command):
-    """The command to tokenize: heredoc bodies removed, except a shell's.
+    """The command to tokenize: heredoc bodies removed, unless a shell runs.
 
-    The body of a heredoc a shell reads is code: it is appended as commands, so
-    `bash <<'EOF'` around a `git push --force` is judged like the bare push.
+    When the command runs a shell, every heredoc body is code: it is appended
+    as commands, so `bash <<'EOF'` around a `git push --force` is judged like
+    the bare push.
     """
     parsed = split_heredocs(command)
     if parsed is None:
@@ -242,11 +262,11 @@ def shell_text(command):
             "The command has a heredoc with no terminator line; confirm it manually "
             "rather than letting the guard pass it silently."
         )
-    text, heredocs = parsed
-    for line, body in heredocs:
-        if not reads_as_shell(line):
-            continue
-        code = " ; ".join(shell_text(body).replace("\\\n", " ").split("\n"))
+    text, bodies = parsed
+    if not runs_a_shell(text):
+        return text
+    for body in bodies:
+        code = shell_text(body).replace("\\\n", " ")
         if tokenize(code) is None:
             ask(
                 "A heredoc read by a shell could not be parsed (unbalanced quotes); "

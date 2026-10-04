@@ -1884,6 +1884,11 @@ ont coûté du temps réel.
    silence ; `bash <<'EOF'` contenant `git push --force` → `deny` ; heredoc non
    terminé → `ask` ; quotes réellement déséquilibrées hors heredoc → `ask`
    (inchangé).
+4. Ajouté à la revue du lot (accord de l'utilisateur, 2026-10-04) : un
+   retour à la ligne hors guillemets sépare deux commandes comme `;` (un
+   `git push --force` à la ligne suivante passait déjà sur `develop`) ; dès
+   qu'un shell figure dans la commande, tous les corps de heredoc sont
+   inspectés (`cat <<EOF |` … `EOF` puis `bash` sur une autre ligne).
 
 ### Critères de validation
 
