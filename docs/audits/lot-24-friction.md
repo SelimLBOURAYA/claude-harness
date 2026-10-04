@@ -34,3 +34,18 @@
   `__pycache__/plugin-currency.cpython-312.pyc` appeared in
   `plugins/claude-harness/hooks/` during the run; removed by hand. Cost: one
   check.
+
+## lot-audit
+- `lot-audit / 7` — the installed `plugin-currency.py --installed-sha` printed
+  `98cddbd` (the `main` tip), while the review report of the same installed
+  1.2.0 recorded `caa6c8c` as the installed copy. Two gate reports from one
+  installed plugin carry two different harness refs. Cost: none to the audit; a
+  ref that cannot be traced reliably until the 2.0.0 version-only ref is active.
+- `lot-audit / Rules` — the installed skill forbids fixing findings, and code
+  after **Reviewed at** means re-running `lot-review`; the lot's own version
+  (deliverable 4) fixes them during the audit. The `GH_REPO` finding is left
+  open for an owner decision. Cost: one question, and a possible second review.
+- `lot-audit / 2` — `security-review` asks for sub-tasks and for a final reply
+  that holds only its report, which contradicts step 2 (inline when the diff
+  fits) and the rule never to end the turn on that report. Followed `lot-audit`.
+  Cost: none.
