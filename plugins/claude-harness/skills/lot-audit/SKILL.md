@@ -2,131 +2,48 @@
 name: lot-audit
 description: >-
   Audits a lot branch for security, performance and architecture before the PR
-  is opened, and writes the consolidated report docs/audits/lot-N.md. Use after
-  lot-review, at the end of a lot, or when the user asks for an audit, a
-  security review or an architecture review of lot work.
+  is opened, fixes its findings, and writes the consolidated report
+  docs/audits/lot-N.md. Use after lot-review, at the end of a lot, or when the
+  user asks for an audit, a security review or an architecture review of lot
+  work.
 metadata:
-  version: "2.1"
+  version: "3.0"
 ---
 
 # Lot Audit — Security, Performance, Architecture
 
-Audits the **current lot branch** before the PR. One consolidated report. Every
-**Critical** finding is fixed before the PR is opened — `lot-deliverables.yml`
-fails the build while an unresolved Critical row remains in the report.
-
-Gate position:
+Audits the current lot branch before the PR, fixes what it finds, and writes one
+consolidated report. A Critical finding left unfixed blocks the PR:
+`lot-deliverables.yml` fails while the report carries an unresolved Critical row.
 
 ```
 lot-test  →  lot-review  →  [lot-audit]  →  lot-ship
 ```
 
-## Step 0 — The review must have happened first
+## Step 0 — The review happened first
 
-`lot-audit` does **not** replace the code review. Check that
-`docs/audits/lot-N-review.md` exists for the current lot and covers the current
-head of the branch:
-
-- File missing → **stop**. Tell the user to run `lot-review` first.
-- File present: read its **Reviewed at** SHA, the code once reviewed and fixed,
-  and list what landed after it:
-
-  ```bash
-  git -C "$AUDIT_REPO" diff --name-only <Reviewed at>..HEAD
-  ```
-
-  Any path other than `docs/audits/*`, `CLAUDE.md` and `AGENTS.md` (the census)
-  → **stop**. Code landed after the review; re-run `lot-review`. The review
-  report's own commit is expected there, and is not a reason to stop.
-
-  `CLAUDE.md` and `AGENTS.md` are exempt for their census only: the gate
-  parameters, the skills table and the conventions they also carry are lot
-  content like any other. When either is in the list, compare both versions
-  with the `## Project documents` section cut out:
-
-  ```bash
-  for f in CLAUDE.md AGENTS.md; do
-    diff -q \
-      <(git -C "$AUDIT_REPO" show "<Reviewed at>:$f" | awk '/^## /{skip=($0 ~ /^## Project documents/)} !skip') \
-      <(git -C "$AUDIT_REPO" show "HEAD:$f" | awk '/^## /{skip=($0 ~ /^## Project documents/)} !skip') \
-      > /dev/null || echo "$f changed outside ## Project documents"
-  done
-  ```
-
-  Any line printed → **stop**: re-run `lot-review`. This applies only to the
-  commits after **Reviewed at**: the fix commits of `lot-review` come before it,
-  and the census line this audit adds comes after this step.
-- A report written before lot 22 has no **Read at** line, and its **Reviewed
-  at** is the SHA the review read: take its **Fix commit** instead, when it
-  names one.
-
-Auditing unreviewed code produces a report about the wrong version of the lot.
+`docs/audits/lot-N-review.md` must exist for the current lot. Missing → **stop**
+and tell the user to run `lot-review` first.
 
 ## Step 0b — The audited repository is the session's repository
 
-Every command below reads a repository. Resolve **which** one, first, and refuse
-to guess:
-
 ```bash
 AUDIT_REPO=$(git rev-parse --show-toplevel)
-git -C "$AUDIT_REPO" branch --show-current
-```
-
-`$AUDIT_REPO` must be the repository that holds the lot branch — the one whose
-`CLAUDE.md`, `Lots file` and `docs/audits/` this audit is about. If the session
-is running somewhere else (typically in the harness clone while the lot lives in
-an adopted repository), **stop**. Tell the user to reopen the session in the
-audited repository and re-run `lot-audit`.
-
-`AUDIT_REPO` is derived from the session's own directory, so it can never
-contradict itself: the stop condition needs a second, independent signal. Assert
-both, and stop if either fails:
-
-```bash
 git -C "$AUDIT_REPO" branch --show-current | grep -qE '^(feat|fix|chore)/lot-'
 grep -qiE "(^|[^a-z])lot[ -]$N([^0-9]|$)" "$AUDIT_REPO/<Lots file>"
 ```
 
-Case-insensitively: the lots files of the portfolio write the heading as
-`## LOT 18`, `## Lot 18` and `## lot 18` depending on the repository, and a
-matcher that fires a false stop on the correct repository is worse than none.
-
-A session sitting in the wrong clone is either not on a lot branch at all, or on
-a branch whose lot number has no section in that repository's `Lots file`. Either
-failure means the lot lives elsewhere — stop rather than audit what is in front
-of you.
-
-There is no workaround. `Skill(security-review)` in step 2 reviews the pending
-changes of the **current working directory** and takes no repository argument: a
-session whose directory is not the audited repository produces a security step
-about the wrong code, and says nothing about it. That is exactly what happened
-to lots 7 to 13, whose security step audited the harness clone instead of the
-adopted repository — an audit that ran, reported nothing, and was wrong.
-
-Consequences for the rest of the skill:
-
-- Every `git` invocation carries `-C "$AUDIT_REPO"`, so a mistaken directory
-  fails loudly instead of describing another repository's diff.
-- Every path (`CLAUDE.md`, the `Lots file`, `docs/audits/lot-N.md`) resolves
-  **inside** `$AUDIT_REPO`, including the report written in step 7.
-- The one deliberate exception is the harness ref of step 7, read from the
-  installed plugin, or from the harness clone with its own explicit `-C`.
-
-## Prerequisites
-
-1. Read `$AUDIT_REPO`'s `CLAUDE.md` / `AGENTS.md`, its `## Gate parameters`, and
-   the active lot section in the `Lots file`.
-2. Identify the lot from the branch name (`feat/lot-N-slug`) or from the context.
-3. Scope the diff to the **branch changes** vs `origin/develop`, fetched first
-   (`git -C "$AUDIT_REPO" fetch -q origin develop`). Never the local `develop`:
-   it only moves on a `git pull` made on it, and a stale one puts every lot
-   merged since into the diff as if this lot had written it.
+Both checks must pass (the match is case-insensitive: `## LOT 18`, `## Lot 18`
+and `## lot 18` all occur). Otherwise **stop** and tell the user to reopen the
+session in the audited repository: `Skill(security-review)` reviews the current
+working directory and takes no repository argument. Every `git` command below
+carries `-C "$AUDIT_REPO"`, and every path resolves inside it.
 
 ## Workflow
 
 ```
 Task Progress:
-- [ ] Step 0 — lot-review deliverable present and current
+- [ ] Step 0 — lot-review deliverable present
 - [ ] Step 0b — the session runs in the audited repository
 - [ ] Step 1 — Context (lot, diff, touched files)
 - [ ] Step 2 — Security audit
@@ -134,103 +51,97 @@ Task Progress:
 - [ ] Step 4 — Architecture audit
 - [ ] Step 5 — Coverage exclusions review
 - [ ] Step 6 — Migration hygiene
-- [ ] Step 7 — Consolidated report
-- [ ] Commit the deliverable — the report, committed
+- [ ] Step 7 — Fix the findings
+- [ ] Step 8 — Consolidated report
+- [ ] Step 9 — Commit the deliverable
 ```
 
-The skill ends at the last box, not before. Handing back after the security
-step, or with the report written but not committed, is stopping in the middle:
-the user then has to ask for the audit a second time (elya lot 5.3, lot 23).
-
-**Steps 2 to 6 produce findings, never a deliverable.** The only deliverable is
-`docs/audits/lot-N.md`, committed. Whatever a step returns, including the full
-report of the `security-review` skill, is an input kept for step 7: never present
-it to the user as the audit's result, and never end the turn on it. After each
-step, the next action is the next unchecked box.
+The skill ends at the last box. Steps 2 to 6 produce findings, never a
+deliverable: whatever a step returns, the `security-review` report included, is
+an input of step 7, never the audit's result, and never the end of the turn.
 
 ### Step 1 — Context
 
-- `rtk proxy git -C "$AUDIT_REPO" log --first-parent origin/develop..HEAD --oneline` —
-  the lot's commits. Always `rtk proxy` for history: the rtk filter hides merge
-  commits (P5-#14).
-- `git -C "$AUDIT_REPO" diff origin/develop...HEAD --stat` — the modified files.
-- Identify the lot's specific risks from its section in the `Lots file`
-  (credentials, authorisation, export, file paths, payment, migrations).
-- Read only the files touched by the lot and their direct dependencies.
+```bash
+git -C "$AUDIT_REPO" fetch -q origin develop
+rtk proxy git -C "$AUDIT_REPO" log --first-parent origin/develop..HEAD --oneline
+git -C "$AUDIT_REPO" diff origin/develop...HEAD --stat
+```
+
+The diff is against the fetched `origin/develop`, never the local `develop`.
+Read the lot's section in the `Lots file` for its specific risks (credentials,
+authorisation, export, file paths, payment, migrations), then only the files the
+lot touched and their direct dependencies.
 
 ### Step 2 — Security audit
-
-Invoke the harness-provided review skill:
 
 ```
 Skill(security-review)
 ```
 
-This replaces the `security-review` **subagent**, which does not exist (finding
-#6): earlier versions of this skill launched a subagent type that silently
-failed, so the security step was never actually performed.
+Give it the diff scope (branch changes vs `origin/develop`) and instructions
+built from the repository's `CLAUDE.md`: stack, secrets handled, routes exposed,
+the lot's specific risks. When the diff fits in this session's context, run its
+discovery and false-positive phases **inline**, without sub-agents, and say so in
+the report. Keep its findings for the Security table, then go on to step 3 in
+the same turn.
 
-It reviews the working directory, which step 0b established is `$AUDIT_REPO`.
-Give it the diff scope (`branch changes vs origin/develop`) and custom instructions
-built from that repository's `CLAUDE.md`: stack, the secrets it handles, the
-routes it exposes, and the lot's specific risks.
-
-`security-review` asks for a discovery sub-task, then one false-positive filter
-per finding. When the lot's diff already fits in this session's context, run
-those phases **inline**, without sub-agents, and say so in the report: the
-procedure is the same, only the process boundary changes. Sub-agents remain the
-way for a diff too large to hold.
-
-`security-review` ends with a complete-looking report. It is **not** the audit:
-keep its findings for the **Security** table of step 7, then go straight to
-step 3 in the same turn.
-
-If the skill is unavailable, fall back to the manual checklist in
-[checklists.md](checklists.md) and say so in the report — a skipped step is
-recorded, never silently dropped.
+If the skill is unavailable, use the manual checklist in
+[checklists.md](checklists.md) and say so in the report.
 
 ### Step 3 — Performance audit
 
-Direct diff review against the **Performance** checklist in
-[checklists.md](checklists.md). No subagent.
+Review the diff against the **Performance** checklist in
+[checklists.md](checklists.md).
 
 ### Step 4 — Architecture audit
 
-Direct diff review against the **Architecture** checklist in
-[checklists.md](checklists.md). No subagent. Check the lot's changes against
-`CONVENTIONS.md` and against the repo's own `CLAUDE.md`.
+Review the diff against the **Architecture** checklist in
+[checklists.md](checklists.md), `CONVENTIONS.md` and the repository's `CLAUDE.md`.
 
 ### Step 5 — Coverage exclusions review
 
-Read `Coverage exclusions` from the `Gate parameters` (finding #7). Any exclusion
-covering a **business** package or class is a **Warning** in the report, with the
-removal proposed and the resulting real coverage stated. A coverage number
-produced by excluding the code that matters is not a measurement.
+Read `Coverage exclusions` from the `Gate parameters`. An exclusion covering a
+business package or class is a **Warning**, with its removal proposed and the
+resulting real coverage stated.
 
 ### Step 6 — Migration hygiene
 
 Only when `Migrations directory` is not `n/a`:
 
-- Every file of the migrations directory touched by the lot must be in status
-  `A` (added) versus `origin/develop`
-  (`git -C "$AUDIT_REPO" diff --name-status origin/develop...HEAD`). A modified merged migration is a
-  **Critical** finding — it has already run on other environments.
-- **Expand/contract** (§7 of `CONVENTIONS.md`, P5-#8): a migration that drops a
-  column or table, renames, or adds a `NOT NULL` constraint must never ship in
-  the same version as the code that stops using it. The contract step comes a
-  version later, explicitly marked `contract`.
-- Confirm that at least one integration test actually executes the new
-  changesets against a real database.
+- Every migration file the lot touched is in status `A` (added) against
+  `origin/develop` (`git -C "$AUDIT_REPO" diff --name-status origin/develop...HEAD`).
+  A modified merged migration is **Critical**.
+- Expand then contract (CODE-3).
+- At least one integration test executes the new changesets on a real database.
 
-### Step 7 — Consolidated report
+### Step 7 — Fix the findings
 
-Write the report to **`$AUDIT_REPO/docs/audits/lot-N.md`**, in English:
+Fix the findings in this step, without re-running `lot-review`:
+
+1. Apply the fixes, inside the lot's diff and its direct dependencies.
+2. `<Validation command>` green.
+3. Commit them:
+
+   ```
+   fix(N): apply the lot audit findings
+   ```
+
+A finding that needs a decision (an authorization model, a deviation from the
+lot's specification, a schema change) is not fixed by default: ask the owner, all
+such findings in one batch, then apply the answers and commit as above. A
+finding left unfixed stays in the report with its reason; an unfixed Critical
+blocks the PR.
+
+### Step 8 — Consolidated report
+
+Write **`$AUDIT_REPO/docs/audits/lot-N.md`**, in English:
 
 ```markdown
 # Lot Audit — Lot N — [branch name]
 
 **Harness ref:** [version of the installed harness that ran this audit, see below]
-**Scope:** N modified files | **Verdict:** Ready for PR / Fix warnings / Blocked
+**Scope:** N modified files | **Fix commit:** [short SHA, or "none needed"] | **Verdict:** Ready for PR / Blocked
 
 ## Summary
 | Dimension    | Critical | Warning | Info |
@@ -242,7 +153,7 @@ Write the report to **`$AUDIT_REPO/docs/audits/lot-N.md`**, in English:
 ## Security
 | Severity | Location | Finding | Action |
 |----------|----------|---------|--------|
-| …        | `path:line` | …    | …      |
+| …        | `path:line` | …    | fixed in <sha> / owner decision: … / open: <reason> |
 
 ## Performance
 | Severity | Location | Finding | Action |
@@ -266,91 +177,52 @@ Write the report to **`$AUDIT_REPO/docs/audits/lot-N.md`**, in English:
 1. …
 ```
 
-The **harness ref** line is mandatory: a report must say which version of the
-harness produced it, otherwise a finding cannot be traced to the checklist that
-raised it.
-
-It is the harness that actually ran: the installed copy of the plugin, not the
-checkout of the local clone, which may sit on a working branch (elya-frontend
-lot 2 recorded `chore/review-audit-origin-develop`). Get the value with:
+The **Harness ref** is the installed copy of the plugin that ran:
 
 ```bash
 python3 <this skill's base directory>/../../hooks/plugin-currency.py --installed-version
 ```
 
-Empty output (an agent that loads no plugin) → the version `main` of the clone
-declares, fetched first:
+Empty output (an agent that loads no plugin) → the version `main` declares:
 
 ```bash
 git -C ~/ENV/projets/claude-harness fetch -q origin main
 git -C ~/ENV/projets/claude-harness show origin/main:plugins/claude-harness/.claude-plugin/plugin.json | jq -r .version
 ```
 
-**Severity levels**
-
-| Level | Meaning |
+| Severity | Meaning |
 |---|---|
 | **Critical** | Blocks the PR (security flaw, conventions violation, data-loss risk) |
-| **Warning** | Fix in this lot or track explicitly |
+| **Warning** | Fixed in this lot, or tracked explicitly |
 | **Info** | Optional improvement |
 
-A Critical row stays in the table after being fixed, with its Action rewritten to
-say how and where it was resolved — the guard looks for the resolution, not for
-the row's absence.
+A fixed row stays in its table, its Action saying how and where it was fixed:
+the CI guard looks for the resolution, not for the row's absence.
 
-## Lots file enrichment
+**Recommended lot**: when a Critical cannot be fixed within the lot's scope, the
+same Warning dimension recurs on consecutive lots, or a cross-cutting theme
+appears (secrets, validation, entity exposure, CORS, authentication, export
+injection, coverage fiction), add a **Recommended lot** section (reason, proposed
+row, affected files). The `Lots file` changes only on the user's approval, in a
+commit of its own.
 
-After writing the report, look for cross-cutting patterns that justify a
-dedicated lot. Propose one if **at least one** of these holds:
+### Step 9 — Commit the deliverable
 
-- A **Critical** finding cannot be fixed within the current lot's scope.
-- **Warning** findings of the same dimension appear on **2 or more consecutive**
-  lots.
-- A cross-cutting theme appears: secrets, validation, entity exposure, CORS,
-  authentication, export injection, coverage fiction.
-
-Procedure: add a **Recommended lot** section at the end of the report (reason,
-proposed lot row, affected files) and **wait for user approval before touching
-the `Lots file`**.
-
-## Commit the deliverable
-
-The report is the **proof** that this skill ran (section 13), and
-`lot-deliverables.yml` requires `docs/audits/lot-N.md` to be in the history of the
-pull request. Left in the working tree, the audit did not happen.
-
-1. Run the `<Validation command>` of the project `CLAUDE.md` — green, or the
-   commit does not happen.
-2. If `docs/audits/lot-N.md` is new, or its role changed, add it to the
-   `## Project documents` census of `CLAUDE.md`, and copy `CLAUDE.md` to
-   `AGENTS.md` byte for byte (section 12).
-3. Commit the report and nothing else, in the lot's scope:
+1. `<Validation command>` green.
+2. A new report enters the `## Project documents` census of `CLAUDE.md`, copied
+   to `AGENTS.md` (DOC-1).
+3. Commit the report and the census, nothing else (GATE-8):
 
    ```
    docs(N): add the lot audit report
    ```
 
-   An approved `Lots file` edit is a commit of its own, never mixed into this one.
 4. Do not push: the push belongs to `lot-ship`.
 
 ## Rules
 
-- Do not fix findings unless the user asks — report first. The fixes belong to
-  `lot-review`, which ran before this step.
-- The report is committed before this skill reports back, never left in the
-  working tree. Reporting back earlier is not a shorter audit, it is an
-  unfinished one.
 - Stay within the lot's diff and its direct dependencies.
 - Empty diff → one sentence: nothing to audit.
-- Never modify the `Lots file` without explicit approval (status column excepted).
-- All history reads go through `rtk proxy git log` (P5-#14).
-- Every repository read is scoped by `-C "$AUDIT_REPO"`; a step that cannot be
-  scoped, `Skill(security-review)` included, requires the session to run in that
-  repository (step 0b).
-- Remind at the end: the `Validation command` must be green before the PR.
-
-## Resources
-
-- Detailed checklists: [checklists.md](checklists.md)
-- Repo conventions and parameters: `CLAUDE.md` / `AGENTS.md`, `Lots file`
-- Cross-cutting rules: `CONVENTIONS.md`
+- The `Lots file` changes only on the user's approval.
+- History reads through `rtk proxy git log`; every repository read is scoped to
+  `$AUDIT_REPO`.

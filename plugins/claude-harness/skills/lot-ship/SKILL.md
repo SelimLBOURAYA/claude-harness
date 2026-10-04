@@ -1,107 +1,96 @@
 ---
 name: lot-ship
 description: >-
-  Ships a lot: uniform Conventional Commits, push, and PR to develop via gh,
-  then stop until the user merges. Use at the end of a lot after lot-audit, or
-  when the user mentions branch, commit, push, PR or delivery.
+  Ships a lot: uniform Conventional Commits, the lot's row marked done, push,
+  PR to develop via gh, and the merge once every check is green, then stop. Use
+  at the end of a lot after lot-audit, or when the user mentions branch, commit,
+  push, PR or delivery.
 metadata:
-  version: "2.0"
+  version: "3.0"
 ---
 
-# Lot Ship — Commits, push, PR
+# Lot Ship — Commits, push, PR, merge
 
-Ships a lot: uniform commits, push, PR via `gh`, then **stop**. One lot, one PR.
-
-Gate position:
+One lot, one PR, merged into `develop` once its CI is green, then **stop**.
 
 ```
 lot-test  →  lot-review  →  lot-audit  →  [lot-ship]
 ```
 
-The branch already exists — `feat/lot-N-slug` branched from `develop`, as named
-in the `Lots file` (`chore/<slug>` for a cross-cutting chore). Never commit on
-`main` or `develop`.
-
-## 0. Read the gate parameters
-
-`Validation command` and `Lots file` come from the `## Gate parameters` table in
-`CLAUDE.md`. This skill hard-codes neither.
-
----
+The branch exists: `feat/lot-N-slug` from `develop`, as named in the
+`Lots file`. `Validation command` and `Lots file` come from the
+`## Gate parameters` of `CLAUDE.md`.
 
 ## 1. Commit convention
 
-**Conventional Commits**, in **English**, imperative mood.
+Conventional Commits, in English, imperative mood (GIT-2):
 
 ```
 <type>(<scope>): <short description>
 ```
 
-- `<type>`: `feat`, `fix`, `refactor`, `test`, `chore`, `docs` (CONVENTIONS.md GIT-2)
-- `<scope>`: the lot number alone — `(1)`, `(11b)`, `(12)`. Omitted for a
+- `<type>`: `feat`, `fix`, `refactor`, `test`, `chore`, `docs`
+- `<scope>`: the lot number alone — `(1)`, `(11b)`, `(12)`; omitted for a
   cross-cutting chore: `chore: ignore IntelliJ project files`
-- `<description>`: imperative, lowercase, no trailing period, at most 72 chars
-- No em dash (U+2014) anywhere in the message; use an en dash (§10.3)
-
-### Valid examples
+- `<description>`: imperative, lowercase, no trailing period, at most 72 chars,
+  no em dash (U+2014)
 
 ```
 feat(12): split quote total into net, vat and gross
 fix(12): map the business conflict to 409
 test(12): cover status guards and vat computation
 chore: bump the github actions to their pinned shas
-docs: sync the lots file status
+docs: sync lots file status
 ```
-
-### Anti-examples
 
 | Forbidden | Correct |
 |---|---|
 | `Ajout du PDF de devis` | `feat(7): render the quote pdf` |
 | `feat: add stuff` | `feat(13): paginate the quote list` |
-| `feat(lot-12): …` | `feat(12): …` (scope = lot number only) |
-| A French message | An English message |
-| A commit with a red gate | `<Validation command>` green first |
+| `feat(lot-12): …` | `feat(12): …` |
 | Several logical changes mixed | One commit per logical change |
-
----
 
 ## 2. Pre-commit gate
 
-Re-read §10 of `CONVENTIONS.md` and verify against the **staged diff**:
+Check the staged diff against GIT-3, and:
 
 - [ ] `<Validation command>` green
-- [ ] No secret, password, token or absolute user path in the staged files
-- [ ] Message in English, Conventional Commits, scope = lot number, no U+2014
+- [ ] No secret, password, token or absolute user path staged
 - [ ] One logical change in this commit
-- [ ] `cmp CLAUDE.md AGENTS.md` silent if either is staged
-- [ ] `CONVENTIONS.md` identical to the harness master if staged
-- [ ] `docs/audits/lot-N-review.md` exists (produced by `lot-review`)
-- [ ] `docs/audits/lot-N.md` exists and carries no unresolved Critical row
-- [ ] *(frontend)* `docs/audits/lot-0-integration.md` exists
-- [ ] Every report just written is listed in the `## Project documents` census of
-      `CLAUDE.md` — §12 says "in the same commit", and `harness-invariants.yml`
-      fails on any `docs/audits/**.md` it cannot find there. A directory row
-      (`docs/audits/`) does **not** cover the files inside it
+- [ ] `docs/audits/lot-N-review.md` and `docs/audits/lot-N.md` committed, the
+      audit free of unresolved Critical rows
+- [ ] *(frontend)* `docs/audits/lot-0-integration.md` committed
+- [ ] Every `docs/audits/` report listed verbatim in the `## Project documents`
+      census of `CLAUDE.md` (a directory row does not cover its files)
 
 ```bash
 <Validation command>
-# Every audit report must appear verbatim in the census, or CI fails.
-for f in $(find docs/audits -name '*.md' | sort); do
+for f in $(git ls-files 'docs/audits/*.md'); do
   grep -qF "$f" CLAUDE.md || echo "missing from the census: $f"
 done
 git diff --cached --stat
 git commit -m "feat(N): <description>"
 ```
 
-## 3. Push and open the PR
+## 3. Mark the lot done, before the push
+
+Set the lot's status to ✅ in the `Lots file`: its row of the status table, and
+its section heading when the heading carries a status. `develop` then carries ✅
+exactly when the PR is merged.
+
+```bash
+git add <Lots file>
+git commit -m "docs(N): mark the lot done in the lots file"
+```
+
+## 4. Push and open the PR
 
 ```bash
 git push -u origin feat/lot-N-<slug>
 ```
 
 The git guard asks for confirmation on every push and denies anything targeting
-`main`. That is expected — confirm, do not work around it.
+`main`.
 
 ```bash
 gh pr create \
@@ -115,47 +104,40 @@ gh pr create \
 ## Test plan
 - [ ] `<Validation command>` green
 - [ ] lot-review executed, fixes applied
-- [ ] lot-audit executed, no unresolved Critical
+- [ ] lot-audit executed, findings fixed, no unresolved Critical
 - [ ] No secret committed
 EOF
 )"
 ```
 
-`--base develop` is mandatory. A PR to `main` is forbidden: the promotion
-`develop → main` belongs to the user (§7). The guard denies `gh pr create`
-without it, and denies it outright when the lot's audit report is missing.
+`--base develop` is mandatory; the guard denies `gh pr create` without it (GIT-1).
+The body has `## Summary` then `## Test plan`, and a third section only when it
+adds real information (`## DB migration` for a changeset) (GIT-6).
 
-Exactly **two** sections in the body — `## Summary` then `## Test plan` — unless
-a third adds real information (for instance `## DB migration` when the lot ships
-a changeset).
-
----
-
-## 4. Watch the CI, then stop
+## 5. Watch the CI, merge, stop
 
 ```bash
 gh pr checks --watch
 ```
 
-**Do not declare the lot ready while any check is red** (P5-#11). There is no
-branch protection on these repositories: a red PR is still mergeable, so this
-skill and the user's review are the only guard. On elya, three PRs were merged
-across six consecutive red runs — that is what this step exists to prevent.
+- A check red → report which one, fix it on the branch, push again, watch again.
+- Every check green → merge, pinned to the commit that was checked:
 
-- Check red → report which one, fix it on the branch, push again.
-- Checks green → report the PR URL and **stop**.
+  ```bash
+  gh pr merge <number> --merge --match-head-commit "$(git rev-parse HEAD)"
+  ```
 
-**Stop after PR.** Do not start the next lot, do not chain, do not merge. Wait
-for the user to merge, then a new lot starts from an updated `develop`.
+  A merge commit, which `lot-start` maps to the lot. The git guard reads the PR
+  and denies the merge unless its base is `develop`, its head a `feat/lot-*`
+  branch and every check green (GIT-5, GIT-6). Never `--delete-branch`, never
+  `--admin`.
 
----
+Then report the PR URL and the merge, and **stop** (LOT-6). The `develop` →
+`main` promotion is the user's.
 
-## Absolute rules
+## Rules
 
 - Never commit on `main` or `develop`; never push to `main`.
 - `<Validation command>` green before every commit; never `--no-verify`.
-- English message, Conventional Commits, scope = lot number, no em dash.
-- No PR without `docs/audits/lot-N.md` free of unresolved Critical rows.
-- Never `gh pr merge` — merging is the user's decision.
-- All history reads through `rtk proxy git log` (P5-#14): the rtk filter hides
-  merge commits, which makes the branch state look wrong.
+- No merge while a check is not green.
+- History reads through `rtk proxy git log`.
