@@ -37,8 +37,7 @@ head of the branch:
 
   Any path other than `docs/audits/*`, `CLAUDE.md` and `AGENTS.md` (the census)
   → **stop**. Code landed after the review; re-run `lot-review`. The review
-  report's own commit and the friction sections are expected there, and are not
-  a reason to stop.
+  report's own commit is expected there, and is not a reason to stop.
 
   `CLAUDE.md` and `AGENTS.md` are exempt for their census only: the gate
   parameters, the skills table and the conventions they also carry are lot
@@ -136,7 +135,7 @@ Task Progress:
 - [ ] Step 5 — Coverage exclusions review
 - [ ] Step 6 — Migration hygiene
 - [ ] Step 7 — Consolidated report
-- [ ] Commit the deliverable — the report and its friction section, committed
+- [ ] Commit the deliverable — the report, committed
 ```
 
 The skill ends at the last box, not before. Handing back after the security
@@ -325,19 +324,14 @@ pull request. Left in the working tree, the audit did not happen.
 2. If `docs/audits/lot-N.md` is new, or its role changed, add it to the
    `## Project documents` census of `CLAUDE.md`, and copy `CLAUDE.md` to
    `AGENTS.md` byte for byte (section 12).
-3. Append the `## lot-audit` section to `docs/audits/lot-N-friction.md`, in the
-   format of `CONVENTIONS.md` §13 (« Friction »): what, in running **this
-   skill**, failed, came back empty, was ambiguous or cost for nothing. Each
-   entry opens with its key, `` `lot-audit / <step>` ``. Nothing to record →
-   `None.` Findings about the lot's code stay in the report, not here.
-4. Commit the report with that section and nothing else, in the lot's scope:
+3. Commit the report and nothing else, in the lot's scope:
 
    ```
    docs(N): add the lot audit report
    ```
 
    An approved `Lots file` edit is a commit of its own, never mixed into this one.
-5. Do not push: the push belongs to `lot-ship`.
+4. Do not push: the push belongs to `lot-ship`.
 
 ## Rules
 
