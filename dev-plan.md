@@ -43,7 +43,8 @@
 | 20 | `feat/lot-20-plugin-currency` | A – Harness | Fraîcheur du plugin installé : un harnais en retard rend le verrou de lot muet au lieu de le signaler | claude-harness, les 8 repos (via `main`) |✅ |
 | 21 | `feat/lot-21-response-floor-friction` | A – Harness | Plancher de complétude dans §15 et remontée de friction des skills vers `harness-sync` | claude-harness, les 8 repos (via `main`) | ✅ |
 | 22 | `feat/lot-22-friction-fixes` | A – Harness | Correctifs de la friction remontée par elya et elya-frontend, et un seul écrivain de `CONVENTIONS.md` dans les projets | claude-harness, les 8 repos (via `main`) | ✅ |
-| 23 | `feat/lot-23-sync-automerge` | A – Harness | Merge automatique des PR de synchro de `CONVENTIONS.md`, version du plugin pour l'auto-update, et les deux constats reportés de la revue du lot 22 | claude-harness, les 8 repos (via `main`) | 🔄 |
+| 23 | `feat/lot-23-sync-automerge` | A – Harness | Merge automatique des PR de synchro de `CONVENTIONS.md`, version du plugin pour l'auto-update, et les deux constats reportés de la revue du lot 22 | claude-harness, les 8 repos (via `main`) | ✅ |
+| 24 | `feat/lot-24-harness-freeze` | D – Clôture | Gel du harnais : contradictions corrigées, boucle de friction coupée, `CONVENTIONS.md` allégé, verrou simplifié, merge par `lot-ship` | claude-harness, les 8 repos (via `main` et la PR de synchro) | ⬜ |
 
 Légende des statuts *(P6-D10)* : ⬜ à faire · 🔄 en cours (livré sur la branche, PR non
 mergée) · ✅ mergé sur `develop` · ⏸️ planifié mais dormant · ❄️ gelé.
@@ -1516,7 +1517,11 @@ Clés de friction traitées (CONVENTIONS §13) : `lot-start / A3`, `lot-start / 
 
 ---
 
-## LOT 23 — Merge automatique des PR de synchro et constats reportés du lot 22 🔄
+## LOT 23 — Merge automatique des PR de synchro et constats reportés du lot 22 ✅
+
+**Mergé** le 2026-10-03 (PR #47, fusion par rebase : `develop` porte
+`5869ed7`..`6ff4359`), puis promotion `develop` → `main` (PR #48, merge `caa6c8c`)
+et retour de `main` dans `develop` (PR #49, `572ef9b`).
 
 Branche `feat/lot-23-sync-automerge`, depuis `develop`. Repo touché :
 `claude-harness` ; les 8 repos en héritent à la promotion `develop` → `main`.
@@ -1607,6 +1612,203 @@ Branche `feat/lot-23-sync-automerge`, depuis `develop`. Repo touché :
 4. Les deux constats reportés du lot 22 entrent dans ce lot.
 5. Version du plugin, contrôle branché dans le CI du harness (5a, 5b) et
    avertissement restreint à `plugins/` entrent dans ce lot.
+
+---
+
+## LOT 24 — Gel du harnais ⬜
+
+Branche `feat/lot-24-harness-freeze`, depuis `develop`. Repo touché :
+`claude-harness` ; les 8 repos en héritent à la promotion `develop` → `main`
+(plugin) et par la PR de synchro (`CONVENTIONS.md`).
+
+### Origine
+
+Audit de cohérence du 2026-10-03, sur `develop` = `main` (`572ef9b`). Le cœur
+tient (garde git, workflows CI, miroir, gate en quatre skills, §1 à §8). Ce qui
+a dérapé est une boucle : la friction du gate ouvre un lot correctif, qui ajoute
+règles, textes et tests, qui produisent de la friction. Lots 19 à 23 : au moins
+87 commits en 12 jours sur le harnais lui-même. `CONVENTIONS.md` pèse 34 Ko
+chargés dans chaque session, dont 21 Ko (§9 à §15) de mécanique du harnais et de
+récits d'incidents ; une même règle est écrite à 5 à 8 endroits, et chaque copie
+est une contradiction en attente. Ce lot corrige les contradictions, coupe la
+boucle, simplifie et gèle le harnais.
+
+### Principe de rédaction
+
+Une règle n'est écrite qu'à **un** endroit : dans `CONVENTIONS.md` si elle
+s'applique hors de toute skill, sinon dans l'étape de la skill qui l'applique
+(ailleurs, un renvoi, jamais une copie). Ni `CONVENTIONS.md` ni les skills ne
+portent de récit d'incident ni de justification : l'historique reste dans ce
+fichier et dans `docs/audits/`. Une skill garde la règle et la commande.
+
+### Livrables
+
+1. **Contradictions** (références sur `develop` au 2026-10-03) :
+
+   | # | Contradiction | Correction |
+   |---|---|---|
+   | C1 | `lot-ship` (l. 157-158) dit que la garde git refuse `gh pr create` sans rapport d'audit ; `git-guard.py` (l. 49-54) ne le fait plus. Restes : `lot-deliverables.yml` (l. 4-5), décision « Rapport d'audit » de ce fichier | Supprimer les trois mentions |
+   | C2 | §2 : commit de synchro *avant* la création de branche ; `lot-start` : branche d'abord, synchro = premier commit de la branche | §2 renvoie à `lot-start` |
+   | C3 | §14 récuse l'auto-déclaration du modèle ; `lot-review` étape 0 en fait un signal requis | Seul `ANTHROPIC_BASE_URL` reste |
+   | C4 | Nouvelle session avant `lot-review` : toujours (§14), hors profil `claude` seulement (`lot-test` §5) | Toujours (livrable 3) |
+   | C5 | Titre de §14 « review is not done by the author » ; rien ne l'assure sous le profil `claude` | Renommé : la revue exige le profil `claude` et une session neuve |
+   | C6 | §10.6 bloque tout commit sans le livrable de l'étape ; le commit de correctifs de `lot-review` précède son rapport | Supprimer §10.6 (`lot-deliverables.yml` le couvre) |
+   | C7 | Types de commit : 6 (§7), 11 (`commit-format.yml`), `style` (`lot-ship`) ; exemple `chore(deps)` contraire à la règle de portée | Une seule liste, la même partout ; exemple corrigé |
+   | C8 | `Stack` : `infra` dans `README.md`, `other` partout ailleurs | `other` |
+   | C9 | `lot-audit` : tout Critical corrigé avant la PR, mais aucune correction sans demande, et tout code après **Reviewed at** relance la revue | `lot-audit` corrige (livrable 4) |
+   | C10 | `harness-sync` invariant 9 signale à tort les lots sans revue d'avant le lot 18 | Supprimé (livrable 7) |
+   | C11 | §12 : copie = master à `main` ; le lien `~/.claude/coding-conventions.md` pointe sur le clone de travail, quelle que soit sa branche | Livrable 9 |
+   | C12 | Installations du plugin divergentes : user 1.1.1, elya, elya-frontend, deployment 1.1.1, kreadevis-frontend 0.1.0 | Livrable 9 |
+   | C13 | `lot-start` A2 et `session-context.sh` demandent la « quick start » du `README.md`, absente du harnais | Retirer la mention |
+   | C14 | `marketplace.json` décrit quatre skills et deux hooks | Même description que `plugin.json` |
+   | C15 | Friction exigée partout en prose, par la CI dans le seul harnais | Livrable 2 |
+   | C16 | `rules/deepseek.json` porte des règles absentes de `CONVENTIONS.md` (CODE-4, GATE-1, CTX-2, CTX-3) | Livrable 6 |
+   | C17 | `bootstrap-project` lit `main` local, les autres skills `origin/main` fetché | `origin/main` fetché |
+   | C18 | Lot 23 resté 🔄 après son merge : personne ne passe la ligne à ✅ au merge | Livrable 5 |
+   | C19 | Décision « rtk » de ce fichier : le hook ne réécrirait plus `git log` ; en réalité `rtk hook claude` réécrit tout `git`, d'où `rtk proxy` dans les skills | Décision réécrite selon la réalité |
+   | C20 | `tests/manifests.test.sh` dit vérifier le census des fichiers *suivis*, mais parcourt le disque avec `find` : un worktree laissé sous `.claude/worktrees/` rend `./tests/run.sh` rouge | `git ls-files '*.md'` |
+
+2. **Friction en cas d'incident** (arbitrage 1) : `docs/audits/lot-N-friction.md`
+   n'est écrit que lorsqu'une skill a réellement échoué ou coûté ; format et clé
+   stable `<skill> / <étape>` conservés, en quelques lignes de §13. Aucune skill
+   ne l'exige ni ne s'arrête sans lui. Retirés : l'étape friction et l'entrée
+   `friction_from_lot` de `lot-deliverables.yml` (et de `ci.yml`,
+   `templates/ci-caller.yml`), `friction-digest.py` et son test, l'étape 2b de
+   `harness-sync`, les sections de friction obligatoires des cinq skills et la
+   boucle de contrôle de `lot-ship`. Les fichiers existants restent (historique).
+3. **Revue toujours dans une session neuve** (arbitrage 3) : le développement
+   s'arrête après `lot-test`, quel que soit le profil ; `lot-review`,
+   `lot-audit` et `lot-ship` tournent dans une nouvelle session, profil
+   `claude`. Règle dans §14 ; `lot-test` y renvoie à sa dernière étape ;
+   `lot-review` étape 0 ne vérifie plus que `ANTHROPIC_BASE_URL`.
+4. **`lot-audit` corrige** (arbitrage 4) :
+   - les constats sont corrigés pendant l'audit, sans relancer `lot-review` :
+     `Validation command` verte, puis commit
+     `fix(N): apply the lot audit findings`, avant le rapport ; le rapport dit
+     ce qui a été corrigé et où. Un constat qui demande une décision (modèle
+     d'autorisation, écart à la spécification, schéma) est posé au propriétaire,
+     tous en un seul lot de questions. Un Critical non corrigé bloque la PR ;
+   - l'étape 0 se réduit à « `docs/audits/lot-N-review.md` existe » : plus de
+     comparaison au SHA de revue ni d'exemption du census, et le rapport de
+     `lot-review` n'a plus qu'un champ **Reviewed at**.
+5. **`lot-ship` merge** (arbitrage 5) :
+   - passe la ligne du lot à ✅ dans le `Lots file`, sur la branche, avant le
+     push : `develop` porte ✅ exactement quand la PR est mergée ;
+   - après `gh pr checks --watch` entièrement vert :
+     `gh pr merge <n> --merge --match-head-commit <sha poussé>` (merge commit,
+     que `sync-status.py` sait lire), puis arrêt. La promotion `develop` → `main`
+     reste à l'utilisateur ;
+   - `git-guard.py` : `gh pr merge` n'est plus refusé en bloc ; il l'est quand
+     la PR n'a pas `develop` pour base, une branche `feat/lot-*` pour tête, ou
+     un check qui n'est pas vert (lu par `gh pr view`), et quand cet état ne
+     peut pas être lu ;
+   - §2 (étape 9), §7 (« never auto-merged »), `README.md` et la carte
+     `deepseek` alignés.
+6. **Une seule source de règles** (arbitrage 6) : chaque règle de
+   `CONVENTIONS.md` porte un identifiant stable (ceux de la carte actuelle,
+   `GIT-1`, `CODE-2`…) ; les règles propres à la carte (CODE-4, GATE-1, CTX-2,
+   CTX-3) entrent dans `CONVENTIONS.md`. `rules/deepseek.json` ne liste que des
+   identifiants ; son texte est généré depuis `CONVENTIONS.md` par
+   `.github/scripts/deepseek-card.py`, et un test échoue si la carte commitée
+   diffère de la génération ou dépasse le plafond du hook `SessionStart`.
+7. **Réécriture selon le principe de rédaction** :
+   - `CONVENTIONS.md` : §1 à §8 inchangés sur le fond hors C2, C6, C7 et les
+     identifiants ; §9 à §15 réduits aux règles ; §9 renvoie à la sortie du
+     hook `SessionStart` et garde la séquence manuelle pour les agents sans
+     hook. Numérotation §1 à §15 conservée (les projets y renvoient) ;
+   - skills : récits et renvois d'incidents retirés, règles et commandes
+     gardées ; une règle déjà dans `CONVENTIONS.md` y est renvoyée ;
+   - `harness-sync` : invariants 9, 12, 13 et 16 retirés ;
+   - `tests/skills.test.sh` ne garde que les assertions de structure
+     (frontmatter, fichiers et scripts référencés présents,
+     `disable-model-invocation` d'`i-have-adhd`) ; les assertions qui cherchent
+     une phrase exacte d'un texte sont retirées. Tous les tests de comportement
+     (hooks, scripts, workflows) restent.
+8. **Verrou simplifié, lié à la branche** (arbitrage 2) :
+   - `lot-confirm.sh` : `lot-start confirm N` (ou `N.M`) accepté quand la
+     branche courante est `feat/lot-N-*` ; le verrou `.claude/current-lot` ne
+     porte que cette branche et la date ; plus de lecture de la table de statut ;
+   - `lot-lock-guard.py` : sur une branche `feat/lot-*`, refus de
+     `Edit`/`Write`/`MultiEdit`/`NotebookEdit` tant que la branche du verrou
+     n'est pas la branche courante. Conservés : résolution du dépôt par le chemin
+     écrit, refus d'écrire le verrou et `.git`, fichier de lots toujours permis.
+     Retirés : la confirmation demandée sur `develop` et `main`, la
+     correspondance des sous-lots ;
+   - `session-context.sh` / `lotfile.py` : la suppression automatique du verrou
+     d'un lot mergé est retirée (un verrou lié à une autre branche ne débloque
+     rien) ; l'affichage du verrou reste ;
+   - `lot-start` garde la lecture de la section du lot (A4) et des derniers
+     merges de `develop` (A3, `sync-status.py`, inchangé).
+9. **Actions manuelles réduites** (arbitrage 7) :
+   - §4 : `claude plugin update claude-harness@claude-harness` (toutes portées)
+     pré-autorisé, comme `claude-profile` ;
+   - avertissement de `plugin-currency.py` : l'agent lance lui-même la mise à
+     jour des installations périmées (user, puis projet), et ne demande que de
+     rouvrir la session ;
+   - ce lot repointe `~/.claude/coding-conventions.md` vers
+     `~/.claude/plugins/marketplaces/claude-harness/CONVENTIONS.md`, qui suit
+     `main` avec l'auto-update du marketplace (§12, `README.md`), et met à jour
+     les quatre installations projet périmées.
+10. **Gel** : version du plugin `2.0.0` ; lot 16 → ❄️ ; règle de gel en tête de
+    ce fichier et section `## Freeze` dans `CLAUDE.md` (= `AGENTS.md`) : après
+    ce lot, le harnais ne change que pour (a) une CI cassée ou une faille de
+    sécurité, (b) un incident sur un projet qui a coûté du temps réel. Une
+    entrée de friction n'ouvre plus de lot. Toute modification reste un lot avec
+    gate complet.
+
+### Ce qui reste à l'utilisateur
+
+- Promouvoir `develop` → `main` après le merge du lot.
+- Rouvrir les sessions ; si l'avertissement de plugin périmé apparaît, l'agent
+  fait la mise à jour.
+- Merger la PR de **ce** lot : le `lot-ship` qui merge et la garde qui
+  l'autorise ne sont actifs qu'après la promotion.
+
+### Tests (`./tests/run.sh`)
+
+- `git-guard` : `gh pr merge` refusé si la base n'est pas `develop`, si la tête
+  n'est pas `feat/lot-*`, si un check n'est pas vert ou si l'état est illisible
+  (`gh` simulé) ; laissé au flux normal sinon.
+- `lot-confirm` / `lot-lock-guard` : verrou lié à la branche, sans lecture de
+  table ; verrou d'une autre branche → refus.
+- `session-context` : plus de suppression de verrou.
+- Carte `deepseek` identique à sa génération depuis `CONVENTIONS.md`, dans le
+  plafond du hook.
+- `lot-deliverables` : plus d'entrée `friction_from_lot`.
+- `manifests` : census sur `git ls-files`.
+- Une seule liste de types de commit dans `CONVENTIONS.md`,
+  `commit-format.yml` et `lot-ship`.
+
+### Critères de validation
+
+- Chaque contradiction C1 à C20 est résolue, vérifiable par un `grep` ou un test.
+- `CONVENTIONS.md` ≤ 14 Ko, sections §1 à §15 conservées dans leur
+  numérotation, aucun récit d'incident.
+- Plus aucun texte n'exige un fichier de friction.
+- `./tests/run.sh` vert ; CI verte ; version `2.0.0`.
+- Gate complet ; `lot-review`, `lot-audit` et `lot-ship` dans une nouvelle
+  session, profil `claude`.
+
+### Arbitrages (2026-10-03 et 2026-10-04, avant `lot-start`)
+
+1. Friction : écrite seulement en cas d'incident ; plus de garde CI ni de digest.
+2. Verrou : simplifié et lié à la branche ; lecture du lot et des derniers
+   merges de `develop` conservées.
+3. Revue : toujours dans une nouvelle session, pour repartir d'un contexte vide.
+4. `lot-audit` corrige ses constats sans relancer la revue.
+5. `lot-ship` passe la ligne à ✅ et merge la PR vers `develop` une fois la CI
+   verte ; la promotion vers `main` reste à l'utilisateur.
+6. `CONVENTIONS.md` et `rules/deepseek.json` portent les mêmes règles : carte
+   générée, test anti-dérive.
+7. Récits et justifications hors de `CONVENTIONS.md` et des skills ; chaque
+   règle à un seul endroit.
+8. Mises à jour du plugin et lien des conventions faits par l'agent ;
+   `claude plugin update` pré-autorisé (§4).
+
+### Hors périmètre
+
+- Toute nouvelle fonctionnalité du harnais : règle de gel.
+- `sync-status.py` : inchangé.
 
 ---
 
