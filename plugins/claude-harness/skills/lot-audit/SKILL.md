@@ -230,7 +230,7 @@ Write the report to **`$AUDIT_REPO/docs/audits/lot-N.md`**, in English:
 ```markdown
 # Lot Audit — Lot N — [branch name]
 
-**Harness ref:** [short SHA of the installed harness that ran this audit, see below]
+**Harness ref:** [version of the installed harness that ran this audit, see below]
 **Scope:** N modified files | **Verdict:** Ready for PR / Fix warnings / Blocked
 
 ## Summary
@@ -276,15 +276,15 @@ checkout of the local clone, which may sit on a working branch (elya-frontend
 lot 2 recorded `chore/review-audit-origin-develop`). Get the value with:
 
 ```bash
-python3 <this skill's base directory>/../../hooks/plugin-currency.py --installed-sha
+python3 <this skill's base directory>/../../hooks/plugin-currency.py --installed-version
 ```
 
-Empty output (an agent that loads no plugin) → the `main` of the clone, fetched
-first:
+Empty output (an agent that loads no plugin) → the version `main` of the clone
+declares, fetched first:
 
 ```bash
 git -C ~/ENV/projets/claude-harness fetch -q origin main
-git -C ~/ENV/projets/claude-harness rev-parse --short origin/main
+git -C ~/ENV/projets/claude-harness show origin/main:plugins/claude-harness/.claude-plugin/plugin.json | jq -r .version
 ```
 
 **Severity levels**

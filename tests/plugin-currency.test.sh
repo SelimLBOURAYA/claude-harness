@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# Lot 20: the SessionStart hook must say when the installed plugin lags behind
-# main, because a hook that was never installed writes nothing at all - the
-# exact silence a satisfied guard produces.
+# The SessionStart hook must say when the installed plugin is not the version
+# main declares, because a hook that was never installed writes nothing - the
+# exact silence a satisfied guard produces. Versions only (lot 24).
 set -uo pipefail
 . "$(dirname "$0")/lib.sh"
 
@@ -14,45 +14,23 @@ PLUGIN=claude-harness
 VPATH=1.0.0
 PLUGINS="$WORK/plugins"
 VERSION_DIR="$PLUGINS/cache/$MP/$PLUGIN/$VPATH"
-
-# A marketplace clone whose origin is a local bare repository: the check is a
-# real `git ls-remote`, and it runs offline.
-REMOTE="$WORK/remote.git"
-git init -q --bare -b main "$REMOTE"
-SEED="$WORK/seed"
-git init -q -b main "$SEED"
-git -C "$SEED" config user.email test@example.com
-git -C "$SEED" config user.name Test
-mkdir -p "$SEED/plugins/claude-harness"
-printf 'one\n' > "$SEED/plugins/claude-harness/hook"
-git -C "$SEED" add -A
-git -C "$SEED" commit -qm "feat: first"
-git -C "$SEED" remote add origin "$REMOTE"
-git -C "$SEED" push -q origin main
-OLD=$(git -C "$SEED" rev-parse HEAD)
-printf 'two\n' >> "$SEED/plugins/claude-harness/hook"
-git -C "$SEED" commit -qam "feat: second"
-git -C "$SEED" push -q origin main
-NEW=$(git -C "$SEED" rev-parse HEAD)
-
-mkdir -p "$PLUGINS/marketplaces/$MP"
-git clone -q "$REMOTE" "$PLUGINS/marketplaces/$MP"
+CLONE="$PLUGINS/marketplaces/$MP"
 
 # The installed copy holds the real hooks and rules, as an installation does.
-mkdir -p "$VERSION_DIR"
+mkdir -p "$VERSION_DIR" "$CLONE/.claude-plugin"
 cp -r "$REPO_ROOT/plugins/claude-harness/hooks" "$VERSION_DIR/hooks"
 cp -r "$REPO_ROOT/plugins/claude-harness/rules" "$VERSION_DIR/rules"
 
 marketplaces() { # marketplaces <install-location>
   cat > "$PLUGINS/known_marketplaces.json" <<EOF
-{"$MP": {"source": {"ref": "main"}, "installLocation": "$1"}}
+{"$MP": {"source": {"ref": "main"}, "installLocation": "$1", "autoUpdate": true}}
 EOF
 }
-installed() { # installed <sha>
-  cat > "$PLUGINS/installed_plugins.json" <<EOF
-{"version": 2, "plugins": {"$PLUGIN@$MP": [
-  {"scope": "user", "installPath": "$VERSION_DIR", "version": "$VPATH",
-   "installedAt": "2026-09-22T14:50:33.580Z", "gitCommitSha": "$1"}]}}
+declares() { # declares <version> [plugin name] : the marketplace clone's manifest
+  cat > "$CLONE/.claude-plugin/marketplace.json" <<EOF
+{"name": "$MP", "plugins": [
+  {"name": "other", "source": "./plugins/other", "version": "9.9.9"},
+  {"name": "${2:-$PLUGIN}", "source": "./plugins/$PLUGIN", "version": "$1"}]}
 EOF
 }
 # check [--plugin-root DIR] : the module's verdict, empty when it has none.
@@ -61,83 +39,48 @@ EOF
 check() { python3 "$MODULE" --plugins-dir "$PLUGINS" --plugin-root "$VERSION_DIR" "$@" 2>&1; }
 
 # --- a lagging installation is named --------------------------------------
-marketplaces "$PLUGINS/marketplaces/$MP"
-installed "$OLD"
+marketplaces "$CLONE"
+declares 1.1.0
 out=$(check)
-assert_contains "$out" "⚠ The installed \`$PLUGIN\` plugin is $VPATH" "stale: names the version"
-assert_contains "$out" "${OLD:0:7}" "stale: names the installed SHA"
-assert_contains "$out" "2026-09-22" "stale: names the installation date"
-assert_contains "$out" "while \`main\` is at ${NEW:0:7}" "stale: names main's SHA"
+assert_contains "$out" "⚠ The installed \`$PLUGIN\` plugin is $VPATH" "stale: names the installed version"
+assert_contains "$out" "while \`main\` declares 1.1.0" "stale: names the version main declares"
 assert_contains "$out" "lot-start" "stale: says which guards may be missing"
 assert_contains "$out" "marketplace update" "stale: says how to fix it"
+assert_eq "1" "$(printf '%s\n' "$out" | wc -l | tr -d ' ')" "stale: one line"
 
-# --- the same installation as main says nothing ---------------------------
-installed "$NEW"
+# --- the same version as main says nothing --------------------------------
+declares "$VPATH"
 assert_eq "" "$(check)" "current: no warning"
-# A short installed SHA against the full remote line is still the same commit.
-installed "${NEW:0:9}"
-assert_eq "" "$(check)" "current: a short SHA is not a lag"
-
-# --- several scopes share one cache directory -----------------------------
-# The directory holds what the latest install wrote: the newest record wins,
-# not the first one listed (the real file lists project scopes first).
-cat > "$PLUGINS/installed_plugins.json" <<EOF
-{"version": 2, "plugins": {"$PLUGIN@$MP": [
-  {"scope": "project", "installPath": "$VERSION_DIR", "version": "$VPATH",
-   "lastUpdated": "2026-09-20T17:33:12.266Z", "gitCommitSha": "$OLD"},
-  {"scope": "user", "installPath": "$VERSION_DIR", "version": "$VPATH",
-   "lastUpdated": "2026-09-22T14:50:33.580Z", "gitCommitSha": "$NEW"}]}}
-EOF
-assert_eq "" "$(check)" "shared directory: the newest record decides, not the first"
-# A record of another version describes another copy: no verdict from it.
-cat > "$PLUGINS/installed_plugins.json" <<EOF
-{"version": 2, "plugins": {"$PLUGIN@$MP": [
-  {"scope": "user", "installPath": "$PLUGINS/cache/$MP/$PLUGIN/9.9.9", "version": "9.9.9",
-   "lastUpdated": "2026-09-22T14:50:33.580Z", "gitCommitSha": "$OLD"}]}}
-EOF
-assert_eq "" "$(check)" "a record of another version is not this copy's"
-
-# --- a branch whose name merely ends in /main is not main ----------------
-git -C "$SEED" push -q origin "$OLD:refs/heads/release/main"
-installed "$NEW"
-assert_eq "" "$(check)" "refs/heads/release/main is not read as main"
-git -C "$SEED" push -q origin --delete release/main
+# The version of another plugin of the same marketplace is not this one's.
+declares 1.1.0 someone-else
+assert_eq "" "$(check)" "a version declared for another plugin is ignored"
 
 # --- never a guess, never a block ----------------------------------------
-installed "$OLD"
-marketplaces "$PLUGINS/absent"
-assert_eq "" "$(check)" "no marketplace clone: silent"
-marketplaces "$PLUGINS/marketplaces/$MP"
-git -C "$PLUGINS/marketplaces/$MP" remote set-url origin "$WORK/no-such-remote.git"
-assert_eq "" "$(check)" "unreachable remote: silent"
-git -C "$PLUGINS/marketplaces/$MP" remote set-url origin "$REMOTE"
-rm "$PLUGINS/installed_plugins.json"
-assert_eq "" "$(check)" "no installed_plugins.json: silent"
-installed "$OLD"
-python3 - "$PLUGINS/installed_plugins.json" <<'PY'
-import json, sys
-path = sys.argv[1]
-data = json.load(open(path))
-del data["plugins"]["claude-harness@claude-harness"][0]["gitCommitSha"]
-json.dump(data, open(path, "w"))
-PY
-assert_eq "" "$(check)" "no recorded SHA: silent"
-installed "$OLD"
+declares 1.1.0
 assert_eq "" "$(check --plugin-root "$REPO_ROOT/plugins/claude-harness")" \
   "a development checkout is not an installation"
-# --- the Harness ref of the reports: the SHA of the copy that ran (lot 22) --
-assert_eq "${OLD:0:7}" "$(check --installed-sha)" "installed-sha: the installed copy's SHA"
-assert_eq "" "$(check --installed-sha --plugin-root "$REPO_ROOT/plugins/claude-harness")" \
-  "installed-sha: nothing for a development checkout"
-printf 'not json at all\n' > "$PLUGINS/installed_plugins.json"
-assert_eq "" "$(check)" "unreadable installed_plugins.json: silent"
-mv "$PLUGINS/known_marketplaces.json" "$PLUGINS/known_marketplaces.json.bak"
-installed "$OLD"
+marketplaces "$PLUGINS/absent"
+assert_eq "" "$(check)" "no marketplace clone: silent"
+marketplaces "$CLONE"
+printf '{"name": "%s", "plugins": [{"name": "%s"}]}\n' "$MP" "$PLUGIN" \
+  > "$CLONE/.claude-plugin/marketplace.json"
+assert_eq "" "$(check)" "no version declared: silent"
+printf 'not json at all\n' > "$CLONE/.claude-plugin/marketplace.json"
+assert_eq "" "$(check)" "unreadable marketplace.json: silent"
+declares 1.1.0
+printf 'not json at all\n' > "$PLUGINS/known_marketplaces.json"
+assert_eq "" "$(check)" "unreadable known_marketplaces.json: silent"
+rm "$PLUGINS/known_marketplaces.json"
 assert_eq "" "$(check)" "no known_marketplaces.json: silent"
-mv "$PLUGINS/known_marketplaces.json.bak" "$PLUGINS/known_marketplaces.json"
+marketplaces "$CLONE"
 # The same fixture, read as an installation: the warning is back, so the
 # silences above are verdicts and not a check that never fires.
 assert_contains "$(check)" "⚠" "the stale fixture still warns when it is installed"
+
+# --- the Harness ref of the reports: the version of the copy that ran -----
+assert_eq "$VPATH" "$(check --installed-version)" "installed-version: the installed copy's version"
+assert_eq "" "$(check --installed-version --plugin-root "$REPO_ROOT/plugins/claude-harness")" \
+  "installed-version: nothing for a development checkout"
 
 # --- the SessionStart hook puts it first ----------------------------------
 # The state re-injection needs a harnessed repository to print its sections.
@@ -165,33 +108,12 @@ repo=$(printf '%s' "$body" | grep -n 'Repository:' | head -1 | cut -d: -f1)
 assert_eq "yes" "$([ "$first" -lt "$repo" ] && echo yes || echo no)" \
   "hook: the warning comes before the state"
 
-installed "$NEW"
+declares "$VPATH"
 body=$(text "$(context "$REPO")")
-assert_eq "" "$(printf '%s' "$body" | grep '⚠' || true)" "hook: a fresh plugin warns nothing"
+assert_eq "" "$(printf '%s' "$body" | grep '⚠' || true)" "hook: a current plugin warns nothing"
 
 # The hook finds the module beside itself, so the installed copy is what runs.
 assert_ok "the hook calls the check that ships in its own tree" -- \
   grep -qF 'plugin-currency.py' "$VERSION_DIR/hooks/session-context.sh"
-
-# --- only plugins/ is a lag (lot 23) ---------------------------------------
-# A commit of documents moves main's SHA without touching what the cache holds.
-printf 'plan\n' > "$SEED/dev-plan.md"
-git -C "$SEED" add -A
-git -C "$SEED" commit -qm "docs: plan the next lot"
-git -C "$SEED" push -q origin main
-DOCS=$(git -C "$SEED" rev-parse HEAD)
-git -C "$PLUGINS/marketplaces/$MP" pull -q
-installed "$NEW"
-assert_eq "" "$(check)" "a documents-only commit on main is not a lag"
-installed "$OLD"
-assert_contains "$(check)" "while \`main\` is at ${DOCS:0:7}" \
-  "a plugins/ change under a later documents commit still warns"
-# A clone that never fetched main's tip cannot show plugins/ unchanged: the
-# warning stands, since that clone needs the same refresh.
-printf 'three\n' >> "$SEED/plugins/claude-harness/hook"
-git -C "$SEED" commit -qam "feat: third"
-git -C "$SEED" push -q origin main
-installed "$DOCS"
-assert_contains "$(check)" "⚠" "a tip the clone does not hold yet warns"
 
 finish

@@ -367,7 +367,7 @@ assert_eq "" "$(grep -n 'Exactly one `docs/audits/lot-\*.md`' "$CHECKLISTS" || t
 # Harness ref: the installed copy, in both reports.
 for s in lot-review lot-audit; do
   assert_ok "$s takes the harness ref from the installed copy" -- \
-    grep -qF 'plugin-currency.py --installed-sha' "$SKILLS/$s/SKILL.md"
+    grep -qF 'plugin-currency.py --installed-version' "$SKILLS/$s/SKILL.md"
 done
 # lot-test: the frontend rows of the matrix.
 assert_ok "lot-test matrix has a route guard row" -- \
