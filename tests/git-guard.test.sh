@@ -128,6 +128,25 @@ expect ask "$FEAT" "git push origin \$(git branch --show-current)"
 expect ask "$FEAT" "git push origin 'unbalanced"
 expect ask "$WORK" "git push"
 
+# --- a heredoc body is data, unless a shell reads it (lot 25) -------------
+NL=$'\n'
+# Incident 2 (elya, 2026-10-04): French apostrophes in a python3 heredoc.
+expect pass "$FEAT" "git switch -c feat/lot-13-x && python3 - <<'EOF'${NL}print(\"code d'erreur\")${NL}EOF"
+expect pass "$FEAT" "git status && cat <<EOF${NL}l'agent n'a rien${NL}EOF"
+expect pass "$FEAT" "git status && cat <<-\"EOF\"${NL}	l'agent${NL}	EOF"
+expect pass "$FEAT" "git status && cat <<A <<B${NL}l'un${NL}A${NL}l'autre${NL}B"
+expect deny "$FEAT" "git status && cat <<EOF${NL}x${NL}EOF${NL}; git push origin main"
+expect deny "$FEAT" "bash <<'EOF'${NL}git push --force${NL}EOF"
+expect deny "$FEAT" "sudo env X=1 sh <<EOF${NL}echo l\\'ok${NL}git push origin main${NL}EOF"
+expect deny "$FEAT" "cat <<'EOF' | bash${NL}git push -f${NL}EOF"
+expect deny "$WORK" "cd $MAIN && bash <<'EOF'${NL}git push${NL}EOF"
+expect ask "$FEAT" "bash <<'EOF'${NL}git push origin 'main${NL}EOF"
+expect ask "$FEAT" "git status && cat <<EOF${NL}l'agent"
+expect ask "$FEAT" "git status && cat <<EOF"
+# A `<<` inside quotes, and a here-string, open no heredoc.
+expect pass "$FEAT" "git commit -m 'use <<EOF in docs'"
+expect ask "$FEAT" "git push origin <<< 'unbalanced"
+
 # --- ordinary pushes pass: the guard denies what is forbidden, it does not
 # ask for the rest (lot 24, a prompt the owner approves unread guards nothing)
 expect pass "$FEAT" "git push"
