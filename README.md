@@ -48,13 +48,24 @@ Recommended: the git guard then also covers sessions opened at
         "source": "github",
         "repo": "SelimLBOURAYA/claude-harness",
         "ref": "main"
-      }
+      },
+      "autoUpdate": true
     }
   },
   "enabledPlugins": {
     "claude-harness@claude-harness": true
   }
 }
+```
+
+`autoUpdate` keeps the marketplace clone on `main` and updates the installed
+plugin; the freshness check of the `SessionStart` hook reads that clone.
+
+The conventions reach every session through a symlink to that same clone
+(`CONVENTIONS.md` DOC-7):
+
+```bash
+ln -sfn ~/.claude/plugins/marketplaces/claude-harness/CONVENTIONS.md ~/.claude/coding-conventions.md
 ```
 
 ### Project level (`.claude/settings.json`)
@@ -64,12 +75,17 @@ harnessed without user-level setup.
 
 ## Update
 
+With `autoUpdate`, Claude Code refreshes the marketplace and updates the installed
+plugin during a session; the next session loads the new version. By hand:
+
 ```
 /plugin marketplace update claude-harness
 ```
 
-Only commits already promoted to `main` are picked up. Promotion `develop` → `main`
-is manual and done by the repo owner.
+or, from a shell, `claude plugin update claude-harness@claude-harness --scope user`,
+then `--scope project` in each project that installs it. Only commits promoted to
+`main` are picked up; the promotion `develop` → `main` is manual and done by the
+repo owner.
 
 ### After a promotion: the owner's runbook
 
@@ -85,12 +101,14 @@ the new one in.
    merged, that repository is red, since `harness-invariants.yml` compares each
    copy with the master at `main`. Never hand-edit a copy (§12 of
    `CONVENTIONS.md`, master propagation).
-3. On **each machine**, refresh the marketplace:
-   `/plugin marketplace update claude-harness`.
+3. On **each machine**, update the plugin:
+   `claude plugin update claude-harness@claude-harness --scope user`, then
+   `--scope project` in each project that installs it.
 4. **Close and reopen** the sessions of the affected repositories. A session keeps
-   the hooks it loaded at startup; a refresh under a live session does not reach it.
-5. In each reopened session, read the first lines of the state re-injection: a
-   warning there means the copy is still behind `main`.
+   the hooks it loaded at startup; an update under a live session does not reach it.
+5. A warning in the first lines of the state re-injection means an installation
+   is still behind: the agent runs the update itself and asks you to reopen the
+   session (`CONVENTIONS.md` PLUG-1).
 
 The plugin version moves with every change under `plugins/` — enforced on every
 pull request of this repository by the `plugin-version` job of its own `ci.yml` —
@@ -110,21 +128,23 @@ guards are not installed at all.
 
 Absent hooks are silent by construction: a hook that was never installed writes
 nothing, which is exactly what a guard writes when it finds nothing to report. The
-fix is always the same:
+fix is always the same, and the agent runs it itself (`CONVENTIONS.md` PLUG-1,
+pre-authorised by ASK-2):
 
 ```
-/plugin marketplace update claude-harness
+claude plugin update claude-harness@claude-harness --scope user
 ```
 
-then close the session and reopen it. The `SessionStart` hook warns by itself when
+then `--scope project` in each project that installs it; then
+close the session and reopen it. By hand, `/plugin marketplace update claude-harness`
+refreshes the marketplace and its plugins. The `SessionStart` hook warns by itself when
 the installed version is not the one the marketplace clone declares for `main`,
 naming both — do not develop a lot under that warning. It compares versions only:
 the version moves with every change under `plugins/` (the `plugin-version` job),
 so a commit of documents on `main` raises nothing.
 
-If the warning survives a refresh, the update did not install the declared
-version: run `claude plugin update claude-harness@claude-harness`, then reopen the
-session.
+If the warning survives an update, the marketplace clone is behind `main`: run
+`/plugin marketplace update claude-harness`, then the update again.
 
 ## Uninstallation
 
@@ -157,7 +177,7 @@ thresholds. Contract:
 
 | Parameter | Meaning | Example |
 |---|---|---|
-| `Stack` | `backend`, `frontend`, `infra` or `harness` — selects the skill branches | `backend` |
+| `Stack` | `backend`, `frontend`, `other` or `harness` — selects the skill branches | `backend` |
 | `Validation command` | The validation gate, run before every commit | `./mvnw verify` |
 | `Coverage tool` | Where the coverage gate is wired | `JaCoCo (pom.xml)` |
 | `Coverage threshold` | Current ratchet value, never lowered | `0.70` |

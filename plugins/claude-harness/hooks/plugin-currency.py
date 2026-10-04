@@ -103,12 +103,13 @@ def declared_version(plugins, marketplace, plugin):
     return None
 
 
-def warning(plugin, installed, declared):
+def warning(marketplace, plugin, installed, declared):
     return (
         "⚠ The installed `%s` plugin is %s while `main` declares %s. Lot guards "
-        "may be missing (%s). Refresh it (`/plugin marketplace update %s`) and reopen "
-        "the session before any lot work."
-        % (plugin, installed, declared, GUARDS, plugin)
+        "may be missing (%s). Before any lot work, run `claude plugin update "
+        "%s@%s --scope user`, then `--scope project` in each project installing it, "
+        "and ask the user to reopen the session (CONVENTIONS.md PLUG-1)."
+        % (plugin, installed, declared, GUARDS, plugin, marketplace)
     )
 
 
@@ -127,7 +128,7 @@ def check(root, plugins):
     declared = declared_version(plugins, marketplace, plugin)
     if not declared or declared == installed:
         return ""
-    return warning(plugin, installed, declared)
+    return warning(marketplace, plugin, installed, declared)
 
 
 def main(argv):
