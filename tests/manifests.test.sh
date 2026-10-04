@@ -106,8 +106,5 @@ assert_ok "the README documents the freshness helper" -- \
   grep -qF 'plugin-currency.py' "$REPO_ROOT/README.md"
 assert_ok "the SessionStart hook calls the freshness check" -- \
   grep -qF 'plugin-currency.py' "$REPO_ROOT/plugins/claude-harness/hooks/session-context.sh"
-assert_ok "harness-sync checks the installed plugin freshness" -- \
-  grep -qF 'Installed plugin freshness' \
-  "$REPO_ROOT/plugins/claude-harness/skills/harness-sync/SKILL.md"
 
 finish

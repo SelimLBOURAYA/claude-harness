@@ -205,8 +205,8 @@ carry on by hand: **stop**, and ask the user to refresh the marketplace
 (`/plugin marketplace update claude-harness`) and reopen the session. Reading the
 `SKILL.md` files of the local clone instead is the hybrid state that produced the
 2026-09-22 incident: procedures current, guards inert, everything looking in
-place. The `SessionStart` hook warns when the installed copy lags behind `main`;
-a warning it prints is that stop, already announced.
+place. The `SessionStart` hook warns when the installed version is not the one
+`main` declares; a warning it prints is that stop, already announced.
 
 **Do not include a build/compile** in this sequence — it is expensive at every session start for uncertain benefit. Build runs on demand, or via the validation gate before commit. If a project genuinely needs a project-specific startup check, it adds it in its project `AGENTS.md`.
 
@@ -346,10 +346,9 @@ the gate, so the two must come from one copy:
   outside Claude Code). Those agents have no hooks to fall behind, and CI — not
   the plugin — is what closes their gate.
 
-The `SessionStart` hook warns when the installed copy lags behind `main`, with
-the installed version, its date and the SHA `main` carries. A warning it prints
-**is** the stop of the bullet above, already announced: no session may develop a
-lot under it.
+The `SessionStart` hook warns when the installed version is not the one `main`
+declares, naming both. A warning it prints **is** the stop of the bullet above,
+already announced: no session may develop a lot under it.
 
 ### Why
 

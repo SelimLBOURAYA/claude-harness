@@ -165,7 +165,7 @@ Write **`docs/audits/lot-N-review.md`**:
 ```markdown
 # Lot Review — Lot N — [branch name]
 
-**Harness ref:** [short SHA of the installed harness, see below]
+**Harness ref:** [version of the installed harness, see below]
 **Model:** [the model that ran this review]
 **Target:** local diff origin/develop...HEAD
 **Read at:** [short SHA of HEAD when the review read the diff]
@@ -192,12 +192,12 @@ The **Harness ref** is the harness that actually ran, the installed copy of the
 plugin, not the checkout of the local clone, which may sit on a working branch:
 
 ```bash
-python3 <this skill's base directory>/../../hooks/plugin-currency.py --installed-sha
+python3 <this skill's base directory>/../../hooks/plugin-currency.py --installed-version
 ```
 
-Empty output (an agent that loads no plugin) → the `main` of the clone, fetched
-first: `git -C ~/ENV/projets/claude-harness fetch -q origin main` then
-`git -C ~/ENV/projets/claude-harness rev-parse --short origin/main`.
+Empty output (an agent that loads no plugin) → the version `main` of the clone
+declares, fetched first: `git -C ~/ENV/projets/claude-harness fetch -q origin main`
+then `git -C ~/ENV/projets/claude-harness show origin/main:plugins/claude-harness/.claude-plugin/plugin.json | jq -r .version`.
 
 ## Step 5 — Commit the deliverable
 

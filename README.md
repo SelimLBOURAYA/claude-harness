@@ -117,16 +117,13 @@ fix is always the same:
 ```
 
 then close the session and reopen it. The `SessionStart` hook warns by itself when
-the installed copy lags behind `main`, with the installed version, its date and the
-SHA `main` carries — do not develop a lot under that warning. It compares the
-`plugins/` tree, not the version: a commit of documents on `main` raises nothing
-once the marketplace clone holds it (before that, the refresh it asks for is what
-fetches it), and an unbumped version cannot hide a stale copy.
+the installed version is not the one the marketplace clone declares for `main`,
+naming both — do not develop a lot under that warning. It compares versions only:
+the version moves with every change under `plugins/` (the `plugin-version` job),
+so a commit of documents on `main` raises nothing.
 
-If the warning survives a refresh, the version was not bumped and Claude Code saw
-nothing to install. Remove the stale cache directory it names
-(`~/.claude/plugins/cache/claude-harness/claude-harness/<version>`), then run
-`claude plugin install claude-harness@claude-harness --scope user` and reopen the
+If the warning survives a refresh, the update did not install the declared
+version: run `claude plugin update claude-harness@claude-harness`, then reopen the
 session.
 
 ## Uninstallation
