@@ -24,7 +24,7 @@ prose that a weak model or a compacted context does not follow.
 Two hooks back it up, so skipping it does not work:
 
 - `lot-lock-guard.py` **denies** every `Edit`/`Write` on a `feat/lot-N-*` branch
-  until `.claude/current-lot` names that lot and that branch.
+  until `.claude/current-lot` names that branch.
 - `lot-confirm.sh` writes that lock **only** when the *user* submits
   `lot-start confirm N` (or `/claude-harness:lot-start confirm N`) as the whole
   prompt. The model cannot forge a user prompt: the lock is a real confirmation.
@@ -173,7 +173,7 @@ it anyway.
 ## Part B — After the confirmation
 
 The hook has written `.claude/current-lot` and told you so in the context. If
-instead it blocked the prompt (unknown lot ID, wrong branch checked out), repeat
+instead it blocked the prompt (wrong branch checked out), repeat
 Step A6 and stop.
 
 ### Step B1 — Apply the synchronisation and mark the lot in progress

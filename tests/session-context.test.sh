@@ -62,72 +62,20 @@ mkdir -p "$REPO/.claude"
 printf 'lot=2\nbranch=feat/lot-2-b\nconfirmed=2026-09-21T00:00:00Z\n' > "$REPO/.claude/current-lot"
 assert_contains "$(text "$(context resume "$REPO")")" "lot=2 branch=feat/lot-2-b" "lock reported"
 
-# --- the lock of a lot that landed on develop is removed (lot 22) ---------
-# An audit commit older than the confirmation (an earlier sub-lot of the same
-# row) is not this lot's merge: the lock stays.
+# --- the lock is displayed, never removed (lot 24) -------------------------
+# A lock bound to another branch unlocks nothing, so the merge of its lot is no
+# reason to delete it.
 git -C "$REPO" commit -q --allow-empty -m "feat(2): the work"
 git -C "$REPO" switch -q develop
-GIT_COMMITTER_DATE=2026-09-20T12:00:00Z \
-  git -C "$REPO" commit -q --allow-empty -m "docs(2): add the lot audit report"
-body=$(text "$(context startup "$REPO")")
-assert_contains "$body" "lot=2 branch=feat/lot-2-b" "older audit commit: the lock stays"
-assert_ok "older audit commit: the lock file is kept" -- test -f "$REPO/.claude/current-lot"
-# The lot's own pull request merged after the confirmation: the lock goes.
 git -C "$REPO" merge -q --no-ff -m "Merge pull request #7 from someone/feat/lot-2-b" feat/lot-2-b
-git -C "$REPO" switch -q feat/lot-2-b
-body=$(text "$(context startup "$REPO")")
-assert_contains "$body" "removed the lock lot=2 branch=feat/lot-2-b" "merged lot: the removal is reported"
-assert_contains "$body" "merge" "merged lot: the evidence is named"
-assert_ok "merged lot: the lock file is gone" -- test ! -f "$REPO/.claude/current-lot"
-# A rebase or squash merge leaves only the audit commit, after the confirmation.
-printf 'lot=2\nbranch=feat/lot-2-b\nconfirmed=2026-09-21T00:00:00Z\n' > "$REPO/.claude/current-lot"
-git -C "$REPO" switch -q develop
-git -C "$REPO" reset -q --hard HEAD~1
 git -C "$REPO" commit -q --allow-empty -m "docs(2): add the lot audit report"
 git -C "$REPO" switch -q feat/lot-2-b
 body=$(text "$(context startup "$REPO")")
-assert_contains "$body" "audit commit" "rebased lot: the audit commit is the evidence"
-assert_ok "rebased lot: the lock file is gone" -- test ! -f "$REPO/.claude/current-lot"
-# A lock whose confirmation time cannot be read proves nothing: it stays.
-printf 'lot=2\nbranch=feat/lot-2-b\n' > "$REPO/.claude/current-lot"
-body=$(text "$(context startup "$REPO")")
-assert_ok "unreadable confirmation time: the lock file is kept" -- test -f "$REPO/.claude/current-lot"
-# The audit of a sibling sub-lot, after the confirmation, is not this lot's.
-printf 'lot=2.3\nbranch=feat/lot-2-b\nconfirmed=2026-09-21T00:00:00Z\n' > "$REPO/.claude/current-lot"
+assert_contains "$body" "lot=2 branch=feat/lot-2-b" "merged lot: the lock is still reported"
+assert_ok "merged lot: the lock file is kept" -- test -f "$REPO/.claude/current-lot"
+assert_eq "" "$(printf '%s' "$body" | grep 'removed the lock' || true)" "merged lot: nothing is removed"
 git -C "$REPO" switch -q develop
-git -C "$REPO" commit -q --allow-empty -m "docs(2.1): add the lot audit report"
-git -C "$REPO" switch -q feat/lot-2-b
-body=$(text "$(context startup "$REPO")")
-assert_ok "sibling sub-lot audit: the lock file is kept" -- test -f "$REPO/.claude/current-lot"
-# Lot 23: the flat branch is shared by the sub-lots, so its merge may carry a
-# sibling (2.1) while 2.3 is still open; only 2.3's own audit drops its lock.
-git -C "$REPO" switch -q develop
-git -C "$REPO" merge -q --no-ff -m "Merge pull request #8 from someone/feat/lot-2-b" feat/lot-2-b
-git -C "$REPO" switch -q feat/lot-2-b
-body=$(text "$(context startup "$REPO")")
-assert_ok "sub-lot lock, flat branch merged: the lock file is kept" -- test -f "$REPO/.claude/current-lot"
-git -C "$REPO" switch -q develop
-git -C "$REPO" commit -q --allow-empty -m "docs(2.3): add the lot audit report"
-git -C "$REPO" switch -q feat/lot-2-b
-body=$(text "$(context startup "$REPO")")
-assert_contains "$body" "audit commit" "sub-lot lock: its own audit commit is the evidence"
-assert_ok "sub-lot lock, own audit: the lock file is gone" -- test ! -f "$REPO/.claude/current-lot"
-# A merge-commit pull request leaves that audit commit on the second parent.
-printf 'lot=2.3\nbranch=feat/lot-2-b\nconfirmed=2026-09-21T00:00:00Z\n' > "$REPO/.claude/current-lot"
-git -C "$REPO" switch -q develop
-git -C "$REPO" reset -q --hard HEAD~1
-git -C "$REPO" switch -q -c audit-2-3 feat/lot-2-b
-git -C "$REPO" commit -q --allow-empty -m "docs(2.3): add the lot audit report"
-git -C "$REPO" switch -q develop
-git -C "$REPO" merge -q --no-ff -m "Merge pull request #9 from someone/feat/lot-2-b" audit-2-3
-git -C "$REPO" branch -q -D audit-2-3
-git -C "$REPO" switch -q feat/lot-2-b
-body=$(text "$(context startup "$REPO")")
-assert_contains "$body" "audit commit" "sub-lot lock, merge commit: its audit on the second parent is the evidence"
-assert_ok "sub-lot lock, merge commit: the lock file is gone" -- test ! -f "$REPO/.claude/current-lot"
-printf 'lot=2\nbranch=feat/lot-2-b\nconfirmed=2026-09-21T00:00:00Z\n' > "$REPO/.claude/current-lot"
-git -C "$REPO" switch -q develop
-git -C "$REPO" reset -q --hard HEAD~4
+git -C "$REPO" reset -q --hard HEAD~2
 git -C "$REPO" switch -q feat/lot-2-b
 
 # --- deepseek rules only under a base URL ---------------------------------

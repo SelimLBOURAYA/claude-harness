@@ -12,14 +12,9 @@ CLI, for the shell hooks:
   lotfile.py root <path>            repository toplevel, empty when none
   lotfile.py lots-file <root>       absolute path of the lots file, empty when none
   lotfile.py table <root>           status table, done rows folded into one line
-  lotfile.py has-lot <root> <id>    exit 0 when <id> is a row of the status table,
-                                    or a sub-lot of one (3.3 on a row 3)
   lotfile.py lock <root>            the lock, one key=value per line, empty when none
-  lotfile.py lock-merged <root>     exit 0 and print the evidence when the locked lot
-                                    landed on develop after its confirmation
 """
 
-import datetime
 import os
 import re
 import subprocess
@@ -234,47 +229,7 @@ def read_lock(root):
         if "=" in line:
             key, value = line.split("=", 1)
             lock[key.strip()] = value.strip()
-    return lock if lock.get("lot") and lock.get("branch") else None
-
-
-def lock_merged(root, lock):
-    """Evidence that the locked lot landed on develop after it was confirmed.
-
-    The proof is the one sync-status.py accepts: a first-parent merge of the
-    locked branch, or an audit commit scoped to the lot. Only commits made after
-    the confirmation count, so the audit of an earlier sub-lot (5.1, before 5.3
-    was confirmed on the same row) never reads as this lot's merge. The local ref
-    is read as it is, never fetched: a stale ref proves nothing, and the lock stays.
-
-    A sub-lot lock (5.3) is dropped on its own audit commit only (lot 23): its
-    sub-lots share the flat branch feat/lot-5-*, so the merge of that branch may
-    carry a sibling (5.2) while 5.3 is still being developed.
-    """
-    try:
-        confirmed = datetime.datetime.strptime(lock.get("confirmed", ""), "%Y-%m-%dT%H:%M:%SZ")
-    except ValueError:
-        return None
-    ref = develop_ref(root)
-    if ref is None:
-        return None
-    since = confirmed.replace(tzinfo=datetime.timezone.utc).timestamp()
-    lot = lock["lot"].lower()
-    sub_lot = "." in lot
-    # A sub-lot has only its audit commit as evidence, and a merge-commit pull
-    # request leaves it on the second parent: read every commit develop reaches.
-    walk = ["-200"] if sub_lot else ["--first-parent", "-200"]
-    out = run_git(root, "log", *walk, "--format=%h%x09%ct%x09%s", ref)
-    for line in (out or "").splitlines():
-        parts = line.split("\t", 2)
-        if len(parts) != 3 or int(parts[1]) < since:
-            continue
-        sha, _, subject = parts
-        if not sub_lot and merged_branch(subject)[0] == lock["branch"]:
-            return "merge %s of %s" % (sha, lock["branch"])
-        # Exact scope, as sync-status.py reads it: the audit of 5.2 is not 5.3's.
-        if lot in audit_scope(subject):
-            return "audit commit %s of lot %s" % (sha, lock["lot"])
-    return None
+    return lock if lock.get("branch") else None
 
 
 # --------------------------------------------------------------------------
@@ -313,26 +268,11 @@ def main(argv):
         return 0
     if command == "table":
         return cli_table(target)
-    if command == "has-lot" and len(argv) == 4:
-        lot = argv[3].lower()
-        path = lots_file(target)
-        table = status_table(read_lines(path)) if path else None
-        ids = {row["id"].lower() for row in table["rows"]} if table else set()
-        # Sub-lots (3.3) share the flat branch of their parent (3.3 -> 3, section
-        # 7 of the conventions), and the table carries one row per lot: a
-        # confirmation of 3.3 is a confirmation of the row 3 that exists.
-        return 0 if lot in ids or lot_base(lot) in ids else 1
     if command == "lock":
         lock = read_lock(target) or {}
         for key, value in lock.items():
             print("%s=%s" % (key, value))
         return 0
-    if command == "lock-merged":
-        lock = read_lock(target)
-        evidence = lock_merged(target, lock) if lock else None
-        if evidence:
-            print(evidence)
-        return 0 if evidence else 1
     print(__doc__, file=sys.stderr)
     return 2
 

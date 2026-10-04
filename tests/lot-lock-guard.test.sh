@@ -31,9 +31,9 @@ make_repo() {
   printf '%s' "$dir"
 }
 
-lock() { # lock <repo> <lot> <branch>
+lock() { # lock <repo> <branch> : the lock lot-confirm.sh writes (lot 24)
   mkdir -p "$1/.claude"
-  printf 'lot=%s\nbranch=%s\nconfirmed=2026-09-21T00:00:00Z\n' "$2" "$3" > "$1/.claude/current-lot"
+  printf 'branch=%s\nconfirmed=2026-09-21T00:00:00Z\n' "$2" > "$1/.claude/current-lot"
 }
 
 # decision <cwd> <tool> <file_path>
@@ -65,32 +65,28 @@ out=$(jq -nc --arg d "$LOT" '{tool_name:"NotebookEdit", tool_input:{notebook_pat
 assert_eq deny "$out" "lock absent: NotebookEdit denied"
 reason=$(jq -nc --arg d "$LOT" '{tool_name:"Write", tool_input:{file_path:"src/A.java"}, cwd:$d}' \
   | python3 "$GUARD" | jq -r '.hookSpecificOutput.permissionDecisionReason')
-assert_contains "$reason" "lot-start confirm 5" "the deny tells how to get the lock"
+assert_contains "$reason" "lot-start confirm <N>" "the deny tells how to get the lock"
 
 # --- the lots file stays writable, the lock never is ---------------------
 expect pass "lots file writable without a lock" "$LOT" Edit "$LOT/lots.md"
 expect deny "the lock file is never written by a tool" "$LOT" Write "$LOT/.claude/current-lot"
 
-# --- a lock for another lot, or another branch ---------------------------
-lock "$LOT" 6 feat/lot-6-y
-expect deny "lock of another lot" "$LOT" Write "$LOT/src/App.java"
-lock "$LOT" 5 feat/lot-5-x
-expect pass "matching lock: write goes to the normal flow" "$LOT" Write "$LOT/src/App.java"
+# --- the lock is bound to the branch (lot 24) -----------------------------
+lock "$LOT" feat/lot-6-y
+expect deny "a lock of another branch" "$LOT" Write "$LOT/src/App.java"
+assert_contains "$(reason_for "$LOT" "$LOT/src/App.java")" 'confirmed on `feat/lot-6-y`' \
+  "the reason names the branch the lock was confirmed on"
+lock "$LOT" feat/lot-5-x
+expect pass "the lock of this branch: write goes to the normal flow" "$LOT" Write "$LOT/src/App.java"
 expect deny "the lock file stays denied with a lock" "$LOT" Edit "$LOT/.claude/current-lot"
-lock "$LOT" 5.1 feat/lot-5-x
-expect pass "a sub-lot lock covers its flat branch" "$LOT" Write "$LOT/src/App.java"
 git -C "$LOT" branch -qm feat/lot-5-renamed
 expect deny "branch renamed after confirmation" "$LOT" Write "$LOT/src/App.java"
-# The two mismatches read differently (lot 20): a lock left by an earlier lot
-# is the normal state at the start of the next one, while the same lot on
-# another branch means the branch moved under an existing confirmation.
-assert_contains "$(reason_for "$LOT" "$LOT/src/App.java")" \
-  "the confirmation was given for another branch" "same lot, another branch: the reason says so"
-lock "$LOT" 6 feat/lot-6-y
-assert_contains "$(reason_for "$LOT" "$LOT/src/App.java")" "the lock of another lot, normally the previous one" \
-  "a previous lot's lock: the reason says that instead"
 git -C "$LOT" branch -qm feat/lot-5-x
-lock "$LOT" 5 feat/lot-5-x
+# A lock written before lot 24 still carries its lot: the branch alone decides.
+mkdir -p "$LOT/.claude"
+printf 'lot=4\nbranch=feat/lot-5-x\nconfirmed=2026-09-21T00:00:00Z\n' > "$LOT/.claude/current-lot"
+expect pass "a lock of the old format on this branch: the branch decides" "$LOT" Write "$LOT/src/App.java"
+lock "$LOT" feat/lot-5-x
 
 # --- the repository comes from the path, not from the session ------------
 OTHER=$(make_repo other-repo feat/lot-7-z)
@@ -107,12 +103,11 @@ expect deny "unlocked lot branch: .git/HEAD denied" "$LOT" Write "$LOT/.git/HEAD
 expect deny "unlocked lot branch: .git/config denied" "$LOT" Edit ".git/config"
 expect deny "even with a matching lock: .git/hooks denied" "$LOT" Write "$LOT/.git/hooks/pre-commit"
 
-# --- develop and main: ask ------------------------------------------------
+# --- develop and main: left to the normal flow (lot 24) --------------------
 DEV=$(make_repo dev-repo develop)
-expect ask "develop: every write asks" "$DEV" Write "$DEV/src/App.java"
-expect pass "develop: the lots file does not ask" "$DEV" Write "$DEV/lots.md"
+expect pass "develop: no lock required" "$DEV" Write "$DEV/src/App.java"
 git -C "$DEV" branch -qm main
-expect ask "main: every write asks" "$DEV" Edit "$DEV/src/App.java"
+expect pass "main: no lock required" "$DEV" Edit "$DEV/src/App.java"
 
 # --- outside the guard's business ----------------------------------------
 PLAIN=$(make_repo plain-repo feat/lot-5-x no)
