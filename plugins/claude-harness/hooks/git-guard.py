@@ -38,6 +38,10 @@ MERGE_VALUE_OPTIONS = {
 # or as the next token.
 MERGE_SHORT_VALUES = {"t", "b", "F", "A", "R"}
 FALSE_VALUES = {"false", "0", "f"}
+# gh reads these to pick the repository a command acts on, and the hook's own
+# `gh pr view` does not see an assignment made in the command: a merge whose
+# command sets one would be checked against another pull request.
+GH_TARGET_ASSIGNMENT = re.compile(r"^(GH_REPO|GH_HOST)=")
 
 # Options that make a push rewrite or delete remote history.
 FORCE_FLAGS = {"--force", "-f", "--force-with-lease", "--force-if-includes"}
@@ -505,7 +509,13 @@ def check_is_green(check):
     return check.get("status") == "COMPLETED" and check.get("conclusion") in GREEN_CONCLUSIONS
 
 
-def guard_merge(args, cwd):
+def guard_merge(args, cwd, retargets):
+    if retargets:
+        deny(
+            "`gh pr merge` in a command that sets GH_REPO or GH_HOST: the guard would "
+            "check another pull request than the one merged. Name the repository with "
+            "`--repo owner/name` instead."
+        )
     selector, repo, flags = merge_target(args)
     if flag_set(flags, "--delete-branch", "d"):
         deny(
@@ -580,13 +590,13 @@ def pr_action(args):
     return None, None
 
 
-def guard_gh(segment, cwd):
+def guard_gh(segment, cwd, retargets):
     action, rest = pr_action(segment[1:])
     if action is None:
         return
 
     if action == "merge":
-        guard_merge(rest, cwd)
+        guard_merge(rest, cwd, retargets)
         return
 
     if action != "create":
@@ -635,7 +645,11 @@ def main():
             "rather than letting the guard pass it silently."
         )
 
-    for segment in segments(tokens):
+    commands = segments(tokens)
+    # Anywhere in the command line: `export GH_REPO=x && gh pr merge 1` retargets too.
+    retargets = any(GH_TARGET_ASSIGNMENT.match(token) for part in commands for token in part)
+
+    for segment in commands:
         segment = strip_wrappers(segment)
         if not segment:
             continue
@@ -646,7 +660,7 @@ def main():
         elif name == "git":
             guard_git(segment, cwd)
         elif name == "gh":
-            guard_gh(segment, cwd)
+            guard_gh(segment, cwd, retargets)
 
     sys.exit(0)
 
