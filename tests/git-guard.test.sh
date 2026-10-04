@@ -204,6 +204,13 @@ assert_eq deny "$(merge "$(with '.baseRefName="main"')" "gh pr -R owner/repo mer
 assert_eq deny "$(merge "$(with '.baseRefName="main"')" "gh pr --repo=owner/repo merge 12")" \
   "--repo= before the action does not hide the merge"
 assert_eq deny "$(merge "$GREEN" 'gh pr merge "$PR" --merge')" "a selector behind an expansion: denied"
+# gh reads GH_REPO/GH_HOST from the command, the guard's own gh pr view does not.
+assert_eq deny "$(merge "$GREEN" "GH_REPO=owner/other gh pr merge 12 --merge")" "a GH_REPO prefix: denied"
+assert_eq deny "$(merge "$GREEN" "env GH_HOST=ghe.example gh pr merge 12 --merge")" "a GH_HOST through env: denied"
+assert_eq deny "$(merge "$GREEN" "export GH_REPO=owner/other && gh pr merge 12 --merge")" \
+  "a GH_REPO exported earlier in the command: denied"
+assert_eq deny "$(merge "$GREEN" "bash -c 'GH_REPO=owner/other gh pr merge 12 --merge'")" "a GH_REPO inside bash -c: denied"
+assert_eq pass "$(merge "$GREEN" "GH_REPO=owner/other gh pr view 12")" "GH_REPO on another gh command: left to the normal flow"
 # The pull request the guard reads is the one being merged.
 LOG="$WORK/gh.log"
 FAKE_GH_LOG="$LOG" merge "$GREEN" "gh pr merge 12 --merge --subject 'a b' -R owner/repo" > /dev/null
