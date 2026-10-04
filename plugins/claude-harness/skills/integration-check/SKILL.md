@@ -11,15 +11,10 @@ metadata:
 
 # Integration Check — Front against the real backend
 
-A green frontend unit suite proves the components talk correctly to **mocks**.
-It says nothing about whether the application works against the real API. On
-kreadevis-frontend the front had never once been run against the backend
-(findings #3 and P5-#4), so field name, status code and payload shape mismatches
-had nowhere to surface before production.
-
-This skill closes that gap with a **manual** smoke test and a written
-deliverable. The automated CI contract job is planned as lot 16 of the harness
-plan and will eventually replace it.
+A green frontend unit suite proves the components talk correctly to **mocks**,
+not that the application works against the real API: field names, status codes
+and payload shapes only meet the backend here. This skill is a **manual** smoke
+test with a written deliverable.
 
 ## When it is required
 
@@ -73,8 +68,8 @@ Use the project's documented development configuration. Do **not** invent a new
 one and do not commit a temporary URL.
 
 Check while you are here that the production configuration does **not** carry the
-development URL: a production bundle containing `Dist forbidden pattern` is
-findings P5-#15, and `frontend-dist.yml` fails the CI on it.
+development URL: `frontend-dist.yml` fails the CI on a production bundle
+containing `Dist forbidden pattern`.
 
 ### Step 3 — Run the scenario
 
@@ -151,15 +146,14 @@ propose it, and wait for approval before editing that file.
 
 ### Step 6 — Commit the deliverable
 
-`lot-deliverables.yml` and every frontend PR require this report **in the
-history**: a report left in the working tree is a report that does not exist
-(section 13).
+`lot-deliverables.yml` and every frontend PR require this report in the history
+(GATE-8).
 
 1. Run the frontend's `<Validation command>` — green, or the commit does not
    happen.
 2. If `docs/audits/lot-0-integration.md` is new, or its role changed, add it to
    the `## Project documents` census of `CLAUDE.md`, and copy `CLAUDE.md` to
-   `AGENTS.md` byte for byte (section 12).
+   `AGENTS.md` byte for byte (DOC-1).
 3. Commit it alone:
 
    ```

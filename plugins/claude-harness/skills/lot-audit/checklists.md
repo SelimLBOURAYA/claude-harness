@@ -135,7 +135,7 @@ the rest apply to both.
 - [ ] No half-implemented feature belonging to a future lot
 - [ ] The only `docs/audits/` files the PR adds are the lot's own gate
   deliverables: `lot-N-friction.md`, `lot-N-review.md`, `lot-N.md`, and on a
-  frontend the `integration-check` report `lot-0-integration.md` (P5-#13)
+  frontend the `integration-check` report `lot-0-integration.md`
 - [ ] The `Lots file` modified only on status lines
 
 ---
