@@ -2,22 +2,20 @@
 # UserPromptSubmit hook: turns the user's lot confirmation into the lot lock.
 #
 # The lock `.claude/current-lot` is what lot-lock-guard.py requires before any
-# write on a `feat/lot-N-*` branch. It is written here and nowhere else, because
+# write on a `feat/lot-*` branch. It is written here and nowhere else, because
 # this hook only sees prompts the *user* submitted: the model cannot forge one,
 # so the lock proves a human confirmed the lot.
 #
 # Accepted, as the whole prompt and nothing else (surrounding blanks aside):
 #   lot-start confirm <N>
 #   /claude-harness:lot-start confirm <N>
-# <N> may be a sub-lot, `3.3`: sub-lots share the flat branch of their parent,
-# and the table carries one row per lot, so the row to find is `3`.
+# <N> may be a sub-lot, `3.3`, which rides the flat branch of its parent.
 # A prompt that merely contains the phrase, such as pasted text, is not a
 # confirmation and is left alone.
 #
-# Refused, with the prompt blocked and the reason shown to the user:
-#   - <N> is not a row of the status table of the lots file, nor a sub-lot of
-#     one;
-#   - the checked-out branch is not `feat/lot-<N>-*` (lot-start creates it).
+# The lock is bound to the branch (lot 24): it holds the checked-out branch and
+# the date, and the confirmation is refused, with the prompt blocked and the
+# reason shown to the user, unless that branch is `feat/lot-<N>-*`.
 set -uo pipefail
 
 here=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
@@ -42,19 +40,8 @@ block() {
 root=$(python3 "$here/lotfile.py" root "$cwd")
 [ -n "$root" ] || block "lot-start confirm: $cwd is not inside a git repository; no lock written."
 
-# The lot as the branch names it: a sub-lot (3.3) rides the branch of its
-# parent (feat/lot-3-*), and the table carries the parent's row.
+# A sub-lot (3.3) rides the branch of its parent (feat/lot-3-*).
 base=${lot%%.*}
-
-if ! python3 "$here/lotfile.py" has-lot "$root" "$lot"; then
-  # Sub-lot ids are the case worth spelling out: `confirm 3.3` is accepted when
-  # the table carries a row 3, so a refusal here means that row is missing, and
-  # repeating the whole id would not say which row to look for.
-  hint=""
-  [ "$base" = "$lot" ] || hint=" A sub-lot is confirmed on its parent row: the status table carries no row \`$base\`."
-  block "lot-start confirm: lot $lot is not a row of the status table of the lots file in $root; no lock written. Check the lot ID that lot-start proposed.${hint}"
-fi
-
 branch=$(git -C "$root" rev-parse --abbrev-ref HEAD 2>/dev/null || true)
 case "$branch" in
   "feat/lot-$base-"*) ;;
@@ -63,7 +50,6 @@ esac
 
 mkdir -p "$root/.claude"
 {
-  printf 'lot=%s\n' "$lot"
   printf 'branch=%s\n' "$branch"
   printf 'confirmed=%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 } > "$root/.claude/current-lot"

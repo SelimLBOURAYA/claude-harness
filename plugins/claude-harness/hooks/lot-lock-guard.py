@@ -4,15 +4,15 @@
 Matcher Edit|Write|MultiEdit|NotebookEdit. Reads the hook payload on stdin and
 answers with a permission decision:
 
-  deny  - a lot branch with no lock, or a lock for another lot or branch;
+  deny  - a `feat/lot-*` branch whose lock is absent or names another branch;
           any tool write to the lock file itself, or into the `.git` directory
           of a harnessed repository
-  ask   - any write on develop or main, where no development takes place
   (silence) - everything else, and the normal permission flow applies
 
 The lock is `.claude/current-lot`, written only by the UserPromptSubmit hook
 lot-confirm.sh when the *user* types `lot-start confirm <N>`. The model cannot
-forge a user prompt, so a lock is a real confirmation.
+forge a user prompt, so a lock is a real confirmation. It is bound to the branch
+it was confirmed on (lot 24): a lock left by another branch unlocks nothing.
 
 The repository is resolved from the path of the file being written, never from
 the session directory (lesson C3 of lot 18): a session sitting in one clone and
@@ -43,7 +43,6 @@ sys.dont_write_bytecode = True  # no __pycache__ inside the plugin tree
 import lotfile  # noqa: E402
 
 WRITE_TOOLS = {"Edit", "Write", "MultiEdit", "NotebookEdit"}
-PROTECTED = {"develop", "main"}
 
 
 def decide(decision, reason):
@@ -121,46 +120,17 @@ def main():
         sys.exit(0)  # the status sync of section 2.1 happens before the lock
 
     branch = lotfile.current_branch(root)
-    if branch in PROTECTED:
-        decide(
-            "ask",
-            "`%s` is checked out in %s: no development happens on %s. Confirm this "
-            "write, or create the lot branch with `lot-start` first." % (branch, root, branch),
-        )
+    if not lotfile.LOT_BRANCH.match(branch or ""):
+        sys.exit(0)  # develop, chore/*, fix/*, a detached HEAD: no lot to lock
 
-    match = lotfile.LOT_BRANCH.match(branch or "")
-    if not match:
-        sys.exit(0)  # chore/*, fix/*, a detached HEAD: no lot to lock
-    lot = match.group(1).lower()
-
-    how = (
-        "Run `lot-start`, then have the user confirm with `lot-start confirm %s`."
-        % lot
-    )
     lock = lotfile.read_lock(root)
-    if lock is None:
+    if lock is None or lock["branch"] != branch:
+        found = "absent" if lock is None else "confirmed on `%s`" % lock["branch"]
         decide(
             "deny",
-            "No confirmed lot in %s: `.claude/current-lot` is absent. %s" % (root, how),
-        )
-    # Two different situations, told apart (lot 20). A lock naming another lot
-    # is normally the previous one, the expected state at the start of the next
-    # lot, and it is worth saying so: the alternative is a message that reads
-    # like a corrupted lock. A lock naming this same lot on another branch is
-    # not normal: the confirmation was given for a different branch.
-    if lotfile.lot_base(lock["lot"]) != lot:
-        decide(
-            "deny",
-            "`.claude/current-lot` still names lot %s, confirmed on `%s`: the lock of "
-            "another lot, normally the previous one, which is the expected state at "
-            "the start of the next lot. "
-            "Each lot is confirmed once. %s" % (lock["lot"], lock["branch"], how),
-        )
-    if lock["branch"] != branch:
-        decide(
-            "deny",
-            "Lot %s was confirmed on `%s`, but `%s` is checked out: the confirmation "
-            "was given for another branch (renamed, recreated or switched since). %s" % (lock["lot"], lock["branch"], branch, how),
+            "No confirmed lot on `%s` in %s: `.claude/current-lot` is %s. Run "
+            "`lot-start`, then have the user confirm with `lot-start confirm <N>`."
+            % (branch, root, found),
         )
     sys.exit(0)
 
