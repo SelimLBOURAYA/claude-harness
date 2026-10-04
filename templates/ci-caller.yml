@@ -74,7 +74,7 @@ jobs:
       # database without an NVD key.
       nvd_api_key: ${{ secrets.NVD_API_KEY }}
 
-  # --- the validation gate, section 10 item 4 -----------------------------
+  # --- the validation gate, CONVENTIONS.md GATE-2 --------------------------
   # Inline rather than reusable: the command, the toolchain and the artefact it
   # produces are the most project-specific thing in this file, and hiding them
   # behind three inputs buys nothing.

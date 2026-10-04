@@ -25,7 +25,7 @@ check used in Step 4. Never improvise either.
 |---|---|
 | `backend` | Maven through the repo's `./mvnw` wrapper |
 | `frontend` | npm, through the repo's committed lockfile |
-| `infra` / `harness` | No package manager: GitHub Actions SHAs and base images |
+| `other` / `harness` | No package manager: GitHub Actions SHAs and base images |
 
 ## Workflow
 
