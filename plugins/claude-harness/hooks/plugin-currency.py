@@ -1,39 +1,33 @@
 #!/usr/bin/env python3
-"""Is the installed plugin the one `main` carries? (lot 20)
+"""Is the installed plugin the version `main` declares?
 
 Claude Code loads the harness from the copy it installed under
-`~/.claude/plugins/cache/<marketplace>/<plugin>/<version>`, refreshed by the
-user, never from this working clone. Nothing here saw that copy's age, so a
-stale plugin silently disarmed the start-of-lot gate: `lot-start` and its
-confirmation hook were not installed at all, and a missing hook writes nothing
-- which is also what a guard writes when it finds nothing to report. The agent
-could not tell "guard satisfied" from "guard absent" (incident of 2026-09-22,
-repo elya, lot 3.3).
+`~/.claude/plugins/cache/<marketplace>/<plugin>/<version>`, never from a working
+clone, and a hook that was never installed writes nothing. This module answers
+one question for the SessionStart hook: is the version of the copy this file
+runs from the version that the marketplace clone declares for the plugin?
 
-This module answers one question for the SessionStart hook: does the installed
-copy hold the `plugins/` tree `main` carries? It compares the installed SHA with
-main's tip, then, when they differ, `plugins/` between the two in the
-marketplace clone (lot 23): a commit of documents is not a lag, and no version
-number is trusted, since an unbumped one is what left the copy stale through
-lots 20 to 22. When it does not, it prints the warning the hook puts
-at the top of its state re-injection. When it cannot tell - no installed entry,
-no marketplace clone, no remote, offline - it prints nothing and exits 0: the
-hook must never block a session, and a guess would be worse than the silence it
-replaces.
+Only versions are compared (lot 24). The version changes with every change under
+`plugins/` (the `plugin-version` job of the harness CI), Claude Code names the
+cache directory after it, and its auto-update, which keeps the marketplace clone
+on `main`, compares nothing else.
+
+When it cannot tell - not an installed copy, no marketplace clone, no version
+declared - it prints nothing: the hook must never block a session.
 
 The plugin identity is read from the path of this very file, so no name is
 hard-coded: `<plugins>/cache/<marketplace>/<plugin>/<version>/hooks/`.
 
 CLI:
 
-    plugin-currency.py [--plugin-root DIR] [--plugins-dir DIR] [--timeout SECONDS]
-    plugin-currency.py --installed-sha [--plugin-root DIR] [--plugins-dir DIR]
+    plugin-currency.py [--plugin-root DIR] [--plugins-dir DIR]
+    plugin-currency.py --installed-version [--plugin-root DIR] [--plugins-dir DIR]
 
 Exit status is always 0: the verdict is the output, not the code.
 
---installed-sha prints the short SHA of the installed copy this file runs from,
-and nothing when it is not an installed copy: the `Harness ref` of the review and
-audit reports, i.e. the harness that actually ran, not the clone's checkout (lot 22).
+--installed-version prints the version of the installed copy this file runs
+from, and nothing when it is not an installed copy: the `Harness ref` of the
+review and audit reports.
 
 Standard library only (V6), like the other hooks.
 """
@@ -41,12 +35,10 @@ Standard library only (V6), like the other hooks.
 import argparse
 import json
 import os
-import subprocess
 import sys
 
 sys.dont_write_bytecode = True  # no __pycache__ inside the plugin tree
 
-DEFAULT_TIMEOUT = 5
 CACHE_DIR = "cache"
 GUARDS = "lot-start, its confirmation, the write lock, the start-of-lot reinjection"
 
@@ -73,7 +65,7 @@ def plugin_root(explicit):
 
 
 def identity(root, plugins):
-    """(marketplace, plugin, version, cache dir) for an installed copy.
+    """(marketplace, plugin, version) of an installed copy.
 
     None when `root` is not an installed copy - a working clone of this
     repository, for instance, which is never what this check is about.
@@ -85,7 +77,7 @@ def identity(root, plugins):
     parts = rel.split(os.sep)
     if len(parts) < 3 or not all(parts[:3]):
         return None
-    return parts[0], parts[1], parts[2], os.path.join(cache, *parts[:3])
+    return parts[0], parts[1], parts[2]
 
 
 def read_json(path):
@@ -96,170 +88,58 @@ def read_json(path):
         return None
 
 
-def installed_entry(plugins, key, version_dir):
-    """The record of one installation: the newest one of that plugin.
-
-    Several scopes of the same plugin (user level, per-project) share one cache
-    directory under one version, each with its own gitCommitSha. The directory
-    holds whatever the latest install wrote, so the record is the newest one
-    whose installPath is the copy this hook runs from; failing that, the newest
-    one of the same version. Any other record describes another copy.
-    """
-    data = read_json(os.path.join(plugins, "installed_plugins.json")) or {}
-    entries = [e for e in (data.get("plugins") or {}).get(key) or [] if isinstance(e, dict)]
-    matching = [
-        e for e in entries
-        if e.get("installPath") and os.path.realpath(e["installPath"]) == version_dir
-    ]
-    if not matching:
-        version = os.path.basename(version_dir)
-        matching = [e for e in entries if str(e.get("version", "")) == version]
-    if not matching:
+def declared_version(plugins, marketplace, plugin):
+    """The version the marketplace clone declares for `plugin`, or None."""
+    known = read_json(os.path.join(plugins, "known_marketplaces.json")) or {}
+    entry = known.get(marketplace)
+    if not isinstance(entry, dict) or not entry.get("installLocation"):
         return None
-    return max(
-        matching,
-        key=lambda entry: str(entry.get("lastUpdated") or entry.get("installedAt") or ""),
-    )
-
-
-def marketplace_ref(plugins, name):
-    """(clone path, ref) of a marketplace, or (None, None)."""
-    data = read_json(os.path.join(plugins, "known_marketplaces.json")) or {}
-    entry = data.get(name)
-    if not isinstance(entry, dict):
-        return None, None
-    source = entry.get("source") if isinstance(entry.get("source"), dict) else {}
-    return entry.get("installLocation"), source.get("ref") or "main"
-
-
-def remote_tip(clone, ref, timeout):
-    """The SHA `origin` carries at `ref`, or None when it cannot be read."""
-    if not clone or not os.path.isdir(os.path.join(clone, ".git")):
-        return None
-    # A SessionStart hook has no one to answer a credential or passphrase
-    # prompt: fail fast instead, and fall silent like any unreachable remote.
-    env = dict(os.environ, GIT_TERMINAL_PROMPT="0")
-    env.setdefault("GIT_SSH_COMMAND", "ssh -o BatchMode=yes")
-    try:
-        result = subprocess.run(
-            ["git", "-C", clone, "ls-remote", "origin", ref],
-            capture_output=True,
-            text=True,
-            timeout=timeout,
-            stdin=subprocess.DEVNULL,
-            env=env,
-        )
-    except (OSError, subprocess.SubprocessError):
-        return None
-    if result.returncode != 0:
-        return None
-    # ls-remote matches the pattern against the tail of every ref, so `main`
-    # also returns refs/heads/release/main or refs/tags/main: take the exact
-    # branch, then the exact tag, never the first line that happens to end so.
-    tips = {}
-    for line in result.stdout.splitlines():
-        fields = line.split()
-        if len(fields) == 2:
-            tips[fields[1]] = fields[0]
-    for name in ("refs/heads/" + ref, "refs/tags/" + ref + "^{}", "refs/tags/" + ref, ref):
-        if name in tips:
-            return tips[name]
+    manifest = read_json(
+        os.path.join(entry["installLocation"], ".claude-plugin", "marketplace.json")
+    ) or {}
+    for listed in manifest.get("plugins") or []:
+        if isinstance(listed, dict) and listed.get("name") == plugin:
+            return str(listed.get("version") or "") or None
     return None
 
 
-def plugin_unchanged(clone, installed, tip, timeout):
-    """True when `plugins/` is the same at the installed SHA and at main's tip.
-
-    Only the plugin tree is what Claude Code copies into its cache, so a commit
-    of documents on main (a plan, an audit report) is not a lag (lot 23). The
-    comparison is by content, never by version: a version left unbumped is the
-    very failure this warning exists to catch. When the clone cannot answer -
-    the tip not fetched yet, the installed SHA unknown to it - the answer is
-    False, and the warning stands: a clone behind main needs the same refresh.
-    """
-    try:
-        result = subprocess.run(
-            ["git", "-C", clone, "diff", "--quiet", installed, tip, "--", "plugins"],
-            capture_output=True,
-            timeout=timeout,
-            stdin=subprocess.DEVNULL,
-        )
-    except (OSError, subprocess.SubprocessError):
-        return False
-    return result.returncode == 0
-
-
-def short(sha):
-    return (sha or "")[:7]
-
-
-def stamp(entry):
-    raw = str(entry.get("lastUpdated") or entry.get("installedAt") or "")
-    return raw[:10]
-
-
-def warning(plugin, entry, tip):
+def warning(plugin, installed, declared):
     return (
-        "⚠ The installed `%s` plugin is %s (%s, %s) while `main` is at %s. Lot guards "
+        "⚠ The installed `%s` plugin is %s while `main` declares %s. Lot guards "
         "may be missing (%s). Refresh it (`/plugin marketplace update %s`) and reopen "
         "the session before any lot work."
-        % (
-            plugin,
-            entry.get("version") or "?",
-            short(entry.get("gitCommitSha")),
-            stamp(entry) or "date unknown",
-            short(tip),
-            GUARDS,
-            plugin,
-        )
+        % (plugin, installed, declared, GUARDS, plugin)
     )
 
 
-def installed_sha(root, plugins):
-    """Short SHA of the installed copy at `root`, or an empty string."""
+def installed_version(root, plugins):
+    """Version of the installed copy at `root`, or an empty string."""
     found = identity(root, plugins)
-    if found is None:
-        return ""
-    marketplace, plugin, _, version_dir = found
-    entry = installed_entry(plugins, "%s@%s" % (plugin, marketplace), version_dir)
-    return short((entry or {}).get("gitCommitSha"))
+    return found[2] if found else ""
 
 
-def check(root, plugins, timeout):
+def check(root, plugins):
     """The warning line, or an empty string when there is nothing to say."""
     found = identity(root, plugins)
     if found is None:
         return ""
-    marketplace, plugin, version, version_dir = found
-    entry = installed_entry(plugins, "%s@%s" % (plugin, marketplace), version_dir)
-    if not entry:
+    marketplace, plugin, installed = found
+    declared = declared_version(plugins, marketplace, plugin)
+    if not declared or declared == installed:
         return ""
-    installed = entry.get("gitCommitSha")
-    if not installed:
-        return ""
-    clone, ref = marketplace_ref(plugins, marketplace)
-    tip = remote_tip(clone, ref, timeout)
-    if not tip or tip.startswith(installed) or installed.startswith(tip):
-        return ""
-    if plugin_unchanged(clone, installed, tip, timeout):
-        return ""
-    return warning(plugin, entry, tip)
+    return warning(plugin, installed, declared)
 
 
 def main(argv):
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--plugin-root")
     parser.add_argument("--plugins-dir")
-    parser.add_argument("--timeout", type=float, default=DEFAULT_TIMEOUT)
-    parser.add_argument("--installed-sha", action="store_true")
+    parser.add_argument("--installed-version", action="store_true")
     args = parser.parse_args(argv[1:])
 
-    if args.installed_sha:
-        line = installed_sha(plugin_root(args.plugin_root), plugins_dir(args.plugins_dir))
-        if line:
-            print(line)
-        return 0
-    line = check(plugin_root(args.plugin_root), plugins_dir(args.plugins_dir), args.timeout)
+    root = plugin_root(args.plugin_root)
+    plugins = plugins_dir(args.plugins_dir)
+    line = installed_version(root, plugins) if args.installed_version else check(root, plugins)
     if line:
         print(line)
     return 0
