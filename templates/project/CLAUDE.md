@@ -58,8 +58,8 @@ in `.env.example`, and `.env` is gitignored.
 ## Branching and delivery
 
 Standard §7 model: `main` is production, `develop` is integration. Branches
-`feat/lot-N-slug` from `develop`, PR to `develop`, stop after the PR. The
-promotion `develop` → `main` is **user-only**.
+`feat/lot-N-slug` from `develop`, PR to `develop`, merged by `lot-ship` once its
+CI is green (GIT-6). The promotion `develop` → `main` is **user-only**.
 
 ## Skills
 
@@ -71,9 +71,9 @@ Claude Code session with the plugin enabled they are announced as
 |---|---|---|
 | `lot-start` | before any lot development, and on `lot-start confirm N` | Syncs the status table with develop, asks every ambiguity, creates the branch; the user's `lot-start confirm N` opens writes |
 | `lot-test` | lot code complete | Tests written and green, coverage at the threshold above |
-| `lot-review` | after `lot-test` | Code review of the lot, applied fixes and one batch of questions for the findings that need a decision; **requires the `claude` profile** |
-| `lot-audit` | after `lot-review` | Security, performance and architecture audit; writes `docs/audits/lot-N.md` |
-| `lot-ship` | after `lot-audit` | Commits, push, PR to `develop`, then stop until merge |
+| `lot-review` | after `lot-test`, in a new session | Code review of the lot, applied fixes and one batch of questions for the findings that need a decision; **requires the `claude` profile** |
+| `lot-audit` | after `lot-review` | Security, performance and architecture audit, findings fixed; writes `docs/audits/lot-N.md` |
+| `lot-ship` | after `lot-audit` | Commits, push, PR to `develop`, merge once the CI is green, then stop |
 | `harness-sync` | harness or docs may have drifted | Detects and fixes drift between docs, skills and reality |
 | `integration-check` | before any front PR | Manual front ↔ real backend smoke, writes `docs/audits/lot-0-integration.md` |
 | `dep-update` | dependency refresh | Patch/minor applied, major proposed |
@@ -83,20 +83,10 @@ Claude Code session with the plugin enabled they are announced as
 opened by `lot-start` before any development.
 Each lot gets its own invocation of every gate skill.
 
-**A stale plugin stops the session.** Under Claude Code the skills and the hooks
-both come from the installed plugin copy, so `Unknown skill:
-claude-harness:<name>`, or a `lot-start confirm N` that leaves
-`.claude/current-lot` untouched, means the copy is behind `main` and the guards
-are inert. Refresh the marketplace (`/plugin marketplace update claude-harness`)
-and reopen the session; never carry on from the `SKILL.md` of the local clone
-(CONVENTIONS.md §9, §13). The `SessionStart` hook warns when the installed copy
-lags behind `main`.
-
-**Non-Claude agents** (Cursor, DeepClaude/OpenRouter, any agent that does not load
-plugins): read the procedures directly from the local clone at
-`~/ENV/projets/claude-harness/plugins/claude-harness/skills/<name>/SKILL.md`.
-Every blocking invariant is also enforced in CI, which is the only agent-agnostic
-guard.
+A stale plugin stops lot work (`CONVENTIONS.md` PLUG-1). Agents that load no
+plugin read the procedures from
+`~/ENV/projets/claude-harness/plugins/claude-harness/skills/<name>/SKILL.md`
+(DOC-6); CI enforces every blocking invariant for all agents.
 
 Project-specific skills, if any, live in `.claude/skills/<name>/SKILL.md` — the
 directory Claude Code scans — and are listed in the census below.
@@ -122,4 +112,4 @@ from it.
 {{VALIDATION_COMMAND}}
 ```
 
-Green before every commit (§10), and green on the PR before it is opened (§2).
+Green before every commit and before the PR (GATE-2).
