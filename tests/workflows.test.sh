@@ -244,6 +244,20 @@ assert_eq "skipped" "$(in_scope "3" docs/audits/lot-0-integration.md)" \
 assert_ok "lot-deliverables exempts the integration report from the scope check" -- \
   grep -qF '*/lot-0-integration.md) continue' "$WF/lot-deliverables.yml"
 
+# A report written from the integration-check template passes the fields check
+# of lot-deliverables (lot 25): every field the workflow greps is in the template.
+report_fields=$(sed -n 's/^ *for field in \(.*\); do$/\1/p' "$WF/lot-deliverables.yml" \
+  | grep -oE '"[^"]+"' | tr -d '"')
+report_template=$(sed -n '/^### Step 5/,/^### Step 6/p' \
+  "$REPO_ROOT/plugins/claude-harness/skills/integration-check/SKILL.md" \
+  | sed -n '/^```markdown$/,/^```$/p')
+assert_ok "lot-deliverables greps fields in the integration report" -- test -n "$report_fields"
+while IFS= read -r field; do
+  [ -n "$field" ] || continue
+  assert_contains "$report_template" "$field" \
+    "the integration-check template carries the '$field' field lot-deliverables requires"
+done <<< "$report_fields"
+
 # --- the caller template ------------------------------------------------
 assert_file "$TPL/ci-caller.yml" "the caller template is shipped"
 assert_file "$TPL/dependabot.yml" "the dependabot template is shipped"
