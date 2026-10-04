@@ -89,8 +89,8 @@ git commit -m "docs(N): mark the lot done in the lots file"
 git push -u origin feat/lot-N-<slug>
 ```
 
-The git guard asks for confirmation on every push and denies anything targeting
-`main`.
+The git guard denies anything targeting `main` and lets every other push and
+the PR to `develop` pass without a prompt.
 
 ```bash
 gh pr create \

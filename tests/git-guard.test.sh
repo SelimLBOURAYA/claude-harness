@@ -77,7 +77,7 @@ expect deny "$FEAT" "git push origin +feat/lot-1-hooks"
 expect deny "$FEAT" "git push --no-verify origin feat/lot-1-hooks"
 expect deny "$FEAT" "git push -fu origin feat/lot-1-hooks"
 # On push, -n is --dry-run, not --no-verify: it must not be mistaken for a bypass.
-expect ask "$FEAT" "git push -n origin feat/lot-1-hooks"
+expect pass "$FEAT" "git push -n origin feat/lot-1-hooks"
 expect deny "$FEAT" "git commit --no-verify -m 'chore: x'"
 expect deny "$FEAT" "git commit -n -m 'chore: x'"
 expect deny "$FEAT" "git -c core.hooksPath=/dev/null commit -m 'chore: x'"
@@ -128,10 +128,14 @@ expect ask "$FEAT" "git push origin \$(git branch --show-current)"
 expect ask "$FEAT" "git push origin 'unbalanced"
 expect ask "$WORK" "git push"
 
-# --- ordinary pushes ask for confirmation --------------------------------
-expect ask "$FEAT" "git push"
-expect ask "$FEAT" "git push -u origin feat/lot-1-hooks"
-expect ask "$FEAT" "git push origin HEAD"
+# --- ordinary pushes pass: the guard denies what is forbidden, it does not
+# ask for the rest (lot 24, a prompt the owner approves unread guards nothing)
+expect pass "$FEAT" "git push"
+expect pass "$FEAT" "git push -u origin feat/lot-1-hooks"
+expect pass "$FEAT" "git push origin HEAD"
+# A pass is silence, not an allow: the segments after it are still judged.
+expect deny "$FEAT" "git push -u origin feat/lot-1-hooks && git push origin main"
+expect deny "$FEAT" "gh pr create --base develop --title t --body b && gh pr merge 12 --admin"
 
 # --- commands the guard has no opinion about -----------------------------
 expect pass "$FEAT" "git status"
@@ -149,16 +153,16 @@ expect deny "$FEAT" "gh pr create --base=main --title t --body b"
 
 # The branching model is the guard's business; gate deliverables are not. Audit
 # and review reports are checked by lot-deliverables.yml alone, the only guard
-# that also covers Cursor and DeepClaude. The hook asks, and stops there.
-expect ask "$FEAT" "gh pr create --base develop --title t --body b"
-expect ask "$FEAT" "gh pr create -B develop --title t --body b"
+# that also covers Cursor and DeepClaude. A PR to develop passes.
+expect pass "$FEAT" "gh pr create --base develop --title t --body b"
+expect pass "$FEAT" "gh pr create -B develop --title t --body b"
 
-# No report anywhere, and the guard still only asks: a missing deliverable is
+# No report anywhere, and the guard still passes: a missing deliverable is
 # CI's verdict to give, not the hook's.
 FRONT=$(make_repo front-repo feat/lot-3-list)
 printf '## Gate parameters\n\n| Parameter | Value |\n|---|---|\n| `Stack` | `frontend` |\n' \
   > "$FRONT/CLAUDE.md"
-expect ask "$FRONT" "gh pr create --base develop --title t --body b"
+expect pass "$FRONT" "gh pr create --base develop --title t --body b"
 
 # Other gh commands are none of the guard's business.
 expect pass "$FEAT" "gh pr view 12"

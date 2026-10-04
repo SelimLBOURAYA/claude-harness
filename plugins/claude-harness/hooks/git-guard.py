@@ -4,7 +4,7 @@
 Reads the hook payload on stdin and answers with a permission decision:
 
   deny  - the command is forbidden by CONVENTIONS.md section 7
-  ask   - the command is reversible-but-outward-facing, or not parseable
+  ask   - the command's target cannot be resolved, or it is not parseable
   (silence) - nothing recognised, the normal permission flow applies
 
 The guard never answers "allow": it must not widen permissions, only narrow them.
@@ -365,8 +365,6 @@ def guard_push(args, cwd):
                 "section 7)." % PROTECTED_BRANCH
             )
 
-    ask("`git push` reaches the remote; confirm before publishing.")
-
 
 def guard_git(segment, cwd):
     cwd, args = parse_git_globals(segment, cwd)
@@ -614,8 +612,6 @@ def guard_gh(segment, cwd, retargets):
             "PRs target `%s`, not `%s`. The promotion develop -> main is done by "
             "the user (CONVENTIONS.md section 7)." % (REQUIRED_PR_BASE, base)
         )
-
-    ask("Opening a PR publishes the branch for review; confirm before creating it.")
 
 
 # --------------------------------------------------------------------------
