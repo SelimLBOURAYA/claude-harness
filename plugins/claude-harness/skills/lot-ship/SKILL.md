@@ -37,7 +37,7 @@ in the `Lots file` (`chore/<slug>` for a cross-cutting chore). Never commit on
 <type>(<scope>): <short description>
 ```
 
-- `<type>`: `feat`, `fix`, `refactor`, `chore`, `docs`, `test`, `style`
+- `<type>`: `feat`, `fix`, `refactor`, `test`, `chore`, `docs` (CONVENTIONS.md GIT-2)
 - `<scope>`: the lot number alone — `(1)`, `(11b)`, `(12)`. Omitted for a
   cross-cutting chore: `chore: ignore IntelliJ project files`
 - `<description>`: imperative, lowercase, no trailing period, at most 72 chars
@@ -49,7 +49,7 @@ in the `Lots file` (`chore/<slug>` for a cross-cutting chore). Never commit on
 feat(12): split quote total into net, vat and gross
 fix(12): map the business conflict to 409
 test(12): cover status guards and vat computation
-chore(deps): bump the github actions to their pinned shas
+chore: bump the github actions to their pinned shas
 docs: sync the lots file status
 ```
 

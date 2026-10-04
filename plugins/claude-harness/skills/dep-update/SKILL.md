@@ -138,11 +138,11 @@ with the manifest.
 Then propose the commit and **wait** for confirmation:
 
 ```
-chore(deps): update the patch and minor dependencies
+chore: update the patch and minor dependencies
 ```
 
-Scope is `deps` for a standalone refresh, or the lot number when the refresh is
-part of a lot.
+No scope for a standalone refresh; the lot number when the refresh is part of a
+lot (CONVENTIONS.md GIT-2).
 
 ## Rules
 
