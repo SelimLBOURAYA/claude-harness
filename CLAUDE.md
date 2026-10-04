@@ -59,6 +59,12 @@ docs/audits/                         lot audit reports
 docs/audits/portfolio/               cross-cutting portfolio audits (P4, P5, P6)
 ```
 
+## Freeze
+
+Since lot 24 the harness changes only for (a) a broken CI or a security flaw, or
+(b) an incident on a project that cost real time. A friction entry no longer
+opens a lot. Every change is still a lot with the full gate.
+
 ## Branching and delivery
 
 Standard §7 model: `main` is what the consuming repos actually run, `develop` is
