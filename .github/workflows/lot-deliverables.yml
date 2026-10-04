@@ -140,7 +140,7 @@ jobs:
             if [ -n "$body_changes" ]; then
               echo "::warning file=$LOTS_FILE::$LOTS_FILE changed outside its status lines:"
               printf '%s\n' "$body_changes" | head -30
-              echo "Specification edits belong to their own 'docs: sync $LOTS_FILE status' commit (section 2 item 1)."
+              echo "Specification edits belong to their own 'docs: sync $LOTS_FILE status' commit (CONVENTIONS.md LOT-1)."
             fi
           fi
           exit $status

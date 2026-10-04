@@ -34,6 +34,10 @@ MERGE_VALUE_OPTIONS = {
     "--subject", "-t", "--body", "-b", "--body-file", "-F",
     "--match-head-commit", "--author-email", "-A", "--repo", "-R",
 }
+# Short options of `gh pr merge` that take a value, attached (`-R=o/r`, `-Ro/r`)
+# or as the next token.
+MERGE_SHORT_VALUES = {"t", "b", "F", "A", "R"}
+FALSE_VALUES = {"false", "0", "f"}
 
 # Options that make a push rewrite or delete remote history.
 FORCE_FLAGS = {"--force", "-f", "--force-with-lease", "--force-if-includes"}
@@ -414,8 +418,13 @@ def option_value(args, *names):
 
 
 def merge_target(args):
-    """(pull request selector, --repo value) of `gh pr merge` arguments."""
-    selector, repo = None, None
+    """(selector, --repo value, flags) of `gh pr merge` arguments.
+
+    `flags` holds the options themselves, never their values: `-t "-d x"` names
+    no `-d`. A short value option keeps only the letters before its value, and
+    `-R=o/r` or `-Ro/r` is read as the repository it names, as gh reads it.
+    """
+    selector, repo, flags = None, None, []
     index = 0
     while index < len(args):
         token = args[index]
@@ -424,12 +433,39 @@ def merge_target(args):
                 repo = args[index + 1]
             index += 2
             continue
-        if token.startswith("--repo="):
-            repo = token.split("=", 1)[1]
-        elif not token.startswith("-") and selector is None:
+        if token.startswith("--"):
+            if token.startswith("--repo="):
+                repo = token.split("=", 1)[1]
+            flags.append(token)
+        elif token.startswith("-") and len(token) > 1:
+            letters = token[1:]
+            for position, letter in enumerate(letters):
+                if letter in MERGE_SHORT_VALUES:
+                    value = letters[position + 1:]
+                    if not value and index + 1 < len(args):
+                        index += 1
+                        value = args[index]
+                    elif value.startswith("="):
+                        value = value[1:]
+                    if letter == "R":
+                        repo = value
+                    break
+                flags.append("-" + letter)
+        elif selector is None:
             selector = token
         index += 1
-    return selector, repo
+    return selector, repo, flags
+
+
+def flag_set(flags, long_name, short=None):
+    """True when a boolean flag is on: `--x`, `--x=true`, or its short letter."""
+    for flag in flags:
+        if short and flag == "-" + short:
+            return True
+        name, _, value = flag.partition("=")
+        if name == long_name and (not _ or value.lower() not in FALSE_VALUES):
+            return True
+    return False
 
 
 def pull_request_state(selector, repo, cwd):
@@ -470,12 +506,17 @@ def check_is_green(check):
 
 
 def guard_merge(args, cwd):
-    if "--delete-branch" in args or has_short_flag(args, "d"):
+    selector, repo, flags = merge_target(args)
+    if flag_set(flags, "--delete-branch", "d"):
         deny(
             "`gh pr merge --delete-branch` deletes the remote branch; that is a user "
             "decision (CONVENTIONS.md section 4)."
         )
-    selector, repo = merge_target(args)
+    if flag_set(flags, "--admin"):
+        deny(
+            "`gh pr merge --admin` bypasses the merge requirements; lot-ship never "
+            "uses it (CONVENTIONS.md GIT-6)."
+        )
     if UNRESOLVED.search(selector or "") or UNRESOLVED.search(repo or ""):
         deny(
             "`gh pr merge` names its pull request through a shell expansion the guard "
@@ -498,7 +539,7 @@ def guard_merge(args, cwd):
     if not LOT_HEAD.match(head):
         deny(
             "The head of this pull request is `%s`, not a `feat/lot-*` branch: only "
-            "lot-ship merges, and only its own lot." % head
+            "lot-ship merges, and only a lot pull request." % head
         )
     checks = [check for check in state.get("statusCheckRollup") or [] if isinstance(check, dict)]
     if not checks:
@@ -515,11 +556,34 @@ def guard_merge(args, cwd):
         )
 
 
+def pr_action(args):
+    """(action, arguments) of `gh pr ...`, or (None, None).
+
+    `--repo` is a persistent flag of `gh pr`, so it may precede the action
+    (`gh pr -R o/r merge 12`): it is skipped to find the action, then handed to
+    the action's own arguments, where the checks below read it.
+    """
+    if not args or args[0] != "pr":
+        return None, None
+    leading = []
+    index = 1
+    while index < len(args):
+        token = args[index]
+        if token in ("-R", "--repo"):
+            leading += args[index:index + 2]
+            index += 2
+        elif token.startswith("-"):
+            leading.append(token)
+            index += 1
+        else:
+            return token, args[index + 1:] + leading
+    return None, None
+
+
 def guard_gh(segment, cwd):
-    args = segment[1:]
-    if len(args) < 2 or args[0] != "pr":
+    action, rest = pr_action(segment[1:])
+    if action is None:
         return
-    action, rest = args[1], args[2:]
 
     if action == "merge":
         guard_merge(rest, cwd)

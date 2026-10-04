@@ -214,11 +214,10 @@ Gate, mandatory in order: `lot-test → lot-review → lot-audit → lot-ship`, 
 
 | Hook | Event | Role |
 |---|---|---|
-| `git-guard.py` | `PreToolUse` on `Bash` | Denies pushes to `main`, force pushes, `--no-verify`, `reset --hard`, remote branch deletion, `gh pr create` without `--base develop`, and any `gh pr merge` but a lot pull request (`feat/lot-*` into `develop`) whose checks are all green, read through `gh pr view`; `--delete-branch` is denied. Gate deliverables are not its business: `lot-deliverables.yml` owns that rule, and owns it alone. Asks for confirmation on every other push or PR creation, and on anything it cannot parse. |
+| `git-guard.py` | `PreToolUse` on `Bash` | Denies pushes to `main`, force pushes, `--no-verify`, `reset --hard`, remote branch deletion, `gh pr create` without `--base develop`, and any `gh pr merge` but a lot pull request (`feat/lot-*` into `develop`) whose checks are all green, read through `gh pr view`; `--delete-branch` and `--admin` are denied. Gate deliverables are not its business: `lot-deliverables.yml` owns that rule, and owns it alone. Asks for confirmation on every other push or PR creation, and on anything it cannot parse. |
 | `mirror-sync.sh` | `PostToolUse` on `Edit`, `Write`, `Bash` | Keeps `AGENTS.md` byte-identical to `CLAUDE.md`, including after shell edits (`cp`, `mv`, `sed -i`, redirections). |
-
 | `lot-lock-guard.py` | `PreToolUse` on `Edit`, `Write`, `MultiEdit`, `NotebookEdit` | On a `feat/lot-*` branch, denies every write until `.claude/current-lot` names that branch; always lets the lots file through, never the lock itself. The repository is resolved from the written path. Writes made through `Bash` are not covered: a documented limit. |
-| `lot-confirm.sh` | `UserPromptSubmit` | Writes `.claude/current-lot` when the whole user prompt is `lot-start confirm N` or `/claude-harness:lot-start confirm N` on a `feat/lot-N-*` branch; the lock holds that branch and the date. The model cannot forge a user prompt. |
+| `lot-confirm.sh` | `UserPromptSubmit` | Writes `.claude/current-lot` when the whole user prompt is `lot-start confirm N` or `/claude-harness:lot-start confirm N` on a `feat/lot-N-*` branch; the lock holds that branch and the date, and `lot-ship` removes it after the merge. The model cannot forge a user prompt. |
 | `session-context.sh` | `SessionStart` (`startup`, `resume`, `clear`, `compact`) | Re-injects branch, working tree, last merges on develop, the lot lock and the open rows of the status table; flags a compaction summary as untrusted; adds `rules/deepseek.json` when `ANTHROPIC_BASE_URL` is set. Capped at ~2K tokens, never blocks. |
 
 `session-context.sh` reads that freshness through `hooks/plugin-currency.py`, a

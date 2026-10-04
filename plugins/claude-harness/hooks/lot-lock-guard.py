@@ -12,7 +12,8 @@ answers with a permission decision:
 The lock is `.claude/current-lot`, written only by the UserPromptSubmit hook
 lot-confirm.sh when the *user* types `lot-start confirm <N>`. The model cannot
 forge a user prompt, so a lock is a real confirmation. It is bound to the branch
-it was confirmed on (lot 24): a lock left by another branch unlocks nothing.
+it was confirmed on (lot 24): a lock left by another branch unlocks nothing, and
+lot-ship removes it once the lot is merged.
 
 The repository is resolved from the path of the file being written, never from
 the session directory (lesson C3 of lot 18): a session sitting in one clone and
@@ -117,7 +118,7 @@ def main():
 
     lots = lotfile.lots_file(root, params)
     if lots is not None and os.path.realpath(lots) == path:
-        sys.exit(0)  # the status sync of section 2.1 happens before the lock
+        sys.exit(0)  # the status sync and the answers to lot-start are not development
 
     branch = lotfile.current_branch(root)
     if not lotfile.LOT_BRANCH.match(branch or ""):

@@ -132,6 +132,13 @@ gh pr checks --watch
   branch and every check green (GIT-5, GIT-6). Never `--delete-branch`, never
   `--admin`.
 
+- Once merged, remove the lot lock, so that the next lot, even on the same
+  branch, needs its own `lot-start confirm N` (LOT-1):
+
+  ```bash
+  rm -f "$(git rev-parse --show-toplevel)/.claude/current-lot"
+  ```
+
 Then report the PR URL and the merge, and **stop** (LOT-6). The `develop` →
 `main` promotion is the user's.
 
