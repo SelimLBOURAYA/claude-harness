@@ -20,3 +20,17 @@
   the lint runs only in CI. The lot rewrote `lot-confirm.sh`, `session-context.sh`
   and several test scripts, and lot 23 already needed a shellcheck fix after its
   push. Cost: the shell changes reach the PR unlinted.
+
+## lot-review
+- `lot-review / 0` — the `SessionStart` stale-plugin warning came back, with the
+  same cause as `lot-start / A1` (installed 1.2.0 identical to `plugins/` at
+  `main`, shallow marketplace clone). The fix of this lot is active only after
+  the promotion. Cost: four diagnostic commands before the review started.
+- `lot-review / 4` — the installed skill (1.2.0) asks for a **Read at** field and
+  a friction section in every case; the lot's own version drops both. The report
+  follows the installed one, which the installed `lot-audit` reads next. Cost:
+  none, an ambiguity until the promotion.
+- `lot-review / 2` — `code-review` ran about 11 minutes, and an untracked
+  `__pycache__/plugin-currency.cpython-312.pyc` appeared in
+  `plugins/claude-harness/hooks/` during the run; removed by hand. Cost: one
+  check.
