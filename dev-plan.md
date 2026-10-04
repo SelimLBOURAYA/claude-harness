@@ -14,6 +14,11 @@
 >
 > Rédigé en français (§11 des conventions) ; identifiants techniques en anglais.
 
+> **Gel du harnais (lot 24).** Depuis le lot 24, le harnais ne change que pour
+> (a) une CI cassée ou une faille de sécurité, (b) un incident sur un projet qui a
+> coûté du temps réel. Une entrée de friction n'ouvre plus de lot. Toute
+> modification reste un lot avec gate complet.
+
 ## Vue d'ensemble
 
 | Lot | Branche | Vague | Objectif | Repos touchés | Statut |
@@ -36,7 +41,7 @@
 | 13 | `chore/harness-adoption` (deployment) | C – Adoption | deployment | deployment | ✅ |
 | 14 | `chore/harness-adoption` (summerize) | C – Adoption | summerize-youtube | summerize-youtube | ✅ |
 | 15 | `feat/lot-15-closure` | D – Clôture | Ré-audit de contrôle et checklist de promotion | tous | ✅ |
-| 16 | `feat/lot-16-contract-ci` | Plus tard | Job CI « contract » front ↔ backend réel | claude-harness, kf, mpf, elya-frontend | ⏸️ |
+| 16 | `feat/lot-16-contract-ci` | Plus tard | Job CI « contract » front ↔ backend réel | claude-harness, kf, mpf, elya-frontend | ❄️ |
 | 17 | `chore/harness-adoption-reports` | A – Harness | `harness-invariants` refuse un seuil de couverture qui ne mesure rien | claude-harness, les repos adoptés | ✅ |
 | 18 | `feat/lot-18-reaudit-fixes` | D – Clôture | Correctifs ouverts par le ré-audit du lot 15 | claude-harness | ✅ |
 | 19 | `feat/lot-19-lot-start-guard` | A – Harness | Cadrage du démarrage : skill `lot-start`, verrou d'écriture, réinjection de l'état au démarrage et après compaction | claude-harness, les 8 repos (via `main`) | ✅ |
@@ -80,7 +85,7 @@ meal-planner-backend / -frontend, elya-fe = elya-frontend.
 | Paramètres par projet | Section `## Gate parameters` dans `CLAUDE.md` (donc dans `AGENTS.md`) |
 | Sprint vs stop | **Stop après PR** (§2.9) : un lot = une PR vers `develop`, puis arrêt jusqu'au merge. « Sprint chaining » supprimé partout ; skill `sprint` non repris dans le plugin |
 | Garde git | Hook `PreToolUse` Bash. **Refus** : push vers `main`, `--force`/`--force-with-lease`, `--no-verify`, `reset --hard`, suppression de branche distante, `gh pr create` sans `--base develop`. **Confirmation** : tout `git push`, tout `gh pr create` |
-| Rapport d'audit | Exigé à `gh pr create` depuis `feat/lot-N-*` (pas au push) |
+| Rapport d'audit | Exigé sur la PR par `lot-deliverables.yml`, seule vérification ; la garde git ne le contrôle pas *(réécrit au lot 24, C1)* |
 | Hooks git locaux | Aucun (pas de lefthook/husky) : les invariants sont vérifiés **en CI** |
 | Protection de branches GitHub | *(amendé P5-#3, puis P6-D1)* **Indisponible sur les 9 repos**, tous privés (compte gratuit : l'API répond 403 « Upgrade to GitHub Pro »). Conséquence assumée : une CI rouge **n'empêche pas** un merge ; le seul verrou est ta relecture, et `lot-ship` refuse de déclarer un lot prêt si `gh pr checks` est rouge (P5-#11, elya a mergé 3 PR pendant 6 runs rouges) |
 | Branche par défaut GitHub *(P5-#3)* | **`develop` sur les 8 repos** : `gh pr create` sans `--base`, l'interface GitHub et les `git clone` visent alors `develop` par défaut. `main` reste la branche de production. Lot 6b, manuel |
@@ -92,7 +97,7 @@ meal-planner-backend / -frontend, elya-fe = elya-frontend.
 | Intégration front ↔ back | Livrable `docs/audits/lot-0-integration.md` exigé par `lot-ship` avant toute PR front ; job CI « contract » au lot 16 |
 | Couverture meal-planner | Retrait des exclusions de packages métier, mesure, seuil fixé au niveau réel (ratchet), puis lots de tests |
 | Audits manquants mpf | Un audit rétroactif global `docs/audits/retro-lots-01-13.md` |
-| rtk | Le hook rtk ne réécrit plus `git log` ni la lecture des fichiers mémoire |
+| rtk | Le hook `rtk hook claude` réécrit tout appel `git`, `git log` compris, et son filtre masque les commits de merge : les lectures d'historique passent par `rtk proxy git log` *(réécrit au lot 24, C19)* |
 | Démarrage §9 | Lecture du **tableau de statut + section du lot courant** seulement ; fichiers de lots non scindés |
 | Contrat du fichier de lots *(P6-D10)* | Tableau `\| Lot \| Branche \| Statut \|` **obligatoire en tête** de chaque fichier de lots, statuts ⬜/🔄/✅/⏸️/❄️ ; vérifié par `harness-invariants.yml` ; condition d'adoption (item 12 de la checklist commune) |
 | Master des conventions *(P6-D2, tranche P1)* | `claude-harness/CONVENTIONS.md` **devient le master** (lot 5) ; `~/.claude/coding-conventions.md` devient un lien symbolique vers le clone local ; la CI compare les copies des repos à ce fichier. Vérification V7 au lot 0 |
@@ -759,7 +764,9 @@ Reste donc, livré dans ce lot :
   rapports `docs/audits/lot-N.md` ne sont pas réécrits ; cette ligne est la
   trace.
 
-## LOT 16 — Job CI « contract » front ↔ backend réel ⏸️
+## LOT 16 — Job CI « contract » front ↔ backend réel ❄️
+
+Gelé au lot 24 (règle de gel).
 
 - Workflow réutilisable : backend lancé par compose (image ou build), smoke e2e
   login → action métier clé.
