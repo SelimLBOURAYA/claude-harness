@@ -60,7 +60,7 @@ pas de gate `lot-test → lot-review → lot-audit → lot-ship` exécutable en 
 fondation part en une PR, et le découpage un-lot-une-PR reprend au lot 7.
 
 Ordre strict : 0 → 1 → 2 → 2b → 3 → 4 → 5 → 6 → 6b → 7 → 8 → 9 … 14 → 15. Le lot 16 est
-planifié mais dormant (décision : livrable manuel d'abord, CI ensuite). Le lot 6b est
+gelé au lot 24 (décision : livrable manuel d'abord, CI ensuite). Le lot 6b est
 manuel et court (≈ 15 min) : il peut être exécuté par l'utilisateur **dès maintenant**, hors
 séquence, sans dépendance sur les lots 0 à 6.
 
@@ -81,26 +81,26 @@ meal-planner-backend / -frontend, elya-fe = elya-frontend.
 | Emplacement du plan | `claude-harness/dev-plan.md` (ce fichier) |
 | Périmètre | Les 8 repos actifs ; référence = kb et kf (les plus à jour). Legacy `kreadevis/` **hors périmètre** |
 | Découpage | Par vagues : harness → conventions → adoption repo par repo → clôture |
-| Version du plugin | Les projets **suivent `main`** du harness (pas de tag figé). Un changement n'est actif qu'après ta promotion `develop` → `main` du repo harness. Les rapports d'audit citent le SHA du harness. *(précisé le 2026-09-17, doc Claude Code « plugin marketplaces »)* Sans ref, Claude Code clone la **branche par défaut** du repo, qui est `develop` (et le reste après le lot 6b) : la ref **`main` est donc obligatoire** partout où le marketplace est déclaré (`"ref": "main"` dans `extraKnownMarketplaces`, `@main` en ligne de commande), sinon tout merge sur `develop` devient actif dans les 8 repos. `main` existe depuis le 2026-09-17 (`d7b1438`) mais ne contient que ce plan, **aucun plugin** : déclarer le marketplace avec cette ref avant la promotion qui suit le lot 4 installerait un marketplace vide ou invalide. **Cette** promotion `develop` → `main` (première version de `main` contenant le plugin) est le prérequis du lot 5 (activation user-level) et du lot 7 (première adoption) |
+| Version du plugin | Les projets **suivent `main`** du harness (pas de tag figé). Un changement n'est actif qu'après ta promotion `develop` → `main` du repo harness. Les rapports de revue et d'audit citent la version installée du harnais *(réécrit au lot 24)*. *(précisé le 2026-09-17, doc Claude Code « plugin marketplaces »)* Sans ref, Claude Code clone la **branche par défaut** du repo, qui est `develop` (et le reste après le lot 6b) : la ref **`main` est donc obligatoire** partout où le marketplace est déclaré (`"ref": "main"` dans `extraKnownMarketplaces`, `@main` en ligne de commande), sinon tout merge sur `develop` devient actif dans les 8 repos. `main` existe depuis le 2026-09-17 (`d7b1438`) mais ne contient que ce plan, **aucun plugin** : déclarer le marketplace avec cette ref avant la promotion qui suit le lot 4 installerait un marketplace vide ou invalide. **Cette** promotion `develop` → `main` (première version de `main` contenant le plugin) est le prérequis du lot 5 (activation user-level) et du lot 7 (première adoption) |
 | Paramètres par projet | Section `## Gate parameters` dans `CLAUDE.md` (donc dans `AGENTS.md`) |
-| Sprint vs stop | **Stop après PR** (§2.9) : un lot = une PR vers `develop`, puis arrêt jusqu'au merge. « Sprint chaining » supprimé partout ; skill `sprint` non repris dans le plugin |
-| Garde git | Hook `PreToolUse` Bash. **Refus** : push vers `main`, `--force`/`--force-with-lease`, `--no-verify`, `reset --hard`, suppression de branche distante, `gh pr create` sans `--base develop`. **Confirmation** : tout `git push`, tout `gh pr create` |
+| Sprint vs stop | **Stop après le merge** (LOT-6) : un lot = une PR vers `develop`, mergée par `lot-ship` une fois la CI verte, puis arrêt *(réécrit au lot 24)*. « Sprint chaining » supprimé partout ; skill `sprint` non repris dans le plugin |
+| Garde git | Hook `PreToolUse` Bash. **Refus** : push vers `main`, `--force`/`--force-with-lease`, `--no-verify`, `reset --hard`, suppression de branche distante, `gh pr create` sans `--base develop`, `gh pr merge` hors PR de lot (`feat/lot-*` vers `develop`) aux checks tous verts *(lot 24)*. **Confirmation** : tout `git push`, tout `gh pr create` |
 | Rapport d'audit | Exigé sur la PR par `lot-deliverables.yml`, seule vérification ; la garde git ne le contrôle pas *(réécrit au lot 24, C1)* |
 | Hooks git locaux | Aucun (pas de lefthook/husky) : les invariants sont vérifiés **en CI** |
-| Protection de branches GitHub | *(amendé P5-#3, puis P6-D1)* **Indisponible sur les 9 repos**, tous privés (compte gratuit : l'API répond 403 « Upgrade to GitHub Pro »). Conséquence assumée : une CI rouge **n'empêche pas** un merge ; le seul verrou est ta relecture, et `lot-ship` refuse de déclarer un lot prêt si `gh pr checks` est rouge (P5-#11, elya a mergé 3 PR pendant 6 runs rouges) |
+| Protection de branches GitHub | *(amendé P5-#3, puis P6-D1)* **Indisponible sur les 9 repos**, tous privés (compte gratuit : l'API répond 403 « Upgrade to GitHub Pro »). Conséquence assumée : une CI rouge **n'empêche pas** un merge ; `lot-ship` ne merge qu'une fois tous les checks verts et la garde git refuse tout autre merge *(réécrit au lot 24)* (P5-#11, elya a mergé 3 PR pendant 6 runs rouges) |
 | Branche par défaut GitHub *(P5-#3)* | **`develop` sur les 8 repos** : `gh pr create` sans `--base`, l'interface GitHub et les `git clone` visent alors `develop` par défaut. `main` reste la branche de production. Lot 6b, manuel |
 | Exécution des migrations en CI *(P5-#1, #7)* | Tout backend a au moins un `@SpringBootTest` sur **Testcontainers `postgres:17`** avec Liquibase/Flyway **actifs** dans sa validation gate. Ce n'est pas un livrable du harnais mais une **condition d'adoption** (lots 7 et 9) : KB.22 pour kreadevis-backend, MP.BE.13 pour meal-planner-backend |
 | Image démarrée en CI *(P5-#6)* | Workflow réutilisable `image-smoke.yml` (lot 3) : `docker compose up` de l'image construite sur la PR + attente `healthy` + `curl` du chemin de santé. Appelé par KB.17, KF.13, MP.BE.13, MP.FE.14, E.6.2, E-FE.12 |
 | Publication d'image *(P6-D9)* | Workflow réutilisable `image-publish.yml` (lot 3) : **seule** implémentation du build/push GHCR du portefeuille. PR = build sans push + `image-smoke.yml` ; `develop` = tags `dev` + `sha-<court>` ; `main` = `latest` + `sha-<court>` ; labels OCI `revision` et `source`. Appelé par les 6 lots image ; aucun lot image ne réécrit ces étapes |
 | Épinglage en production *(P6-D11)* | Tag **`sha-<court>`** dans les stacks ; digest journalisé en plus dans `history.tsv` (`deployment` LOT 6) |
 | Chaîne d'approvisionnement CI *(P5-#9)* | Actions épinglées par **SHA** (commentaire `# vX.Y.Z`), `permissions: contents: read` en tête de chaque workflow, `dependabot.yml` (github-actions, maven, npm) dans le squelette (lot 4) et dans chaque repo à l'adoption. *(P6-D12)* Scans de vulnérabilités **informatifs** d'abord (trivy dans `image-publish.yml`, `npm audit --audit-level=high` / `dependency-check` dans `lint.yml`, jobs non bloquants), **bloquants sur CRITICAL après le premier go-live** ; accord §4 donné pour l'action trivy |
-| Intégration front ↔ back | Livrable `docs/audits/lot-0-integration.md` exigé par `lot-ship` avant toute PR front ; job CI « contract » au lot 16 |
+| Intégration front ↔ back | Livrable `docs/audits/lot-0-integration.md` exigé par `lot-ship` avant toute PR front ; job CI « contract » au lot 16, gelé |
 | Couverture meal-planner | Retrait des exclusions de packages métier, mesure, seuil fixé au niveau réel (ratchet), puis lots de tests |
 | Audits manquants mpf | Un audit rétroactif global `docs/audits/retro-lots-01-13.md` |
 | rtk | Le hook `rtk hook claude` réécrit tout appel `git`, `git log` compris, et son filtre masque les commits de merge : les lectures d'historique passent par `rtk proxy git log` *(réécrit au lot 24, C19)* |
 | Démarrage §9 | Lecture du **tableau de statut + section du lot courant** seulement ; fichiers de lots non scindés |
 | Contrat du fichier de lots *(P6-D10)* | Tableau `\| Lot \| Branche \| Statut \|` **obligatoire en tête** de chaque fichier de lots, statuts ⬜/🔄/✅/⏸️/❄️ ; vérifié par `harness-invariants.yml` ; condition d'adoption (item 12 de la checklist commune) |
-| Master des conventions *(P6-D2, tranche P1)* | `claude-harness/CONVENTIONS.md` **devient le master** (lot 5) ; `~/.claude/coding-conventions.md` devient un lien symbolique vers le clone local ; la CI compare les copies des repos à ce fichier. Vérification V7 au lot 0 |
+| Master des conventions *(P6-D2, tranche P1)* | `claude-harness/CONVENTIONS.md` **devient le master** (lot 5) ; `~/.claude/coding-conventions.md` est un lien symbolique vers le clone du marketplace (`~/.claude/plugins/marketplaces/claude-harness/CONVENTIONS.md`), qui suit `main` *(réécrit au lot 24, C11)* ; la CI compare les copies des repos à ce fichier. Vérification V7 au lot 0 |
 | Agents non-Claude *(P6-D3)* | Cursor, DeepClaude/OpenRouter : le `CLAUDE.md` (donc `AGENTS.md`) de chaque repo renvoie aux `SKILL.md` du clone local `~/ENV/projets/claude-harness/plugins/claude-harness/skills/` ; **tout invariant bloquant est porté par la CI**, seule garde agnostique de l'agent. §12 réécrit au lot 5 |
 | Audits transverses *(P6-D4)* | Versionnés dans `claude-harness/docs/audits/portfolio/` (P4 v1 et v2, P5, P6, puis les v3 du lot 15) ; `deployment/docs/audits/` ne garde que P3 |
 | Jalons temporels *(P6-D5)* | **Aucun.** Plus de « fenêtre de septembre » : l'ordre des lots est conservé, les dates ne le sont pas |
@@ -130,8 +130,8 @@ meal-planner-backend / -frontend, elya-fe = elya-frontend.
 - Dans un repo cible, un lot d'adoption utilise la branche `chore/harness-adoption` depuis
   `develop`, commits `chore(harness): …` ou `fix(harness): …` (la numérotation des lots du repo
   cible n'est pas consommée). Une PR par repo, vers `develop`.
-- Messages en anglais, Conventional Commits, pas de tiret cadratin (§10.3).
-- Un lot = une PR, puis **stop** jusqu'au merge (décision « stop après PR »).
+- Messages en anglais, Conventional Commits, pas de tiret cadratin (GIT-2).
+- Un lot = une PR, mergée par `lot-ship` une fois la CI verte, puis **stop** (LOT-6).
 
 ### Gate allégé des lots de remédiation
 
@@ -143,7 +143,7 @@ meal-planner-backend / -frontend, elya-fe = elya-frontend.
    variables (`B=main; git push origin $B`).
 2. **Audit** : checklist sécurité (injection dans les hooks, fuite de secrets dans les logs CI,
    permissions `GITHUB_TOKEN` minimales) + checklist harnais (miroir, census, langue, cohérence
-   avec CONVENTIONS). Rapport `claude-harness/docs/audits/lot-N.md` avec le SHA du harness.
+   avec CONVENTIONS). Rapport `claude-harness/docs/audits/lot-N.md` avec la version du harnais.
 3. **Validation gate** : `claude-harness` → `./tests/run.sh` ; repo cible → sa commande
    habituelle (`./mvnw verify`, `npm test`…) **plus** le workflow réutilisable vert sur la PR.
 
@@ -1703,8 +1703,10 @@ fichier et dans `docs/audits/`. Une skill garde la règle et la commande.
      push : `develop` porte ✅ exactement quand la PR est mergée ;
    - après `gh pr checks --watch` entièrement vert :
      `gh pr merge <n> --merge --match-head-commit <sha poussé>` (merge commit,
-     que `sync-status.py` sait lire), puis arrêt. La promotion `develop` → `main`
-     reste à l'utilisateur ;
+     que `sync-status.py` sait lire), puis suppression de `.claude/current-lot`
+     (revue : un sous-lot ou une branche recréée sous le même nom n'hérite pas de
+     la confirmation), puis arrêt. La promotion `develop` → `main` reste à
+     l'utilisateur ;
    - `git-guard.py` : `gh pr merge` n'est plus refusé en bloc ; il l'est quand
      la PR n'a pas `develop` pour base, une branche `feat/lot-*` pour tête, ou
      un check qui n'est pas vert (lu par `gh pr view`), et quand cet état ne
@@ -1753,7 +1755,7 @@ fichier et dans `docs/audits/`. Une skill garde la règle et la commande.
      jour des installations périmées (user, puis projet), et ne demande que de
      rouvrir la session ;
    - `plugin-currency.py` ne compare plus que des versions (arbitrage 9) : la
-     version installée (`installed_plugins.json`) à celle que déclare le clone
+     version de la copie installée (le nom de son répertoire) à celle que déclare le clone
      du marketplace (`.claude-plugin/marketplace.json`), que l'auto-update tient
      à jour ; plus de SHA, de `git ls-remote` ni de `git diff`. Le champ
      `Harness ref` des rapports de revue et d'audit porte la version installée
@@ -1776,6 +1778,9 @@ fichier et dans `docs/audits/`. Une skill garde la règle et la commande.
   fait la mise à jour.
 - Merger la PR de **ce** lot : le `lot-ship` qui merge et la garde qui
   l'autorise ne sont actifs qu'après la promotion.
+- Après la promotion et les PR de synchro, merger dans les 8 projets la PR
+  `chore/align-claude-md-with-harness` ouverte à la revue : leur `CLAUDE.md`
+  décrit alors le comportement 2.0.0 et ne recopie plus `CONVENTIONS.md`.
 
 ### Tests (`./tests/run.sh`)
 
@@ -1795,8 +1800,9 @@ fichier et dans `docs/audits/`. Une skill garde la règle et la commande.
 ### Critères de validation
 
 - Chaque contradiction C1 à C20 est résolue, vérifiable par un `grep` ou un test.
-- `CONVENTIONS.md` ≤ 14 Ko, sections §1 à §15 conservées dans leur
-  numérotation, aucun récit d'incident.
+- `CONVENTIONS.md` ≤ 15 000 octets (plafond relevé de 14 000 à la revue, pour
+  rétablir la règle des pistes d'images de §7, GIT-8), sections §1 à §15
+  conservées dans leur numérotation, aucun récit d'incident.
 - Plus aucun texte n'exige un fichier de friction.
 - `./tests/run.sh` vert ; CI verte ; version `2.0.0`.
 - Gate complet ; `lot-review`, `lot-audit` et `lot-ship` dans une nouvelle
