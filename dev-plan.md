@@ -1745,6 +1745,12 @@ fichier et dans `docs/audits/`. Une skill garde la règle et la commande.
    - avertissement de `plugin-currency.py` : l'agent lance lui-même la mise à
      jour des installations périmées (user, puis projet), et ne demande que de
      rouvrir la session ;
+   - `plugin-currency.py` ne compare plus que des versions (arbitrage 9) : la
+     version installée (`installed_plugins.json`) à celle que déclare le clone
+     du marketplace (`.claude-plugin/marketplace.json`), que l'auto-update tient
+     à jour ; plus de SHA, de `git ls-remote` ni de `git diff`. Le champ
+     `Harness ref` des rapports de revue et d'audit porte la version installée
+     (`--installed-version`) ;
    - ce lot repointe `~/.claude/coding-conventions.md` vers
      `~/.claude/plugins/marketplaces/claude-harness/CONVENTIONS.md`, qui suit
      `main` avec l'auto-update du marketplace (§12, `README.md`), et met à jour
@@ -1804,6 +1810,12 @@ fichier et dans `docs/audits/`. Une skill garde la règle et la commande.
    règle à un seul endroit.
 8. Mises à jour du plugin et lien des conventions faits par l'agent ;
    `claude plugin update` pré-autorisé (§4).
+9. Fraîcheur du plugin (2026-10-04, au `lot-start`) : seule la version fait foi,
+   puisqu'elle change à chaque modification de `plugins/` (job CI
+   `plugin-version`) et que l'auto-update, actif pour ce marketplace, ne compare
+   qu'elle. Le contrôle par SHA est retiré : le clone du marketplace est
+   superficiel, le SHA installé y est inconnu dès que `main` avance, et
+   l'avertissement tombait à chaque commit de documentation.
 
 ### Hors périmètre
 
