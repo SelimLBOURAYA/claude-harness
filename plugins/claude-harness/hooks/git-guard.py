@@ -25,6 +25,16 @@ PROTECTED_BRANCH = "main"
 REQUIRED_PR_BASE = "develop"
 DEFAULT_REMOTES = ("origin", "upstream")
 
+# `gh pr merge` (lot 24): lot-ship merges its own pull request into develop once
+# every check is green. The guard reads the pull request itself and denies any
+# merge it cannot vouch for.
+LOT_HEAD = re.compile(r"^feat/lot-")
+GREEN_CONCLUSIONS = {"SUCCESS", "NEUTRAL", "SKIPPED"}
+MERGE_VALUE_OPTIONS = {
+    "--subject", "-t", "--body", "-b", "--body-file", "-F",
+    "--match-head-commit", "--author-email", "-A", "--repo", "-R",
+}
+
 # Options that make a push rewrite or delete remote history.
 FORCE_FLAGS = {"--force", "-f", "--force-with-lease", "--force-if-includes"}
 
@@ -403,17 +413,117 @@ def option_value(args, *names):
     return None
 
 
-def guard_gh(segment):
+def merge_target(args):
+    """(pull request selector, --repo value) of `gh pr merge` arguments."""
+    selector, repo = None, None
+    index = 0
+    while index < len(args):
+        token = args[index]
+        if token in MERGE_VALUE_OPTIONS:
+            if token in ("--repo", "-R") and index + 1 < len(args):
+                repo = args[index + 1]
+            index += 2
+            continue
+        if token.startswith("--repo="):
+            repo = token.split("=", 1)[1]
+        elif not token.startswith("-") and selector is None:
+            selector = token
+        index += 1
+    return selector, repo
+
+
+def pull_request_state(selector, repo, cwd):
+    """Base, head and checks of a pull request as `gh pr view` reads them, or None."""
+    command = ["gh", "pr", "view"]
+    if selector:
+        command.append(selector)
+    if repo:
+        command += ["--repo", repo]
+    command += ["--json", "baseRefName,headRefName,statusCheckRollup"]
+    try:
+        result = subprocess.run(
+            command,
+            cwd=cwd or None,
+            capture_output=True,
+            text=True,
+            timeout=10,
+            stdin=subprocess.DEVNULL,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if result.returncode != 0:
+        return None
+    try:
+        state = json.loads(result.stdout)
+    except ValueError:
+        return None
+    return state if isinstance(state, dict) else None
+
+
+def check_is_green(check):
+    """A check run that completed green, or a commit status in success."""
+    if check.get("__typename") == "StatusContext" or (
+        "state" in check and "conclusion" not in check
+    ):
+        return check.get("state") == "SUCCESS"
+    return check.get("status") == "COMPLETED" and check.get("conclusion") in GREEN_CONCLUSIONS
+
+
+def guard_merge(args, cwd):
+    if "--delete-branch" in args or has_short_flag(args, "d"):
+        deny(
+            "`gh pr merge --delete-branch` deletes the remote branch; that is a user "
+            "decision (CONVENTIONS.md section 4)."
+        )
+    selector, repo = merge_target(args)
+    if UNRESOLVED.search(selector or "") or UNRESOLVED.search(repo or ""):
+        deny(
+            "`gh pr merge` names its pull request through a shell expansion the guard "
+            "cannot resolve; pass the pull request number literally."
+        )
+    state = pull_request_state(selector, repo, cwd)
+    if state is None:
+        deny(
+            "The pull request could not be read (`gh pr view` failed): a merge is "
+            "allowed only once its base, its head and its checks are known."
+        )
+    base = state.get("baseRefName")
+    head = state.get("headRefName") or ""
+    if base != REQUIRED_PR_BASE:
+        deny(
+            "This pull request targets `%s`: only a lot pull request into `%s` is "
+            "merged by the agent. The promotion develop -> main is done by the user "
+            "(CONVENTIONS.md section 7)." % (base, REQUIRED_PR_BASE)
+        )
+    if not LOT_HEAD.match(head):
+        deny(
+            "The head of this pull request is `%s`, not a `feat/lot-*` branch: only "
+            "lot-ship merges, and only its own lot." % head
+        )
+    checks = [check for check in state.get("statusCheckRollup") or [] if isinstance(check, dict)]
+    if not checks:
+        deny("No check is reported on this pull request yet: wait for the CI, then merge.")
+    pending = [
+        check.get("name") or check.get("context") or "?"
+        for check in checks
+        if not check_is_green(check)
+    ]
+    if pending:
+        deny(
+            "Not every check is green (%s): never merge a pull request whose CI is "
+            "not green (CONVENTIONS.md section 7)." % ", ".join(pending)
+        )
+
+
+def guard_gh(segment, cwd):
     args = segment[1:]
     if len(args) < 2 or args[0] != "pr":
         return
     action, rest = args[1], args[2:]
 
     if action == "merge":
-        deny(
-            "Merging a PR is the user's decision; the agent stops after opening it "
-            "(CONVENTIONS.md section 7)."
-        )
+        guard_merge(rest, cwd)
+        return
 
     if action != "create":
         return
@@ -472,7 +582,7 @@ def main():
         elif name == "git":
             guard_git(segment, cwd)
         elif name == "gh":
-            guard_gh(segment)
+            guard_gh(segment, cwd)
 
     sys.exit(0)
 
