@@ -76,9 +76,9 @@ with the plugin enabled they are announced as `claude-harness:<name>`.
 |---|---|---|
 | `lot-start` | before any lot development, and on `lot-start confirm N` | Syncs the status table with develop, asks every ambiguity, creates the branch; the user's `lot-start confirm N` writes the lock that opens writes |
 | `lot-test` | lot code complete | Tests written and green, coverage gate at the repo threshold |
-| `lot-review` | after `lot-test` | Code review of the lot, applied fixes and one batch of questions for the findings that need a decision; **requires the `claude` profile** |
-| `lot-audit` | after `lot-review` | Security, performance and architecture audit; writes `docs/audits/lot-N.md` |
-| `lot-ship` | after `lot-audit` | Commits, push, PR to `develop`, then stop until merge |
+| `lot-review` | after `lot-test`, in a new session | Code review of the lot, applied fixes and one batch of questions for the findings that need a decision; **requires the `claude` profile** |
+| `lot-audit` | after `lot-review` | Security, performance and architecture audit, findings fixed; writes `docs/audits/lot-N.md` |
+| `lot-ship` | after `lot-audit` | Commits, lot marked ✅, push, PR to `develop`, merge once the CI is green, then stop |
 | `harness-sync` | harness or docs may have drifted | Detects and fixes drift between docs, skills and reality |
 | `integration-check` | before any front PR | Manual front ↔ real backend smoke, writes `docs/audits/lot-0-integration.md` |
 | `dep-update` | dependency refresh | Patch/minor applied, major proposed |

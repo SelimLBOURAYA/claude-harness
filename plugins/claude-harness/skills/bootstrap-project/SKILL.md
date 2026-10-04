@@ -45,7 +45,8 @@ cp -r "$HARNESS/templates/project/." .
 mkdir -p .github/workflows docs/audits
 cp "$HARNESS/templates/ci-caller.yml"   .github/workflows/ci.yml
 cp "$HARNESS/templates/dependabot.yml"  .github/dependabot.yml
-git -C "$HARNESS" show main:CONVENTIONS.md > CONVENTIONS.md
+git -C "$HARNESS" fetch -q origin main
+git -C "$HARNESS" show origin/main:CONVENTIONS.md > CONVENTIONS.md
 ```
 
 `CONVENTIONS.md` is **copied, never written**. It is a byte-identical copy of the
@@ -85,7 +86,7 @@ Keep only the `package-ecosystem` blocks the project actually has. A `maven` blo
 in a repository with no `pom.xml` produces a weekly error, and a weekly error
 teaches the team to ignore dependabot.
 
-`github-actions` is always kept: it is what keeps the pinned SHAs current (P5-#9).
+`github-actions` is always kept: it keeps the pinned SHAs current.
 
 ## Step 4 — Branches and first commit
 
@@ -107,7 +108,7 @@ say so — never fall back to working on `main`.
 cmp CLAUDE.md AGENTS.md              # silent
 # Against main, not against the clone's working tree: comparing the copy to the
 # file it was copied from is green by construction and proves nothing.
-git -C ~/ENV/projets/claude-harness show main:CONVENTIONS.md | cmp - CONVENTIONS.md
+git -C ~/ENV/projets/claude-harness show origin/main:CONVENTIONS.md | cmp - CONVENTIONS.md
 jq -e '.extraKnownMarketplaces["claude-harness"].source.ref == "main"' .claude/settings.json
 ```
 

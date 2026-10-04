@@ -6,7 +6,7 @@ description: >-
   skill, when the stack, conventions or lot scope evolved, after a lot, or when
   the user asks to refresh, check or improve the harness.
 metadata:
-  version: "2.0"
+  version: "3.0"
 ---
 
 # Harness Sync — Keep the harness honest
@@ -55,16 +55,13 @@ Run each of these. Each failure is a drift row in the Step 3 report.
 | 3 | Plugin declared **with the ref** | `.claude/settings.json` declares the `claude-harness` marketplace with `"ref": "main"`. **No ref is a drift**: the harness default branch is `develop`, so a refless declaration makes every unpromoted merge active here |
 | 4 | Gate parameters complete | `## Gate parameters` present, every parameter of the harness `README.md` contract has a row, `n/a` where it does not apply — a missing row is a drift, `n/a` is not |
 | 5 | Census ⇔ skills | Every `.claude/skills/*/SKILL.md`, every `docs/audits/*.md` and every managed file appears in `## Project documents` |
-| 6 | No legacy `skill/` | The directory `skill/` does not exist (finding #1) |
-| 7 | No sprint chaining | No "Sprint chaining", no "chain the next lot", no `sprint` skill anywhere. One lot, one PR, then stop (§2.9) |
+| 6 | No legacy `skill/` | The directory `skill/` does not exist |
+| 7 | No sprint chaining | No "Sprint chaining", no "chain the next lot", no `sprint` skill anywhere. One lot, one PR, then stop (LOT-6) |
 | 8 | Gate order documented | The Skills table states `lot-test → lot-review → lot-audit → lot-ship`. An audit step documented without a review step before it is a drift |
-| 9 | Review before audit | For each `docs/audits/lot-N.md`, a `docs/audits/lot-N-review.md` exists. A report without its review means `lot-review` was skipped |
-| 10 | Lots file status table | The `Lots file` **starts** with a `\| Lot \| Branche \| Statut \|` table whose every status is one of ⬜ 🔄 ✅ ⏸️ ❄️ |
-| 11 | Statuses match history | Cross-check each ✅ row against `rtk proxy git log --first-parent`. A lot marked ✅ whose section still says "PR to open", or whose branch was never merged, is a drift. Always `rtk proxy`: the rtk filter hides merge commits (P5-#14) |
-| 12 | No dates in the lots file | No planned date and no "window" in the `Lots file` — the order of lots is committed, calendar dates are not. The `**Mergé** le <date>` line `lot-start` writes under a merged lot records history, not a plan: not a drift |
-| 13 | Memory freshness | Every `project_*` memory carries a `Verified: YYYY-MM-DD` line. Report any missing line, and any date older than **60 days** |
-| 14 | Branch naming | Branches follow `feat/lot-N-slug`, `fix/…`, `chore/…`, `docs/…`; no `lot-XX-slug`, no branch from `main` |
-| 15 | Lot lock ignored | `.gitignore` carries `.claude/current-lot`, the local lock `lot-confirm.sh` writes (lot 19). Missing line: add it |
+| 9 | Lots file status table | The `Lots file` **starts** with a `\| Lot \| Branche \| Statut \|` table whose every status is one of ⬜ 🔄 ✅ ⏸️ ❄️ |
+| 10 | Statuses match history | Cross-check each ✅ row against `rtk proxy git log --first-parent`. A lot marked ✅ whose section still says "PR to open", or whose branch was never merged, is a drift. Always `rtk proxy`: the rtk filter hides merge commits |
+| 11 | Branch naming | Branches follow `feat/lot-N-slug`, `fix/…`, `chore/…`, `docs/…`; no `lot-XX-slug`, no branch from `main` |
+| 12 | Lot lock ignored | `.gitignore` carries `.claude/current-lot`, the local lock `lot-confirm.sh` writes. Missing line: add it |
 
 ### Step 3 — Drift report
 
@@ -91,7 +88,7 @@ Distinguish clearly:
 - Targeted edits, no wholesale rewrite.
 - Every edit to `CLAUDE.md` replicated byte for byte in `AGENTS.md`.
 - `CONVENTIONS.md` is **never written here**, not even re-copied: the harness
-  `sync-projects` workflow is its only writer (`CONVENTIONS.md` §12). Report the
+  `sync-projects` workflow is its only writer (DOC-7). Report the
   drift with its resolution: if
   `gh pr list --head chore/sync-harness-files --state open` shows a sync pull
   request, the user merges it; otherwise the user re-runs
