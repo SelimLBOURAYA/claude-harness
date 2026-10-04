@@ -13,3 +13,10 @@
 - `lot-start / A2` — step 4 still points at a quick start section that this
   repository's `README.md` does not have (C13, fixed in this lot). Cost: one grep
   of the headings.
+
+## lot-test
+- `lot-test / 3.1` — `shellcheck` is not installed on this machine, so
+  `./tests/run.sh` skips the shell lint of `workflows.test.sh` and reports green;
+  the lint runs only in CI. The lot rewrote `lot-confirm.sh`, `session-context.sh`
+  and several test scripts, and lot 23 already needed a shellcheck fix after its
+  push. Cost: the shell changes reach the PR unlinted.
