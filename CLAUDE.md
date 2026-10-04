@@ -52,6 +52,7 @@ plugins/claude-harness/
   skills/<name>/SKILL.md             generic skills shared by every repo
   skills/lot-start/sync-status.py    status table sync with develop
 .github/workflows/*.yml              reusable workflows called by every repo
+.github/scripts/deepseek-card.py     generates rules/deepseek.json from CONVENTIONS.md
 templates/                           project skeleton, CI caller, dependabot
 tests/run.sh                         validation gate of this repo
 docs/audits/                         lot audit reports
