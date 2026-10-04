@@ -51,7 +51,6 @@ plugins/claude-harness/
   hooks/mirror-sync.sh               CLAUDE.md <-> AGENTS.md mirror
   skills/<name>/SKILL.md             generic skills shared by every repo
   skills/lot-start/sync-status.py    status table sync with develop
-  skills/harness-sync/friction-digest.py  gate friction grouped by key, correction-lot drafts
 .github/workflows/*.yml              reusable workflows called by every repo
 templates/                           project skeleton, CI caller, dependabot
 tests/run.sh                         validation gate of this repo
@@ -74,12 +73,12 @@ with the plugin enabled they are announced as `claude-harness:<name>`.
 
 | Skill | Trigger | Role |
 |---|---|---|
-| `lot-start` | before any lot development, and on `lot-start confirm N` | Syncs the status table with develop, asks every ambiguity, creates the branch; the user's `lot-start confirm N` writes the lock that opens writes; opens `docs/audits/lot-N-friction.md` |
+| `lot-start` | before any lot development, and on `lot-start confirm N` | Syncs the status table with develop, asks every ambiguity, creates the branch; the user's `lot-start confirm N` writes the lock that opens writes |
 | `lot-test` | lot code complete | Tests written and green, coverage gate at the repo threshold |
 | `lot-review` | after `lot-test` | Code review of the lot, applied fixes and one batch of questions for the findings that need a decision; **requires the `claude` profile** |
 | `lot-audit` | after `lot-review` | Security, performance and architecture audit; writes `docs/audits/lot-N.md` |
 | `lot-ship` | after `lot-audit` | Commits, push, PR to `develop`, then stop until merge |
-| `harness-sync` | harness or docs may have drifted | Detects and fixes drift between docs, skills and reality; turns the gate friction into proposed correction lots |
+| `harness-sync` | harness or docs may have drifted | Detects and fixes drift between docs, skills and reality |
 | `integration-check` | before any front PR | Manual front ↔ real backend smoke, writes `docs/audits/lot-0-integration.md` |
 | `dep-update` | dependency refresh | Patch/minor applied, major proposed |
 | `bootstrap-project` | new repo, or a repo joining the harness | Generates the repository from `templates/project/` and verifies it against `harness-invariants` |
