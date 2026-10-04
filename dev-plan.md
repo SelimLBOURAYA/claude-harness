@@ -1829,6 +1829,11 @@ fichier et dans `docs/audits/`. Une skill garde la règle et la commande.
    qu'elle. Le contrôle par SHA est retiré : le clone du marketplace est
    superficiel, le SHA installé y est inconnu dès que `main` avance, et
    l'avertissement tombait à chaque commit de documentation.
+10. Confirmations du garde git (2026-10-04, après `lot-audit`, décision du
+    propriétaire, sans nouvelle `lot-review`) : un push et une PR vers `develop`
+    conformes passent sans prompt. L'utilisateur les validait sans relire ; le
+    garde ne demande plus que pour une cible de push non résolue ou une commande
+    illisible, et refuse toujours ce qui est interdit.
 
 ### Hors périmètre
 
