@@ -144,12 +144,18 @@ def split_heredocs(command):
                 quote = None
         elif quote == '"':
             if char == "\\":
+                if command.startswith("\n", index + 1):
+                    index += 2  # a line continuation, removed as in the shell
+                    continue
                 text.append(command[index:index + 2])
                 index += 2
                 continue
             if char == '"':
                 quote = None
         elif char == "\\":
+            if command.startswith("\n", index + 1):
+                index += 2  # `git \<newline>push` is one command, `git push`
+                continue
             text.append(command[index:index + 2])
             index += 2
             continue
@@ -218,12 +224,13 @@ def split_heredocs(command):
                     body.append(current)
                 bodies.append("\n".join(body))
             pending = []
-            text.append(" ;\n")
+            text.append("\n; ")
             index = position
             continue
         elif char == "\n":
             # A newline ends a command: `git status<newline>git push` is two.
-            text.append(" ;\n")
+            # The `;` follows the newline: a `#` comment would swallow one before it.
+            text.append("\n; ")
             index += 1
             continue
         text.append(char)
@@ -266,7 +273,7 @@ def shell_text(command):
     if not runs_a_shell(text):
         return text
     for body in bodies:
-        code = shell_text(body).replace("\\\n", " ")
+        code = shell_text(body)
         if tokenize(code) is None:
             ask(
                 "A heredoc read by a shell could not be parsed (unbalanced quotes); "
@@ -307,7 +314,7 @@ def segments(tokens):
             except ValueError:
                 flag_index = -1
             if flag_index != -1 and flag_index + 1 < len(head):
-                inner = tokenize(head[flag_index + 1])
+                inner = tokenize(shell_text(head[flag_index + 1]))
                 if inner is None:
                     ask(
                         "Command wrapped in `%s -c` could not be parsed; confirm manually."

@@ -144,6 +144,12 @@ expect deny "$FEAT" "cat <<'EOF' |${NL}git push -f${NL}EOF${NL}bash"
 expect deny "$FEAT" "git status${NL}git push --force"
 expect deny "$FEAT" "git status && cat <<EOF${NL}l'agent${NL}EOF${NL}git push origin main"
 expect pass "$FEAT" "git commit -m 'first${NL}git push --force'"
+# Lot 25 audit: a comment does not swallow the newline, a line continuation
+# joins, and a `-c` string splits on newlines too.
+expect deny "$FEAT" "git status # l'agent${NL}git push --force"
+expect deny "$FEAT" "git \\${NL}push --force"
+expect deny "$FEAT" "bash -c \"git status${NL}git push --force\""
+expect pass "$FEAT" "git commit -m \"\$(cat <<'EOF'${NL}feat: l'agent${NL}EOF${NL})\""
 expect deny "$WORK" "cd $MAIN && bash <<'EOF'${NL}git push${NL}EOF"
 expect deny "$FEAT" "bash \\${NL}  <<'EOF'${NL}git push --force${NL}EOF"
 expect pass "$FEAT" "echo \$((1<<2)) && git status"
