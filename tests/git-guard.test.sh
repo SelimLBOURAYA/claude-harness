@@ -27,11 +27,27 @@ make_repo() {
   printf '%s' "$dir"
 }
 
+# A fake gh first on PATH, so `gh pr merge` never reaches GitHub: `gh pr view`
+# prints $FAKE_GH_JSON, and fails when it is empty. Every call is logged.
+FAKEBIN="$WORK/bin"
+mkdir -p "$FAKEBIN"
+cat > "$FAKEBIN/gh" <<'EOF'
+#!/usr/bin/env bash
+printf '%s\n' "$*" >> "${FAKE_GH_LOG:-/dev/null}"
+[ -n "${FAKE_GH_JSON:-}" ] || exit 1
+printf '%s' "$FAKE_GH_JSON"
+EOF
+chmod +x "$FAKEBIN/gh"
+
+# payload <cwd> <command> : the PreToolUse payload of a Bash call.
+payload() {
+  jq -nc --arg c "$2" --arg d "$1" '{tool_name:"Bash", tool_input:{command:$c}, cwd:$d}'
+}
+
 # decision <cwd> <command> : the guard's verdict, or "pass" when it stays silent.
 decision() {
   local out
-  out=$(printf '%s' "$(jq -nc --arg c "$2" --arg d "$1" \
-    '{tool_name:"Bash", tool_input:{command:$c}, cwd:$d}')" | python3 "$GUARD" 2>/dev/null)
+  out=$(payload "$1" "$2" | PATH="$FAKEBIN:$PATH" python3 "$GUARD" 2>/dev/null)
   [ -z "$out" ] && { printf 'pass'; return; }
   printf '%s' "$out" | jq -r '.hookSpecificOutput.permissionDecision // "pass"'
 }
@@ -148,5 +164,44 @@ expect ask "$FRONT" "gh pr create --base develop --title t --body b"
 expect pass "$FEAT" "gh pr view 12"
 expect pass "$FEAT" "gh pr checks --watch"
 expect pass "$FEAT" "gh repo view --json visibility"
+
+# --- gh pr merge: lot-ship merges a green lot PR into develop (lot 24) -----
+GREEN='{"baseRefName":"develop","headRefName":"feat/lot-1-hooks","statusCheckRollup":[
+  {"__typename":"CheckRun","name":"ci","status":"COMPLETED","conclusion":"SUCCESS"},
+  {"__typename":"CheckRun","name":"lint","status":"COMPLETED","conclusion":"SKIPPED"},
+  {"__typename":"StatusContext","context":"ext","state":"SUCCESS"}]}'
+with() { jq -c "$1" <<<"$GREEN"; }
+merge() { # merge <state json> <command> : the verdict on a merge of that pull request
+  FAKE_GH_JSON="$1" decision "$FEAT" "$2"
+}
+merge_reason() {
+  payload "$FEAT" "$2" | FAKE_GH_JSON="$1" PATH="$FAKEBIN:$PATH" python3 "$GUARD" \
+    | jq -r '.hookSpecificOutput.permissionDecisionReason'
+}
+CMD="gh pr merge 12 --merge --match-head-commit abc1234"
+assert_eq pass "$(merge "$GREEN" "$CMD")" "a green lot PR into develop: left to the normal flow"
+assert_eq pass "$(merge "$GREEN" "rtk $CMD")" "the same through rtk"
+assert_eq deny "$(merge "$(with '.baseRefName="main"')" "$CMD")" "a PR into main: denied"
+assert_eq deny "$(merge "$(with '.headRefName="chore/tidy"')" "$CMD")" "a head that is not a lot branch: denied"
+assert_eq deny "$(merge "$(with '.statusCheckRollup[0].conclusion="FAILURE"')" "$CMD")" "a failed check: denied"
+assert_contains "$(merge_reason "$(with '.statusCheckRollup[0].conclusion="FAILURE"')" "$CMD")" "(ci)" \
+  "the denial names the check"
+assert_eq deny "$(merge "$(with '.statusCheckRollup[0].status="IN_PROGRESS" | .statusCheckRollup[0].conclusion=""')" "$CMD")" \
+  "a running check: denied"
+assert_eq deny "$(merge "$(with '.statusCheckRollup[2].state="PENDING"')" "$CMD")" "a pending commit status: denied"
+assert_eq deny "$(merge "$(with '.statusCheckRollup=[]')" "$CMD")" "no check reported yet: denied"
+assert_eq deny "$(merge "" "$CMD")" "an unreadable pull request: denied"
+assert_eq deny "$(merge "not json" "$CMD")" "an unparseable answer: denied"
+assert_eq deny "$(merge "$GREEN" "gh pr merge 12 --merge --delete-branch")" "--delete-branch: denied"
+assert_eq deny "$(merge "$GREEN" "gh pr merge 12 --merge -d")" "-d: denied"
+assert_eq deny "$(merge "$GREEN" 'gh pr merge "$PR" --merge')" "a selector behind an expansion: denied"
+# The pull request the guard reads is the one being merged.
+LOG="$WORK/gh.log"
+FAKE_GH_LOG="$LOG" merge "$GREEN" "gh pr merge 12 --merge --subject 'a b' -R owner/repo" > /dev/null
+assert_contains "$(cat "$LOG")" "pr view 12 --repo owner/repo --json baseRefName,headRefName,statusCheckRollup" \
+  "the guard reads the named pull request, in the named repository"
+: > "$LOG"
+FAKE_GH_LOG="$LOG" merge "$GREEN" "cd $FEAT && gh pr merge --merge" > /dev/null
+assert_contains "$(cat "$LOG")" "pr view --json" "no selector: the pull request of the current branch"
 
 finish
