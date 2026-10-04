@@ -1,8 +1,7 @@
 name: lot-deliverables
 
 # The gate produces deliverables; a missing one means a gate step was skipped
-# (CONVENTIONS.md section 13, "deliverables are proof"). This is the
-# agent-agnostic half of the git-guard hook check.
+# (CONVENTIONS.md GATE-8). This workflow is the only check of them.
 
 on:
   workflow_call:
