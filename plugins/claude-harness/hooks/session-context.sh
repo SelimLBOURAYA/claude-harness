@@ -67,7 +67,7 @@ else
 fi
 
 out+=$'\n'"## Before any write"$'\n'
-out+="1. Read CLAUDE.md (Gate parameters, Skills, Project documents), the status table and the current lot section only, and README.md quick start."$'\n'
+out+="1. Read CLAUDE.md (Gate parameters, Skills, Project documents), the status table and the current lot section only."$'\n'
 out+="2. Never infer the next lot: invoke claude-harness:lot-start. It syncs the status table with git and stops on any ambiguity."$'\n'
 out+="3. Ask every ambiguity in one batch before writing code, or state \"no ambiguity\" with the criteria restated."$'\n'
 out+="4. On a feat/lot-N-* branch, writes are denied until the user types \`lot-start confirm N\`."$'\n'

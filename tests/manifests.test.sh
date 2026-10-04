@@ -16,6 +16,8 @@ assert_eq "claude-harness" "$(jq -r '.name' "$pl")" "plugin name"
 assert_eq "$(jq -r '.plugins[0].name' "$mk")" "$(jq -r '.name' "$pl")" "marketplace entry and plugin manifest agree on the name"
 assert_eq "./plugins/claude-harness" "$(jq -r '.plugins[0].source' "$mk")" "marketplace points at the plugin directory"
 assert_eq "1" "$(jq -r '.plugins | length' "$mk")" "exactly one plugin is published"
+assert_eq "$(jq -r '.description' "$pl")" "$(jq -r '.plugins[0].description' "$mk")" \
+  "the marketplace entry describes the plugin as its manifest does"
 
 # The plugin source declared by the marketplace must exist and carry its manifest.
 src=$(jq -r '.plugins[0].source' "$mk")
@@ -89,10 +91,9 @@ assert_eq "absent" "$([ -d "$REPO_ROOT/skill" ] && echo present || echo absent)"
 # here: the harness ships its skills from plugins/ and its skeleton from
 # templates/. Every tracked markdown file must appear in the census, whatever
 # directory it lives in.
-while IFS= read -r doc; do
-  rel=${doc#"$REPO_ROOT/"}
+while IFS= read -r rel; do
   assert_ok "census lists $rel" -- grep -qF "$rel" "$REPO_ROOT/CLAUDE.md"
-done < <(find "$REPO_ROOT" -name '*.md' -not -path "$REPO_ROOT/.git/*" | sort)
+done < <(git -C "$REPO_ROOT" ls-files '*.md' | sort)
 
 # Lot 20: what to do when the installed copy lags behind main. The symptoms are
 # documented where a blocked developer looks, and the freshness check is wired to
