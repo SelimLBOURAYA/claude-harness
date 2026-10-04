@@ -78,17 +78,22 @@ if [ "$source" = "compact" ]; then
   out+="The summary is not a source of truth. Re-anchor on the state above, and re-read the current lot section, before any write."$'\n'
 fi
 
+card_section=""
 if [ -n "${ANTHROPIC_BASE_URL:-}" ] && [ -f "$rules" ]; then
   card=$(jq -r '.rules[] | "- \(.id): \(.rule)"' "$rules" 2>/dev/null || true)
   if [ -n "$card" ]; then
-    out+=$'\n'"## deepseek profile: imperative rules"$'\n'
-    out+="$(jq -r '.precedence' "$rules" 2>/dev/null)"$'\n'"$card"$'\n'
+    card_section=$'\n'"## deepseek profile: imperative rules"$'\n'
+    card_section+="$(jq -r '.precedence' "$rules" 2>/dev/null)"$'\n'"$card"$'\n'
   fi
 fi
 
-if [ "${#out}" -gt "$CAP" ]; then
-  out="${out:0:$CAP}"$'\n'"[truncated at $CAP characters]"
+# The card comes last, so a cap on the whole output would cut its final rules
+# first: the state above is truncated instead, within the room the card leaves.
+room=$((CAP - ${#card_section}))
+if [ "${#out}" -gt "$room" ]; then
+  out="${out:0:$room}"$'\n'"[truncated at $room characters]"$'\n'
 fi
+out+="$card_section"
 
 jq -nc --arg c "$out" \
   '{hookSpecificOutput: {hookEventName: "SessionStart", additionalContext: $c}}'

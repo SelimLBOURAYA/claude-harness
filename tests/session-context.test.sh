@@ -111,8 +111,11 @@ long=$(printf 'x%.0s' $(seq 1 1200))
 for i in $(seq 1 10); do git -C "$REPO" commit -q --allow-empty -m "docs: $i $long"; done
 git -C "$REPO" switch -q feat/lot-2-b
 body=$(text "$(context compact "$REPO" https://api.deepseek.com/anthropic)")
-assert_contains "$body" "[truncated at 9000 characters]" "the global cap cuts, and says so"
+assert_contains "$body" "[truncated at " "the global cap cuts, and says so"
+assert_contains "$body" "- OUT-1:" "the global cap cuts the state, never the rules card"
 [ "${#body}" -le 9100 ] || assert_eq "<=9100" "${#body}" "the global cap holds"
+body=$(text "$(context compact "$REPO")")
+assert_contains "$body" "[truncated at 9000 characters]" "no card: the whole cap goes to the state"
 
 # --- the rules card is valid and carries what the hook renders -------------
 CARD="$REPO_ROOT/plugins/claude-harness/rules/deepseek.json"

@@ -194,12 +194,27 @@ assert_eq deny "$(merge "" "$CMD")" "an unreadable pull request: denied"
 assert_eq deny "$(merge "not json" "$CMD")" "an unparseable answer: denied"
 assert_eq deny "$(merge "$GREEN" "gh pr merge 12 --merge --delete-branch")" "--delete-branch: denied"
 assert_eq deny "$(merge "$GREEN" "gh pr merge 12 --merge -d")" "-d: denied"
+assert_eq deny "$(merge "$GREEN" "gh pr merge 12 --merge --delete-branch=true")" "--delete-branch=true: denied"
+assert_eq deny "$(merge "$GREEN" "gh pr merge 12 -md")" "-d bundled: denied"
+assert_eq pass "$(merge "$GREEN" "gh pr merge 12 --merge --delete-branch=false")" "--delete-branch=false: left to the normal flow"
+assert_eq pass "$(merge "$GREEN" "gh pr merge 12 --merge -t '-d fix'")" "a value that looks like -d is not the flag"
+assert_eq deny "$(merge "$GREEN" "gh pr merge 12 --merge --admin")" "--admin: denied"
+assert_eq deny "$(merge "$(with '.baseRefName="main"')" "gh pr -R owner/repo merge 12 --merge")" \
+  "--repo before the action does not hide the merge"
+assert_eq deny "$(merge "$(with '.baseRefName="main"')" "gh pr --repo=owner/repo merge 12")" \
+  "--repo= before the action does not hide the merge"
 assert_eq deny "$(merge "$GREEN" 'gh pr merge "$PR" --merge')" "a selector behind an expansion: denied"
 # The pull request the guard reads is the one being merged.
 LOG="$WORK/gh.log"
 FAKE_GH_LOG="$LOG" merge "$GREEN" "gh pr merge 12 --merge --subject 'a b' -R owner/repo" > /dev/null
 assert_contains "$(cat "$LOG")" "pr view 12 --repo owner/repo --json baseRefName,headRefName,statusCheckRollup" \
   "the guard reads the named pull request, in the named repository"
+: > "$LOG"
+FAKE_GH_LOG="$LOG" merge "$GREEN" "gh pr merge 12 --merge -Rowner/repo" > /dev/null
+assert_contains "$(cat "$LOG")" "pr view 12 --repo owner/repo --json" "an attached -R value names the repository"
+: > "$LOG"
+FAKE_GH_LOG="$LOG" merge "$GREEN" "gh pr -R owner/repo merge 12 --merge" > /dev/null
+assert_contains "$(cat "$LOG")" "pr view 12 --repo owner/repo --json" "a leading -R names the repository"
 : > "$LOG"
 FAKE_GH_LOG="$LOG" merge "$GREEN" "cd $FEAT && gh pr merge --merge" > /dev/null
 assert_contains "$(cat "$LOG")" "pr view --json" "no selector: the pull request of the current branch"
