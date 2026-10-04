@@ -11,7 +11,7 @@ on:
         description: "Allowed commit types, pipe-separated"
         required: false
         type: string
-        default: "feat|fix|refactor|test|chore|docs|build|ci|perf|revert|style"
+        default: "feat|fix|refactor|test|chore|docs"
 
 permissions:
   contents: read
