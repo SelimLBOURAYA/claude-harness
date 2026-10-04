@@ -20,8 +20,8 @@ assert_eq "absent" "$([ -f "$SK/CONVENTIONS.md" ] && echo present || echo absent
 BOOTSTRAP="$REPO_ROOT/plugins/claude-harness/skills/bootstrap-project/SKILL.md"
 # Read from ref main, never from the clone's working tree: harness-invariants.yml
 # compares against main, so a clone on a lot branch would seed a copy CI rejects.
-assert_ok "the bootstrap skill reads CONVENTIONS.md from ref main" -- \
-  grep -qF 'git -C "$HARNESS" show main:CONVENTIONS.md > CONVENTIONS.md' "$BOOTSTRAP"
+assert_ok "the bootstrap skill reads CONVENTIONS.md from the fetched main" -- \
+  grep -qF 'git -C "$HARNESS" show origin/main:CONVENTIONS.md > CONVENTIONS.md' "$BOOTSTRAP"
 assert_eq "" "$(grep -n 'cp "\$HARNESS/CONVENTIONS.md"' "$BOOTSTRAP" || true)" \
   "the bootstrap skill never copies CONVENTIONS.md from the working tree"
 
@@ -95,15 +95,8 @@ assert_ok "the skeleton states that promotion is user-only" -- \
 # P6-D3: non-Claude agents are told where the procedures are.
 assert_ok "the skeleton points non-Claude agents at the local clone" -- \
   grep -q 'ENV/projets/claude-harness/plugins/claude-harness/skills' "$SK/CLAUDE.md"
-# Lot 20: the subset that is wrong is the one under a stale plugin. A generated
-# repository must say that a missing skill stops the session, not that the clone
-# is a fallback for it.
-assert_ok "the skeleton stops on a stale plugin" -- \
-  grep -qF 'A stale plugin stops the session' "$SK/CLAUDE.md"
-assert_ok "the skeleton says which symptom to watch for" -- \
-  grep -qF 'Unknown skill' "$SK/CLAUDE.md"
-assert_ok "the skeleton sends to the marketplace refresh" -- \
-  grep -qF 'plugin marketplace update claude-harness' "$SK/CLAUDE.md"
+# A rule lives in CONVENTIONS.md; the skeleton cites it by identifier (lot 24).
+assert_ok "the skeleton cites the stale-plugin rule" -- grep -qF 'PLUG-1' "$SK/CLAUDE.md"
 # The gate order is the same one the skills implement.
 assert_ok "the skeleton documents the four-step gate order" -- \
   grep -qF 'lot-test → lot-review → lot-audit → lot-ship' "$SK/CLAUDE.md"
