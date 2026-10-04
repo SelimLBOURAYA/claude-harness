@@ -731,4 +731,8 @@ NOMANIFEST=$(cd "$N" && BASE_SHA="$NOBASE" bash "$COVWORK/bump.sh" 2>&1; echo "|
 assert_eq "1" "${NOMANIFEST##*|}" "a tree with no manifest fails, never skips"
 assert_contains "$NOMANIFEST" "cannot be checked" "and says why"
 
+# --- lot 24: friction is written on incident, never required --------------
+assert_eq "" "$(grep -n 'friction_from_lot' "$WF/lot-deliverables.yml" "$WF/ci.yml" "$TPL/ci-caller.yml" || true)" \
+  "no workflow input requires a friction file"
+
 finish

@@ -39,6 +39,9 @@ types=$(grep -oE '^- \*\*GIT-2\*\* .*' "$C" | grep -oE 'type one of [^.]*' | gre
 assert_eq "$types" \
   "$(sed -n 's/^ *default: "\(feat|[a-z|]*\)"$/\1/p' "$REPO_ROOT/.github/workflows/commit-format.yml")" \
   "the commit types of GIT-2 are the default of commit-format.yml"
+assert_eq "$types" \
+  "$(grep -E '^- `<type>`:' "$REPO_ROOT/plugins/claude-harness/skills/lot-ship/SKILL.md" | grep -oE '`[a-z]+`' | tr -d '`' | paste -sd'|')" \
+  "lot-ship lists the same commit types"
 
 # --- short, rules only, English (section 11 applies to itself) ------------
 assert_ok "the master stays within 14000 bytes" -- test "$(wc -c < "$C")" -le 14000
