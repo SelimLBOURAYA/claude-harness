@@ -62,6 +62,9 @@ COMMAND_WRAPPERS = {
 WRAPPER_SUBCOMMANDS = {"proxy"}
 # A bare duration/priority argument: `timeout 5s git ...`, `nice 10 git ...`.
 WRAPPER_NUMERIC = re.compile(r"^\d+[smhd]?$")
+# Shells: `<shell> -c "..."` and a heredoc a shell reads are code, inspected
+# like a bare command.
+SHELLS = ("bash", "sh", "zsh")
 
 # This guard owns destructive commands and the branching model, and nothing else.
 # Gate deliverables (audit reports, review reports, unresolved Critical rows) are
@@ -117,12 +120,171 @@ def tokenize(command):
         return None
 
 
-def segments(tokens):
-    """Split a token list on shell separators into individual commands.
+def split_heredocs(command):
+    """Separate the heredoc bodies of a command from its shell text (lot 25).
 
-    Recurses into `bash -c "..."` / `sh -c "..."` so a wrapped command is
-    inspected like a bare one.
+    A heredoc body is data, not shell: an apostrophe in it is not a quote.
+    Returns (text, bodies): `text` is the command without the bodies, a newline
+    outside quotes ending a command there as in the shell, and `bodies` lists the
+    heredoc bodies. Returns None when a heredoc is not terminated. Only a `<<`
+    outside quotes and comments opens a heredoc, as in the shell; `<<<` is a
+    here-string, kept in the text.
     """
+    text = []
+    bodies = []
+    pending = []  # (delimiter, strip_tabs) opened on the current line
+    quote = None
+    arithmetic = 0  # depth of `((...))`, where `<<` is a shift, not a heredoc
+    index = 0
+    size = len(command)
+    while index < size:
+        char = command[index]
+        if quote == "'":
+            if char == "'":
+                quote = None
+        elif quote == '"':
+            if char == "\\":
+                if command.startswith("\n", index + 1):
+                    index += 2  # a line continuation, removed as in the shell
+                    continue
+                text.append(command[index:index + 2])
+                index += 2
+                continue
+            if char == '"':
+                quote = None
+        elif char == "\\":
+            if command.startswith("\n", index + 1):
+                index += 2  # `git \<newline>push` is one command, `git push`
+                continue
+            text.append(command[index:index + 2])
+            index += 2
+            continue
+        elif char in "'\"":
+            quote = char
+        elif char == "#" and (index == 0 or command[index - 1] in " \t\n;&|("):
+            end = command.find("\n", index)
+            end = size if end == -1 else end
+            text.append(command[index:end])
+            index = end
+            continue
+        elif command.startswith("((", index):
+            arithmetic += 1
+            text.append("((")
+            index += 2
+            continue
+        elif arithmetic and command.startswith("))", index):
+            arithmetic -= 1
+            text.append("))")
+            index += 2
+            continue
+        elif (
+            not arithmetic
+            and command.startswith("<<", index)
+            and not command.startswith("<<<", index)
+            and (index == 0 or command[index - 1] != "<")
+        ):
+            cursor = index + 2
+            strip_tabs = command.startswith("-", cursor)
+            if strip_tabs:
+                cursor += 1
+            while cursor < size and command[cursor] in " \t":
+                cursor += 1
+            word = ""
+            while cursor < size and command[cursor] not in " \t\n;&|<>()":
+                if command[cursor] in "'\"":
+                    close = command.find(command[cursor], cursor + 1)
+                    if close == -1:
+                        break
+                    word += command[cursor + 1:close]
+                    cursor = close + 1
+                elif command[cursor] == "\\" and cursor + 1 < size:
+                    word += command[cursor + 1]
+                    cursor += 2
+                else:
+                    word += command[cursor]
+                    cursor += 1
+            if word:
+                pending.append((word, strip_tabs))
+                text.append(command[index:cursor])
+                index = cursor
+                continue
+        elif char == "\n" and pending:
+            position = index + 1
+            for word, strip_tabs in pending:
+                body = []
+                while True:
+                    if position >= size:
+                        return None
+                    end = command.find("\n", position)
+                    end = size if end == -1 else end
+                    current = command[position:end]
+                    position = end + 1
+                    if (current.lstrip("\t") if strip_tabs else current) == word:
+                        break
+                    body.append(current)
+                bodies.append("\n".join(body))
+            pending = []
+            text.append("\n; ")
+            index = position
+            continue
+        elif char == "\n":
+            # A newline ends a command: `git status<newline>git push` is two.
+            # The `;` follows the newline: a `#` comment would swallow one before it.
+            text.append("\n; ")
+            index += 1
+            continue
+        text.append(char)
+        index += 1
+    if pending:
+        return None
+    return "".join(text), bodies
+
+
+def runs_a_shell(text):
+    """True when a command of the text is a shell, which may run a heredoc as code.
+
+    The whole command counts, not the heredoc's line: in `cat <<EOF |` with
+    `bash` after the body, the shell reads the heredoc from a later line. A text
+    that cannot be lexed counts as a shell: the bodies are then inspected.
+    """
+    tokens = tokenize(text)
+    if tokens is None:
+        return True
+    return any(
+        segment and os.path.basename(segment[0]) in SHELLS
+        for segment in (strip_wrappers(part) for part in split_on_separators(tokens))
+    )
+
+
+def shell_text(command):
+    """The command to tokenize: heredoc bodies removed, unless a shell runs.
+
+    When the command runs a shell, every heredoc body is code: it is appended
+    as commands, so `bash <<'EOF'` around a `git push --force` is judged like
+    the bare push.
+    """
+    parsed = split_heredocs(command)
+    if parsed is None:
+        ask(
+            "The command has a heredoc with no terminator line; confirm it manually "
+            "rather than letting the guard pass it silently."
+        )
+    text, bodies = parsed
+    if not runs_a_shell(text):
+        return text
+    for body in bodies:
+        code = shell_text(body)
+        if tokenize(code) is None:
+            ask(
+                "A heredoc read by a shell could not be parsed (unbalanced quotes); "
+                "confirm it manually."
+            )
+        text += " ; " + code
+    return text
+
+
+def split_on_separators(tokens):
+    """Split a token list on shell separators into individual commands."""
     out = []
     current = []
     for token in tokens:
@@ -134,17 +296,25 @@ def segments(tokens):
             current.append(token)
     if current:
         out.append(current)
+    return out
 
+
+def segments(tokens):
+    """Split a token list on shell separators into individual commands.
+
+    Recurses into `bash -c "..."` / `sh -c "..."` so a wrapped command is
+    inspected like a bare one.
+    """
     expanded = []
-    for segment in out:
+    for segment in split_on_separators(tokens):
         head = strip_wrappers(segment)
-        if len(head) >= 3 and os.path.basename(head[0]) in ("bash", "sh", "zsh"):
+        if len(head) >= 3 and os.path.basename(head[0]) in SHELLS:
             try:
                 flag_index = head.index("-c")
             except ValueError:
                 flag_index = -1
             if flag_index != -1 and flag_index + 1 < len(head):
-                inner = tokenize(head[flag_index + 1])
+                inner = tokenize(shell_text(head[flag_index + 1]))
                 if inner is None:
                     ask(
                         "Command wrapped in `%s -c` could not be parsed; confirm manually."
@@ -634,7 +804,7 @@ def main():
 
     cwd = payload.get("cwd") or os.getcwd()
 
-    tokens = tokenize(command)
+    tokens = tokenize(shell_text(command))
     if tokens is None:
         ask(
             "The command could not be parsed (unbalanced quotes); confirm it manually "

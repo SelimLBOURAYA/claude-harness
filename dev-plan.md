@@ -49,7 +49,8 @@
 | 21 | `feat/lot-21-response-floor-friction` | A – Harness | Plancher de complétude dans §15 et remontée de friction des skills vers `harness-sync` | claude-harness, les 8 repos (via `main`) | ✅ |
 | 22 | `feat/lot-22-friction-fixes` | A – Harness | Correctifs de la friction remontée par elya et elya-frontend, et un seul écrivain de `CONVENTIONS.md` dans les projets | claude-harness, les 8 repos (via `main`) | ✅ |
 | 23 | `feat/lot-23-sync-automerge` | A – Harness | Merge automatique des PR de synchro de `CONVENTIONS.md`, version du plugin pour l'auto-update, et les deux constats reportés de la revue du lot 22 | claude-harness, les 8 repos (via `main`) | ✅ |
-| 24 | `feat/lot-24-harness-freeze` | D – Clôture | Gel du harnais : contradictions corrigées, boucle de friction coupée, `CONVENTIONS.md` allégé, verrou simplifié, merge par `lot-ship` | claude-harness, les 8 repos (via `main` et la PR de synchro) | 🔄 |
+| 24 | `feat/lot-24-harness-freeze` | D – Clôture | Gel du harnais : contradictions corrigées, boucle de friction coupée, `CONVENTIONS.md` allégé, verrou simplifié, merge par `lot-ship` | claude-harness, les 8 repos (via `main` et la PR de synchro) | ✅ |
+| 25 | `feat/lot-25-guard-heredoc-report-fields` | A – Harness | Incident elya-frontend : champs SHA du modèle `integration-check`, heredoc lu comme du shell par le garde git | claude-harness, les 8 repos (via `main`) | ✅ |
 
 Légende des statuts *(P6-D10)* : ⬜ à faire · 🔄 en cours (livré sur la branche, PR non
 mergée) · ✅ mergé sur `develop` · ⏸️ planifié mais dormant · ❄️ gelé.
@@ -1622,7 +1623,9 @@ Branche `feat/lot-23-sync-automerge`, depuis `develop`. Repo touché :
 
 ---
 
-## LOT 24 — Gel du harnais 🔄
+## LOT 24 — Gel du harnais ✅
+
+**Mergé** le 2026-10-04 (commit d'audit `0cdfc49`).
 
 Branche `feat/lot-24-harness-freeze`, depuis `develop`. Repo touché :
 `claude-harness` ; les 8 repos en héritent à la promotion `develop` → `main`
@@ -1839,6 +1842,66 @@ fichier et dans `docs/audits/`. Une skill garde la règle et la commande.
 
 - Toute nouvelle fonctionnalité du harnais : règle de gel.
 - `sync-status.py` : inchangé.
+
+---
+
+## LOT 25 — Champs du rapport d'intégration et heredoc dans le garde git ✅
+
+Branche `feat/lot-25-guard-heredoc-report-fields`, depuis `develop`. Repo
+touché : `claude-harness` ; les 8 repos en héritent à la promotion
+`develop` → `main` (plugin).
+
+### Origine
+
+Exception au gel (b) : deux incidents du 2026-10-04 sur `elya-frontend`, qui
+ont coûté du temps réel.
+
+1. Lot 4 d'`elya-frontend` : le modèle de rapport de
+   `integration-check/SKILL.md` (l. 114-115) écrit `**Frontend:**` et
+   `**Backend:**`, alors que `lot-deliverables.yml` (l. 156) exige les chaînes
+   littérales `Frontend SHA` et `Backend SHA`. Suivre la skill à la lettre fait
+   échouer la CI ; l'agent ne l'a vu qu'en lisant le workflow.
+2. Planification du lot 13 d'`elya` : une commande
+   `git switch … && python3 - <<'EOF' … EOF` dont le corps du heredoc contient
+   des apostrophes françaises (`d'erreur`) déclenche un prompt du garde git.
+   `tokenize()` passe toute la commande à `shlex`, corps du heredoc compris ;
+   les apostrophes y sont des quotes non fermées, d'où « The command could not
+   be parsed (unbalanced quotes) ». Le corps d'un heredoc est une donnée, pas
+   du shell : le prompt n'apporte rien, l'utilisateur le valide sans relire.
+
+### Livrables
+
+1. `integration-check/SKILL.md`, étape 5 : `**Frontend SHA:**` et
+   `**Backend SHA:**` dans le modèle ; un test de `tests/skills.test.sh` (ou
+   `workflows.test.sh`) vérifie que chaque champ grepé par
+   `lot-deliverables.yml` figure dans le modèle de la skill.
+2. `git-guard.py` : les corps de heredoc (`<<WORD`, `<<'WORD'`, `<<"WORD"`,
+   `<<-WORD`) sont retirés avant `tokenize()`. Exception : un heredoc lu par un
+   shell (`bash`, `sh`, `zsh`, éventuellement derrière `env`, `sudo`, `time`)
+   est du code ; son corps est inspecté comme une commande, et toujours `ask`
+   s'il est illisible.
+3. `tests/git-guard.test.sh` : heredoc à apostrophes après un `git switch` →
+   silence ; `bash <<'EOF'` contenant `git push --force` → `deny` ; heredoc non
+   terminé → `ask` ; quotes réellement déséquilibrées hors heredoc → `ask`
+   (inchangé).
+4. Ajouté à la revue du lot (accord de l'utilisateur, 2026-10-04) : un
+   retour à la ligne hors guillemets sépare deux commandes comme `;` (un
+   `git push --force` à la ligne suivante passait déjà sur `develop`) ; dès
+   qu'un shell figure dans la commande, tous les corps de heredoc sont
+   inspectés (`cat <<EOF |` … `EOF` puis `bash` sur une autre ligne).
+
+### Critères de validation
+
+- `./tests/run.sh` vert.
+- La commande de l'incident 2, rejouée sur le garde, ne produit aucune sortie.
+- Un rapport rédigé selon le nouveau modèle passe l'étape « A frontend lot
+  ships its integration report » de `lot-deliverables.yml`.
+
+### Hors périmètre
+
+- Toute autre règle du garde git.
+- Les rapports déjà écrits dans les projets (celui d'`elya-frontend` porte
+  déjà `Frontend SHA` / `Backend SHA`).
 
 ---
 
