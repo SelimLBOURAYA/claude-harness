@@ -18,7 +18,7 @@
 > (a) une CI cassée ou une faille de sécurité, (b) un incident sur un projet qui a
 > coûté du temps réel. Une entrée de friction n'ouvre plus de lot. Toute
 > modification reste un lot avec gate complet. Exception décidée par
-> l'utilisateur le 2026-10-21 : lot 26 (mémoire des sessions).
+> l'utilisateur le 2026-10-21 : lot 26 (mémoire de projet).
 
 ## Vue d'ensemble
 
@@ -52,7 +52,7 @@
 | 23 | `feat/lot-23-sync-automerge` | A – Harness | Merge automatique des PR de synchro de `CONVENTIONS.md`, version du plugin pour l'auto-update, et les deux constats reportés de la revue du lot 22 | claude-harness, les 8 repos (via `main`) | ✅ |
 | 24 | `feat/lot-24-harness-freeze` | D – Clôture | Gel du harnais : contradictions corrigées, boucle de friction coupée, `CONVENTIONS.md` allégé, verrou simplifié, merge par `lot-ship` | claude-harness, les 8 repos (via `main` et la PR de synchro) | ✅ |
 | 25 | `feat/lot-25-guard-heredoc-report-fields` | A – Harness | Incident elya-frontend : champs SHA du modèle `integration-check`, heredoc lu comme du shell par le garde git | claude-harness, les 8 repos (via `main`) | ✅ |
-| 26 | `feat/lot-26-session-memory` | A – Harness | Mémoire des sessions : archive des conversations et réflexions par projet, nommage par mots-clés, recherche par les agents | claude-harness, les 8 repos (via `main`) | ⬜ |
+| 26 | `feat/lot-26-project-memory` | A – Harness | Mémoire de projet : `docs/memory.md` lu par `lot-start`, amendé par `lot-test`, vérifié par `lot-review` | claude-harness, les 8 repos (via `main` et la PR de synchro) | ⬜ |
 
 Légende des statuts *(P6-D10)* : ⬜ à faire · 🔄 en cours (livré sur la branche, PR non
 mergée) · ✅ mergé sur `develop` · ⏸️ planifié mais dormant · ❄️ gelé.
@@ -1905,101 +1905,87 @@ ont coûté du temps réel.
 - Les rapports déjà écrits dans les projets (celui d'`elya-frontend` porte
   déjà `Frontend SHA` / `Backend SHA`).
 
-## LOT 26 — Mémoire des sessions ⬜
+## LOT 26 — Mémoire de projet ⬜
 
-Branche `feat/lot-26-session-memory`, depuis `develop`. Repo touché :
+Branche `feat/lot-26-project-memory`, depuis `develop`. Repo touché :
 `claude-harness` ; les 8 repos en héritent à la promotion `develop` → `main`
-(plugin).
+(plugin) et par la PR de synchro de `CONVENTIONS.md`.
 
 ### Origine
 
 Exception au gel décidée par l'utilisateur le 2026-10-21 : fonctionnalité
-nouvelle, demandée explicitement. Chaque session repart de zéro : les
-réflexions des itérations précédentes, souvent liées à l'itération en cours,
-ne sont retrouvables qu'en reparcourant le code. Les transcripts existent
-(`~/.claude/projects/<slug>/<session>.jsonl`, conservés par
-`cleanupPeriodDays`), mais ils sont classés par UUID, mêlent les sorties
-d'outils au raisonnement, et rien ne les met sous les yeux d'un agent.
+nouvelle, demandée explicitement. L'utilisateur nettoie le contexte entre
+chaque lot, pour économiser des tokens et pour casser les biais pris par le
+modèle ; la perte de ce contexte se paie en reparcours du code, et les
+raisonnements d'un lot (décisions, pièges) ne passent pas au suivant.
 
-Choix de l'utilisateur (2026-10-21) : implémentation dans le harnais ;
-archive des conversations **et** des réflexions de l'agent ; nommage fin des
-archives, par mots-clés, pour que l'agent identifie une archive à son nom ;
-stockage local hors des repos ; un résumé court injecté au démarrage.
+Mesure de référence (2026-10-21, 20 sessions de dev de lot d'`elya`,
+`elya-frontend`, `claude-harness` et `deployment`) : entre
+`lot-start confirm N` et la première écriture, l'exploration (`Read`,
+`Grep`, `Glob`, `Bash`, `Agent`) coûte en médiane **6 appels et ≈ 2 400
+tokens** de sorties d'outils, au pire ≈ 25 000 ; une session entière en
+coûte ≈ 34 000 en médiane, surtout de l'implémentation qu'aucune mémoire
+n'évite. Le gain attendu est donc d'abord la cohérence entre sessions (ne
+pas retomber dans un piège déjà payé, ne pas redécider ce qui est tranché,
+écrêter les pires cas), pas un volume de tokens.
+
+Options écartées (2026-10-21) : archive brute des transcripts avec recherche
+plein texte (une consultation lit 5 à 15 K tokens pour en économiser ≈ 2,4 K,
+et ramène des hypothèses abandonnées) ; synthèse dans `lot-ship` (relit
+≈ 35 K tokens de transcripts, la session de dev étant close) ; injection du
+fichier à chaque `SessionStart` (≈ 2 K tokens × 5 à 7 sessions par lot, pour
+un gain concentré sur la seule session de dev).
 
 ### Livrables
 
-1. `plugins/claude-harness/hooks/memory.py` (Python, bibliothèque standard
-   seule, SQLite FTS5), sous-commandes :
-   - `archive` : lit le payload de hook sur stdin (`transcript_path`, `cwd`,
-     `session_id`) et écrit l'archive de la session ; idempotent, une seule
-     archive par session (une reprise remplace l'archive, et son nom si les
-     mots-clés ont changé) ;
-   - `backfill` : archive tous les transcripts existants de
-     `~/.claude/projects` ;
-   - `search <termes> [--project P | --all] [--limit N]` : recherche BM25,
-     sort pour chaque résultat le chemin de l'archive, la date, la branche,
-     les mots-clés et deux extraits ;
-   - `brief` : sortie du hook `SessionStart`, plafonnée à 1 500 caractères.
-   Ne bloque jamais : une entrée illisible sort en code 0, sans sortie.
-2. Stockage : `${CLAUDE_MEMORY_ROOT:-~/ENV/claude-memory}`, droits `0700` /
-   `0600`, hors de tout repo :
-   - `<projet>/sessions/<archive>.md` ;
-   - `<projet>/INDEX.md`, une ligne par session (date, lot ou branche,
-     mots-clés, titre, chemin), triée de la plus récente à la plus ancienne ;
-   - `index.db`, index plein texte de toutes les archives.
-   Le projet est la racine git de `cwd` ; un worktree est rattaché à son repo
-   principal (`git rev-parse --git-common-dir`) ; hors git, le nom du dossier.
-3. Nommage :
-   `AAAA-MM-JJ_HHMM_<lot-N | branche>_<mot1>-<mot2>-<mot3>-<mot4>-<mot5>_<sid8>.md`
-   (date et heure de début de session, branche normalisée en `lot-N` quand
-   elle suit `feat/lot-N-*`, 8 premiers caractères de l'identifiant de
-   session). Les mots-clés sont extraits sans LLM : fréquence des termes de la
-   session (prompts, réponses, réflexions, identifiants des fichiers lus et
-   modifiés, slug de la branche) pondérée par leur rareté dans les autres
-   archives du projet ; mots vides français et anglais exclus.
-4. Contenu d'une archive : en-tête YAML (session, projet, branches, début,
-   fin, modèles, titre, mots-clés, fichiers lus, fichiers modifiés, commits
-   créés), puis le déroulé chronologique : prompts de l'utilisateur en entier,
-   réflexions de l'agent (blocs de raisonnement non vides), réponses, une
-   ligne par appel d'outil (outil et cible : chemin, description de la
-   commande), rapports des sous-agents (tronqués à 3 000 caractères) et
-   résumés de compaction. Les sorties des autres outils sont omises : le code
-   se relit, le raisonnement non. Les jetons reconnaissables (`ghp_`,
-   `github_pat_`, `sk-`, clés AWS, `Bearer`) sont masqués.
-5. `hooks.json` : `memory.py archive` sur `SessionEnd` et `PreCompact` ;
-   `memory.py brief` sur `SessionStart` (startup, resume, clear, compact) :
-   les 5 archives les plus récentes du projet (nom et titre), le chemin de
-   `INDEX.md` et la commande de recherche.
-6. Skill `memory-recall` : quand chercher (avant d'explorer le code, quand
-   l'utilisateur renvoie à un travail passé, au démarrage d'un lot pour
-   retrouver le raisonnement des lots liés), comment (`search`, puis lecture
-   ciblée de l'archive, jamais en entier) ; une archive n'est pas une source
-   de vérité : tout fait qui guide une écriture se vérifie dans le code ou
-   dans git (même règle que CTX-1).
-7. `tests/memory.test.sh` sur un transcript de fixture : nom de l'archive,
-   en-tête, réflexions conservées, sorties d'outils omises, masquage des
-   jetons, réarchivage idempotent (un seul fichier par session), worktree
-   rattaché au repo principal, `search` qui trouve, `brief` plafonné,
-   payload illisible → code 0 sans sortie.
-8. `README.md`, `CLAUDE.md` / `AGENTS.md` : hooks, skill, stockage, variable
-   `CLAUDE_MEMORY_ROOT`, et la commande `backfill` à lancer une fois.
+1. Un fichier `docs/memory.md` par projet, commité, en anglais (DOC-2 :
+   document d'instruction d'agent), plafonné à **6 000 caractères**
+   (≈ 1 500 tokens). En-tête fixe : ces notes sont des outils de travail, pas
+   une vérité ; le code et git font foi ; une note se vérifie avant de guider
+   une écriture, et une note contredite par le code se corrige dans le lot en
+   cours. Sections : `## Code map` (fichiers et modules, rôle, points
+   d'entrée), `## Decisions` (fait, raison, lot d'origine), `## Pitfalls`,
+   `## Open questions`.
+2. `lot-test`, nouvelle étape avant « Stop » : la session de dev, qui a
+   encore le raisonnement en contexte, amende `docs/memory.md` — réécrit ou
+   supprime les notes touchées par le lot, n'ajoute pas à la suite, reste
+   sous le plafond — et le crée depuis le modèle s'il manque (ajout au
+   census `## Project documents`, DOC-1). Commit
+   `docs(N): update the project memory`, après une `Validation command`
+   verte.
+3. `lot-start`, étape A2 : lecture de `docs/memory.md`, une fois, avant la
+   section du lot candidat. Pas d'injection au `SessionStart`.
+4. `lot-review`, étape 2 : relecture de `docs/memory.md` contre le code et le
+   diff ; une note fausse, périmée ou formulée en conclusion sans raison
+   est un constat, corrigé comme les autres.
+5. `CONVENTIONS.md` : une règle courte (identifiant stable) qui fixe le
+   fichier, son statut d'outil non normatif, son plafond et les trois moments
+   (lu par `lot-start`, amendé par `lot-test`, vérifié par `lot-review`) ;
+   carte `rules/deepseek.json` régénérée.
+6. Squelette `templates/project/` : `docs/memory.md` vide aux sections fixes,
+   listé dans le census du `CLAUDE.md` modèle ; `claude-harness` reçoit le
+   sien, rempli, dans ce lot.
+7. Tests : le plafond de 6 000 caractères et l'en-tête fixe sont vérifiés
+   sur le modèle et sur le fichier du harnais ; les skills `lot-start`,
+   `lot-test` et `lot-review` nomment `docs/memory.md` (`tests/skills.test.sh`).
 
 ### Critères de validation
 
 - `./tests/run.sh` vert.
-- `memory.py backfill` sur les transcripts réels de la machine se termine
-  sans erreur, et chaque projet du portefeuille a son `INDEX.md`.
-- Une recherche sur un sujet d'un lot passé (ex. « heredoc garde ») renvoie
-  l'archive de la session du lot 25 de `claude-harness`.
+- `docs/memory.md` du harnais sous le plafond, en-tête fixe présent.
+- Contrôle différé, à la clôture du 5e lot livré après celui-ci, tous
+  projets confondus : la mesure de référence est rejouée sur les sessions de
+  dev postérieures. Si la médiane et les pires cas d'exploration ne baissent
+  pas, et qu'aucun piège déjà noté n'a été évité, le mécanisme est retiré
+  dans un lot dédié.
 
 ### Hors périmètre
 
-- Digest par LLM des sessions (coût en tokens) ; synchronisation des archives
-  entre machines ; sauvegarde (le script `~/ENV/claude-backup` reste la
-  voie).
-- `CONVENTIONS.md` (aucune règle nouvelle : la skill et le brief suffisent).
-- Les transcripts des sous-agents (leur rapport final figure dans la session
-  parente).
+- Archive des transcripts, index de recherche, script dédié, hook.
+- Rétro-remplissage des projets existants : chaque fichier naît au premier
+  lot du projet après la promotion.
+- La mémoire automatique de Claude Code (`~/.claude/projects/*/memory/`),
+  inchangée.
 
 ---
 
