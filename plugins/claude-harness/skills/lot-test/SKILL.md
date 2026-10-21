@@ -45,6 +45,10 @@ git status --porcelain        # must print nothing
 START=$(git rev-parse HEAD)   # the starting point of this run
 ```
 
+Write down the SHA `START` holds: a shell variable does not survive from one
+`Bash` call to the next, so section 5 uses that SHA, never a new
+`git rev-parse HEAD`, which would make the check pass on an empty range.
+
 A dirty tree → **stop** and report it: the development is not closed, or a
 previous run left a test revealing a bug (section 1, step 6), whose fix belongs
 to a development session.
@@ -61,7 +65,8 @@ You write **test files only**, chosen by `Stack`:
 | `harness` | under `tests/` |
 | `other` | any file, each one listed in your report |
 
-Never modify production code, an existing assertion, or the coverage
+The one other file you may write is `docs/audits/lot-N-friction.md`, your
+friction entry (GATE-9). Never modify production code, an existing assertion, or the coverage
 configuration (threshold, exclusions).
 
 ## 1. Complete the tests
@@ -84,11 +89,13 @@ configuration (threshold, exclusions).
 5. `Validation command` green (section 3) → commit the added tests:
    `test(N): complete the lot coverage`. Nothing added → no commit.
 6. A test you added is red → it has revealed a bug. **Do not fix it**: no
-   change to the code, no weakened assertion (GATE-2). Commit the other added
-   tests only if the `Validation command` is green without that one. Leave it
-   uncommitted in the working tree, with the bug at its top as a comment
-   (expected, actual), go to section 4, then stop and report the bug: a
-   development session fixes it, and `lot-test` runs again in a new session.
+   change to the code, no weakened assertion (GATE-2). Put it in a new test file
+   of its own, the bug at its top as a comment (expected, actual). Commit the
+   other added tests only if the `Validation command` is green with that file
+   moved out of the repository for the run, never skipped or disabled; then put
+   it back, uncommitted in the working tree. Go to section 4, then stop and
+   report the bug: a development session fixes it, and `lot-test` runs again in
+   a new session.
 
 ## 2. What to test
 
@@ -189,7 +196,8 @@ added to turn a build green. A lot that cannot reach it is a finding to report.
 git diff --name-only "$START" HEAD
 ```
 
-Every path listed is a test file of the table in section 0.1. Another path →
+Every path listed is a test file of the table in section 0.1, or the friction
+file. Another path →
 **stop** and report it; never rewrite the history to hide it. The check sees
 only this run's commits: a fix committed by a development session before the
 run is not in it. `lot-review` checks the `test(N)` commits again.

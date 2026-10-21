@@ -97,11 +97,12 @@ Then, yourself, once `code-review` has returned:
   the lot's diff. A note that is wrong, stale, or a conclusion without its
   reason is a finding, fixed like the others; the header stays, and the file
   stays within 6000 characters (`wc -m`).
-- **The `lot-test` boundary.** Its `test(N)` commits touch test files only and
-  never weaken an existing assertion:
+- **The `lot-test` boundary.** Its `test(N)` commits touch test files only (and
+  `docs/audits/lot-N-friction.md`, GATE-9) and never weaken an existing
+  assertion:
 
   ```bash
-  rtk proxy git -C "$REVIEW_REPO" log --format='%h %s' --name-only --grep='^test(' origin/develop..HEAD
+  rtk proxy git -C "$REVIEW_REPO" log --format='%h %s' --stat -p --grep='^test[(]' origin/develop..HEAD
   ```
 
   A file outside the tests, or an assertion removed or loosened, is a finding.
@@ -113,13 +114,14 @@ Read what `--fix` changed before committing it.
 ```bash
 <Validation command>          # from Gate parameters, green before committing
 git -C "$REVIEW_REPO" diff --stat
+git -C "$REVIEW_REPO" add -- <the paths listed above, docs/memory.md excepted>
 git -C "$REVIEW_REPO" commit -m "fix(N): apply the lot review findings"
 ```
 
 `fix(N)` for a defect, `refactor(N)` for a cleanup with no behaviour change; two
 commits when the lot produced both. A memory correction is its own commit:
-`docs(N): update the project memory`. A rejected finding gets its reason in the
-report.
+`git add docs/memory.md`, then `docs(N): update the project memory`. A rejected
+finding gets its reason in the report.
 
 ## Step 4 — Write the deliverable
 

@@ -114,7 +114,7 @@ assert_ok "lot-test writes test files only" -- grep -qF 'test files only' "$SKIL
 assert_eq "" "$(grep -n 'update the project memory' "$SKILLS/lot-test/SKILL.md" || true)" \
   "lot-test does not require the memory commit"
 assert_ok "lot-review checks the test(N) commits" -- \
-  grep -qF -- "--grep='^test('" "$SKILLS/lot-review/SKILL.md"
+  grep -qF -- "-p --grep='^test[(]'" "$SKILLS/lot-review/SKILL.md"
 
 # Completion from the lot 26 specification: reading order, no empty commit,
 # the skeleton mirror, and the rules that name the close.

@@ -25,7 +25,7 @@
     },
     {
       "id": "LOT-7",
-      "rule": "Development closes per MEM-1; `lot-test` follows in a new session, any profile, test files only. Then the user ends the session, runs `claude-profile claude` under `deepseek` and opens a new one for `lot-review`, `lot-audit` and `lot-ship`. `lot-review` needs an empty `ANTHROPIC_BASE_URL`, never a model's account of its identity."
+      "rule": "Development closes with `lot-start` Step B3; `lot-test` follows in a new session, any profile, test files only. The user then runs `claude-profile claude` under `deepseek` and opens a new session for `lot-review`, `lot-audit` and `lot-ship`. `lot-review` needs an empty `ANTHROPIC_BASE_URL`, never a model's account of its identity."
     },
     {
       "id": "CTX-1",

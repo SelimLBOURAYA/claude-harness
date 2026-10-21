@@ -189,6 +189,7 @@ session, under any profile, and starts from the memory and the lots file.
 
    ```bash
    git -C ~/ENV/projets/claude-harness fetch -q origin main
+   mkdir -p "$LOT_REPO/docs"
    git -C ~/ENV/projets/claude-harness show origin/main:templates/project/docs/memory.md > "$LOT_REPO/docs/memory.md"
    ```
 
