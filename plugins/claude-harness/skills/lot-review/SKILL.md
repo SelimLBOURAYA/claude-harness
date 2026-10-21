@@ -192,8 +192,9 @@ present, so nothing is asked; every finding falls in one of three classes:
 - A fix the `Validation command` still rejects at the second attempt is reverted
   (`git -C "$REVIEW_REPO" restore <path>`) and deferred; a Critical one ends the
   turn `blocked`.
-- The autopilot then checks that the `fix(N)` commits touch only the lot's diff,
-  `docs/audits/` and the `Lots file`, and stops the run otherwise.
+- The autopilot then checks that every commit of this step touches only the
+  lot's diff, `docs/audits/`, the `Lots file` and `docs/memory.md`, whatever
+  the status, and stops the run otherwise.
 
 ## Rules
 

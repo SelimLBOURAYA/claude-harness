@@ -57,6 +57,9 @@ MODELS = {
     "ship": ("DeepSeek", (), "deepseek"),
 }
 SEQUENCE = ("start", "dev", "test", "review", "audit", "ship")
+# The lot IDs lot-confirm.sh accepts. The lot comes from the model's answer and
+# names log files, reports and the confirmation prompt: nothing else passes.
+LOT_ID = re.compile(r"[0-9]+[a-z]?(\.[0-9]+)?")
 
 FIX_PROMPT = (
     "A test that lot-test left uncommitted in the working tree reveals a bug of "
@@ -312,6 +315,8 @@ class Pilot:
         branch = lotfile.current_branch(self.root) or ""
         match = lotfile.LOT_BRANCH.match(branch)
         lot = str(answer.get("lot", ""))
+        if not LOT_ID.fullmatch(lot):
+            raise Stop("start: `%s` is not a lot ID" % lot, "start")
         if not match or match.group(1) != lotfile.lot_base(lot):
             raise Stop("start: branch `%s` is not feat/lot-%s-*" % (branch, lot), "start")
         self.state.update(lot=lot, branch=branch, start_session=self.state.get("session_id"))

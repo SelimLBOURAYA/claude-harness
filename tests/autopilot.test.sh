@@ -44,10 +44,12 @@ fi
 [ -f "$SCEN/$step.silent" ] && exit 1
 questions='[]'
 [ "$step" = start ] && [ -f "$SCEN/start.questions" ] && questions=$(cat "$SCEN/start.questions")
+lot=5
+[ -f "$SCEN/$step.lot" ] && lot=$(cat "$SCEN/$step.lot")
 echo "{\"type\":\"system\",\"subtype\":\"init\",\"session_id\":\"S-$step\"}"
-jq -nc --arg s "$status" --argjson q "$questions" --arg id "S-$step" \
+jq -nc --arg s "$status" --argjson q "$questions" --arg id "S-$step" --arg lot "$lot" \
   '{type:"result", subtype:"success", session_id:$id,
-    structured_output:{status:$s, lot:"5", questions:$q, reason:"fake"}}'
+    structured_output:{status:$s, lot:$lot, questions:$q, reason:"fake"}}'
 EOF
 cat > "$FAKEBIN/gh" <<'EOF'
 #!/usr/bin/env bash
@@ -182,6 +184,13 @@ EOF
 assert_eq 1 "$(pilot "$R")" "a sync-status stop stops the run"
 assert_eq "start " "$(calls "$R")" "no confirmation when sync-status.py exits 3"
 assert_contains "$(state "$R" reason)" "sync-status.py exited 3" "the reason names sync-status"
+
+# --- no confirmation on a lot that is no lot ID ---------------------------
+R=$(fixture badlot harness)
+echo '5.x/../../escape' > "$R.scen/start.lot"
+assert_eq 1 "$(pilot "$R")" "a malformed lot stops the run"
+assert_eq "start " "$(calls "$R")" "no confirmation on a lot that is no lot ID"
+assert_contains "$(state "$R" reason)" "is not a lot ID" "the reason names the lot ID"
 
 # --- a profile left on deepseek -------------------------------------------
 R=$(fixture profile harness)
