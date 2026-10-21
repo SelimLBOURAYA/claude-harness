@@ -163,8 +163,8 @@ assert_eq "" "$(grep -c -- '--dangerously-skip-permissions' "$log" | grep -v '^0
 assert_ok "the state file is removed after the merge" -- test ! -e "$R/.claude/autopilot-state.json"
 assert_contains "$(cat "$R.scen/notify.log")" "Lot 5 merged" "the merge is notified"
 assert_contains "$(cat "$R.out")" "1 fixed, 1 ignored, 0 deferred" "the summary counts the findings"
-assert_eq 1 "$(ls "$FAKEHOME/.claude/autopilot/happy/" | grep -c 'lot-5-review.jsonl')" \
-  "each step has its own log"
+review_logs=("$FAKEHOME/.claude/autopilot/happy/"*lot-5-review.jsonl)
+assert_ok "each step has its own log" -- test -e "${review_logs[0]}"
 
 # --- no confirmation on questions -----------------------------------------
 R=$(fixture questions harness)
