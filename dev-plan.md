@@ -54,6 +54,7 @@
 | 25 | `feat/lot-25-guard-heredoc-report-fields` | A – Harness | Incident elya-frontend : champs SHA du modèle `integration-check`, heredoc lu comme du shell par le garde git | claude-harness, les 8 repos (via `main`) | ✅ |
 | 26 | `feat/lot-26-project-memory` | A – Harness | Mémoire de projet : `docs/memory.md` lu par `lot-start`, amendé en fin de développement, lu par `lot-test` (vérifier et compléter, fichiers de test seuls), vérifié par `lot-review` | claude-harness, les 8 repos (via `main` et la PR de synchro) | ✅ |
 | 27 | `feat/lot-27-autopilot` | A – Harness | Autopilot : enchaînement des étapes d'un lot, une session neuve et un modèle par étape, jusqu'au merge, arrêt et notification au premier blocage | claude-harness, les 8 repos (via `main` et la PR de synchro) | ✅ |
+| 28 | `feat/lot-28-autopilot-lot-answers` | A – Harness | Autopilot : lot nommé par `--lot N`, réponses aux questions de `lot-start` par `--resume --answer`, lancement depuis un terminal | claude-harness, les 8 repos (via `main`) | ⬜ |
 
 Légende des statuts *(P6-D10)* : ⬜ à faire · 🔄 en cours (livré sur la branche, PR non
 mergée) · ✅ mergé sur `develop` · ⏸️ planifié mais dormant · ❄️ gelé.
@@ -2262,6 +2263,103 @@ c'est un passage, le garde répond « deny » sous `HARNESS_AUTOPILOT=1`.
 - Automatisation d'`integration-check`.
 - La promotion `develop` → `main`, qui reste à l'utilisateur.
 - Le repo `claude-harness` lui-même, absent de `projects.json` et gelé.
+
+---
+
+## LOT 28 — Autopilot : lot nommé et réponses à la reprise ⬜
+
+Branche `feat/lot-28-autopilot-lot-answers`, depuis `develop`. Repo touché :
+`claude-harness`. Les 8 repos en héritent à la promotion `develop` → `main`.
+
+### Origine
+
+Incident du 2026-10-22, gel critère (b), décision de l'utilisateur. Sur un
+projet, l'utilisateur voulait le lot 17 (`feat/lot-17-docker-image`) sous
+autopilot. Trois défauts :
+
+- `autopilot` tapé dans le prompt de Claude Code est un message au modèle,
+  pas l'alias du shell : la session est passée en mode manuel, sans que rien
+  ne le signale.
+- Lancé depuis un terminal, le script n'aurait pas fait le lot 17 : il envoie
+  `/claude-harness:lot-start` sans numéro, et `sync-status.py` donnait 8b
+  pour candidat. Aucun moyen de nommer le lot.
+- `lot-start` posait trois questions (branche périmée, cherry-pick, dépendance
+  ASK-1). Le run s'arrête en `blocked`, et `--resume` relance `start` dans une
+  session neuve avec le même prompt fixe : les réponses de l'utilisateur
+  n'arrivent par aucun canal, la session repose les mêmes questions.
+
+### Livrables
+
+1. **`--lot N`** dans `autopilot.py` :
+   - `N` validé par `LOT_ID`, sinon refus de démarrer (sortie 2) ;
+   - incompatible avec `--resume` (le lot vient alors de l'état) : refus ;
+   - prompt de `start` : `/claude-harness:lot-start N` (Step A4 : le lot
+     nommé est le candidat) ;
+   - contrôle après `start` : le `lot` répondu vaut `N`, sinon arrêt à
+     `start`, avant toute confirmation ;
+   - `--dry-run --lot N` affiche ce prompt.
+   Sans `--lot`, comportement inchangé (candidat de `lot-start`).
+2. **`--resume --answer TEXTE`** :
+   - accepté seulement si l'arrêt enregistré est un `blocked` à `start` ou à
+     `dev` ; sinon refus (sortie 2). L'état enregistre donc le statut et les
+     questions de l'arrêt, en plus de la raison ;
+   - le script reprend **la session arrêtée** (`claude -p --resume
+     <session_id>`), qui porte déjà les questions, avec pour prompt les
+     réponses de l'utilisateur précédées d'une ligne fixe (« Owner answers to
+     your questions: ») ;
+   - mêmes contrôles qu'au premier passage : pour `start`, `sync-status.py`,
+     branche `feat/lot-N-*`, `ok` sans questions, et le `lot` de `--lot` s'il
+     a été donné ; la confirmation `lot-start confirm N` reste envoyée par le
+     script, après ces contrôles ;
+   - un `TEXTE` qui est lui-même une confirmation (les deux formes acceptées
+     par `lot-confirm.sh`) est refusé : la confirmation ne doit jamais
+     précéder les contrôles ;
+   - `--resume` sans `--answer` : inchangé (session neuve à l'étape
+     enregistrée), pour le cas où l'utilisateur a tranché dans le `Lots file`.
+   - Les arrêts `blocked` de `lot-review` et `lot-audit` ne changent pas :
+     l'utilisateur tranche, `--resume` passe à l'étape suivante.
+3. **Message d'arrêt** : la dernière ligne imprimée et la notification
+   listent les questions, et la commande à lancer
+   (`autopilot.py --resume --answer "..."`).
+4. **`README.md`**, section « Autopilot » : options `--lot` et `--answer`,
+   lancement depuis un terminal et jamais depuis le prompt de Claude Code
+   (où le mot n'est qu'un message au modèle), alias de shell suggéré.
+5. **Tests** `tests/autopilot.test.sh`, faux binaire `claude` :
+   - `--lot 5` : prompt `/claude-harness:lot-start 5` ; un `lot` répondu
+     différent arrête à `start` sans confirmation ;
+   - `--lot` invalide, et `--lot` avec `--resume`, refusés en sortie 2 ;
+   - `--resume --answer` après un `blocked` à `start` : la session reprise
+     est celle de l'état, le prompt porte les réponses, puis la confirmation
+     suit les contrôles ;
+   - `--answer` refusé hors d'un `blocked` à `start` ou `dev`, et refusé
+     quand le texte est une confirmation ;
+   - `--dry-run --lot N` affiche le prompt nommé.
+
+### Arbitrages (2026-10-22, à la rédaction)
+
+| Sujet | Décision |
+|---|---|
+| Canal des réponses | Reprise de la session arrêtée avec les réponses en prompt, plutôt qu'une écriture dans le `Lots file` : la session a déjà le contexte des questions, et rien n'est commité avant la confirmation |
+| Étapes qui acceptent `--answer` | `start` et `dev` seulement : ce sont les sessions de `lot-start` ; `review` et `audit` gardent leur reprise à l'étape suivante |
+| `autopilot` tapé dans Claude Code | Documentation seule (README). Pas de skill ni de hook qui lance le script depuis une session : un run dure des heures et bloquerait la session |
+
+À vérifier en début de lot (pas une question) : le hook `UserPromptSubmit`
+(`lot-confirm.sh`) se déclenche bien sur un prompt envoyé en `claude -p
+--resume`. Les tests du lot 27 utilisent un faux `claude` et ne le prouvent
+pas. Si le hook ne se déclenche pas, l'autopilot ne peut confirmer aucun lot :
+arrêt et question à l'utilisateur avant tout code.
+
+### Critères de validation
+
+- `./tests/run.sh` vert, nouveaux cas de `tests/autopilot.test.sh` inclus.
+- `--dry-run --lot N` sur un projet réel affiche le prompt nommé.
+
+### Hors périmètre
+
+- Choix d'un lot à la place de `lot-start` (le script ne fait que le nommer
+  et vérifier la réponse).
+- Branche ou verrou périmés laissés par une session manuelle.
+- Un skill ou une commande slash qui lance l'autopilot.
 
 ---
 
