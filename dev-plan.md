@@ -1947,24 +1947,27 @@ un gain concentré sur la seule session de dev).
    cours. Sections : `## Code map` (fichiers et modules, rôle, points
    d'entrée), `## Decisions` (fait, raison, lot d'origine), `## Pitfalls`,
    `## Open questions`.
-2. `lot-start`, nouvelle étape B3 « Clore le développement », invoquée
-   explicitement par `lot-start close N` (nommée dans la description de la
-   skill, pour qu'un enchaînement automatique l'appelle comme les autres
-   étapes) : la session de dev, la seule qui a encore le raisonnement en
-   contexte, amende
-   `docs/memory.md` avant de passer la main. Elle réécrit ou supprime les
-   notes touchées par le lot, n'ajoute rien à la suite et reste sous le
+2. `lot-start`, nouvelle étape B3 « Clore le développement » : la session de
+   dev, la seule qui a encore le raisonnement en contexte, l'exécute
+   **d'elle-même** dès que le code du lot est complet et la `Validation
+   command` verte, sans action de l'utilisateur. `lot-start close N` (nommé
+   dans la description de la skill) n'en est que le point d'entrée explicite,
+   pour l'enchaînement automatique du lot 27 ou pour forcer la clôture. B3
+   amende `docs/memory.md` avant de passer la main. Elle réécrit ou supprime
+   les notes touchées par le lot, n'ajoute rien à la suite et reste sous le
    plafond. Si le fichier manque, elle le crée depuis le modèle (ajout au
    census `## Project documents`, DOC-1). Commit
    `docs(N): update the project memory`, après une `Validation command`
-   verte, puis fin de session : `lot-test` s'ouvre dans une **nouvelle
-   session**, sous n'importe quel profil (`deepseek` prévu).
+   verte, **seulement si le fichier a changé** (jamais de commit vide), puis
+   fin de session : `lot-test` s'ouvre dans une **nouvelle session**, sous
+   n'importe quel profil (`deepseek` prévu).
 3. `lot-test` **vérifie et complète, il ne réécrit pas** (arbitrage
    ci-dessous). Les tests du code restent écrits pendant le développement,
    dans le commit du code (GATE-3, inchangée).
-   - Étape 0 : lecture de `docs/memory.md` et des critères d'acceptation du
-     lot. **Arrêt** si le commit `docs(N): update the project memory`
-     manque sur la branche : le développement n'est pas clos.
+   - Étape 0 : lecture de `docs/memory.md` (s'il existe) et des critères
+     d'acceptation du lot. Arbre de travail propre exigé, et `HEAD` noté
+     comme **point de départ** de `lot-test`. Le commit de la mémoire n'est
+     pas exigé : une mémoire inchangée ne bloque rien.
    - Les tests ajoutés sont **boîte noire**. Ils couvrent les critères
      d'acceptation et les branches non couvertes, à partir de la spécification
      du lot et non du code. Ils sont commités à part :
@@ -1980,9 +1983,11 @@ un gain concentré sur la seule session de dev).
      obtenu) en commentaire en tête du test, et s'arrête. La session de
      développement suivante le voit dans `git status` (hook `SessionStart`)
      sans autre mécanisme.
-   - Contrôle avant « Stop » : `git diff --name-only` des commits de
-     `lot-test` contre le commit de la mémoire ne liste que des fichiers de
-     test. Sinon, arrêt.
+   - Contrôle avant « Stop » : `git diff --name-only` du point de départ à
+     `HEAD` ne liste que des fichiers de test. Sinon, arrêt. Le contrôle ne
+     voit que les commits de `lot-test` : un correctif de production commité
+     par une session de dev entre deux passages de `lot-test` ne le fausse
+     pas.
    - §5 « Stop » : la fin du développement est désormais l'étape B3 de
      `lot-start`. `lot-test` s'arrête puis renvoie vers `lot-review` dans une
      nouvelle session, sous le profil `claude`.
@@ -1994,10 +1999,12 @@ un gain concentré sur la seule session de dev).
    de `lot-test` : un commit `test(N)` qui touche un fichier hors test, ou qui
    affaiblit une assertion existante, est un constat.
 6. `CONVENTIONS.md` :
-   - une règle courte (identifiant stable) qui fixe le fichier, son statut
-     d'outil non normatif, son plafond et ses moments : lu par `lot-start`,
-     amendé en fin de développement (B3), lu par `lot-test`, vérifié par
-     `lot-review` ;
+   - une règle courte **MEM-1**, au §2 (flux des lots), qui fixe le fichier,
+     son statut d'outil non normatif, son plafond et ses moments : lu par
+     `lot-start`, amendé en fin de développement (B3), lu par `lot-test`,
+     vérifié par `lot-review` ;
+   - **GATE-7** : la chaîne nomme la clôture du développement
+     (`lot-start` → développement → clôture B3 → `lot-test` → …) ;
    - **LOT-7** réécrite : le développement s'achève à l'étape B3 de
      `lot-start`. `lot-test` tourne dans une nouvelle session, sous
      n'importe quel profil, et n'écrit que des fichiers de test. `lot-review`
@@ -2008,9 +2015,17 @@ un gain concentré sur la seule session de dev).
    sien, rempli, dans ce lot.
 8. Tests : le plafond de 6 000 caractères et l'en-tête fixe sont vérifiés
    sur le modèle et sur le fichier du harnais. Les skills `lot-start`,
-   `lot-test` et `lot-review` nomment `docs/memory.md` ; `lot-test` nomme
-   le commit `docs(N): update the project memory` qu'il exige et sa règle
-   « fichiers de test seuls » (`tests/skills.test.sh`).
+   `lot-test` et `lot-review` nomment `docs/memory.md` ; `lot-start` nomme
+   `lot-start close N` et le commit `docs(N): update the project memory` ;
+   `lot-test` nomme son point de départ et sa règle « fichiers de test
+   seuls » (`tests/skills.test.sh`).
+
+Amendement (2026-10-21, à la confirmation du lot) : B3 s'exécute d'elle-même
+en fin de dev, `lot-start close N` restant un point d'entrée explicite ; le
+commit de la mémoire n'a lieu que si le fichier change, et `lot-test` ne
+l'exige plus ; la frontière de `lot-test` se mesure depuis son propre point de
+départ ; règle MEM-1 au §2 et GATE-7 complétée. Plafond de 6 000 caractères
+maintenu, revu au contrôle différé.
 
 ### Arbitrage (2026-10-21) — changement de modèle entre dev et `lot-test`
 
@@ -2113,7 +2128,9 @@ aux invariants de sécurité (confirmation du verrou et merge sans humain, sur
      en 0 (aucun stop), la branche `feat/lot-N-*` est créée, le statut est
      `ok` et `questions` est vide. Sinon : pas de confirmation, arrêt ;
    - après le dev : le commit `docs(N): update the project memory` est sur
-     la branche ;
+     la branche (**à revoir** : depuis l'amendement du lot 26, ce commit
+     n'a lieu que si la mémoire change ; un autre marqueur déterministe de
+     clôture est à trancher au démarrage du lot 27) ;
    - après `lot-test` : ses commits ne touchent que des fichiers de test
      (même règle que le lot 26) ;
    - après `lot-review` puis `lot-audit` : `docs/audits/lot-N-review.md`
