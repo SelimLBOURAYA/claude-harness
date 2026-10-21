@@ -52,7 +52,7 @@
 | 23 | `feat/lot-23-sync-automerge` | A – Harness | Merge automatique des PR de synchro de `CONVENTIONS.md`, version du plugin pour l'auto-update, et les deux constats reportés de la revue du lot 22 | claude-harness, les 8 repos (via `main`) | ✅ |
 | 24 | `feat/lot-24-harness-freeze` | D – Clôture | Gel du harnais : contradictions corrigées, boucle de friction coupée, `CONVENTIONS.md` allégé, verrou simplifié, merge par `lot-ship` | claude-harness, les 8 repos (via `main` et la PR de synchro) | ✅ |
 | 25 | `feat/lot-25-guard-heredoc-report-fields` | A – Harness | Incident elya-frontend : champs SHA du modèle `integration-check`, heredoc lu comme du shell par le garde git | claude-harness, les 8 repos (via `main`) | ✅ |
-| 26 | `feat/lot-26-project-memory` | A – Harness | Mémoire de projet : `docs/memory.md` lu par `lot-start`, amendé par `lot-test`, vérifié par `lot-review` | claude-harness, les 8 repos (via `main` et la PR de synchro) | ⬜ |
+| 26 | `feat/lot-26-project-memory` | A – Harness | Mémoire de projet : `docs/memory.md` lu par `lot-start`, amendé en fin de développement, lu par `lot-test` (vérifier et compléter, fichiers de test seuls), vérifié par `lot-review` | claude-harness, les 8 repos (via `main` et la PR de synchro) | ⬜ |
 
 Légende des statuts *(P6-D10)* : ⬜ à faire · 🔄 en cours (livré sur la branche, PR non
 mergée) · ✅ mergé sur `develop` · ⏸️ planifié mais dormant · ❄️ gelé.
@@ -1946,28 +1946,86 @@ un gain concentré sur la seule session de dev).
    cours. Sections : `## Code map` (fichiers et modules, rôle, points
    d'entrée), `## Decisions` (fait, raison, lot d'origine), `## Pitfalls`,
    `## Open questions`.
-2. `lot-test`, nouvelle étape avant « Stop » : la session de dev, qui a
-   encore le raisonnement en contexte, amende `docs/memory.md` — réécrit ou
-   supprime les notes touchées par le lot, n'ajoute pas à la suite, reste
-   sous le plafond — et le crée depuis le modèle s'il manque (ajout au
+2. `lot-start`, nouvelle étape B3 « Clore le développement », invoquée
+   explicitement par `lot-start close N` (nommée dans la description de la
+   skill, pour qu'un enchaînement automatique l'appelle comme les autres
+   étapes) : la session de dev, la seule qui a encore le raisonnement en
+   contexte, amende
+   `docs/memory.md` avant de passer la main. Elle réécrit ou supprime les
+   notes touchées par le lot, n'ajoute rien à la suite et reste sous le
+   plafond. Si le fichier manque, elle le crée depuis le modèle (ajout au
    census `## Project documents`, DOC-1). Commit
    `docs(N): update the project memory`, après une `Validation command`
-   verte.
-3. `lot-start`, étape A2 : lecture de `docs/memory.md`, une fois, avant la
+   verte, puis fin de session : `lot-test` s'ouvre dans une **nouvelle
+   session**, sous n'importe quel profil (`deepseek` prévu).
+3. `lot-test` **vérifie et complète, il ne réécrit pas** (arbitrage
+   ci-dessous). Les tests du code restent écrits pendant le développement,
+   dans le commit du code (GATE-3, inchangée).
+   - Étape 0 : lecture de `docs/memory.md` et des critères d'acceptation du
+     lot. **Arrêt** si le commit `docs(N): update the project memory`
+     manque sur la branche : le développement n'est pas clos.
+   - Les tests ajoutés sont **boîte noire**. Ils couvrent les critères
+     d'acceptation et les branches non couvertes, à partir de la spécification
+     du lot et non du code. Ils sont commités à part :
+     `test(N): complete the lot coverage`.
+   - Écritures limitées aux **fichiers de test**, déduits du `Stack` :
+     `src/test/` en `backend`, `*.spec.ts` en `frontend`, `tests/` en
+     `harness`. En `other`, les fichiers touchés sont listés dans le compte
+     rendu. Ni le code de production ni une assertion existante ne sont
+     modifiés, pas plus que la configuration de couverture (seuil,
+     exclusions).
+   - Un test qui révèle un bug **n'est pas corrigé** : il n'est pas commité
+     (GATE-2). `lot-test` le laisse dans l'arbre de travail, le bug (attendu,
+     obtenu) en commentaire en tête du test, et s'arrête. La session de
+     développement suivante le voit dans `git status` (hook `SessionStart`)
+     sans autre mécanisme.
+   - Contrôle avant « Stop » : `git diff --name-only` des commits de
+     `lot-test` contre le commit de la mémoire ne liste que des fichiers de
+     test. Sinon, arrêt.
+   - §5 « Stop » : la fin du développement est désormais l'étape B3 de
+     `lot-start`. `lot-test` s'arrête puis renvoie vers `lot-review` dans une
+     nouvelle session, sous le profil `claude`.
+4. `lot-start`, étape A2 : lecture de `docs/memory.md`, une fois, avant la
    section du lot candidat. Pas d'injection au `SessionStart`.
-4. `lot-review`, étape 2 : relecture de `docs/memory.md` contre le code et le
-   diff ; une note fausse, périmée ou formulée en conclusion sans raison
-   est un constat, corrigé comme les autres.
-5. `CONVENTIONS.md` : une règle courte (identifiant stable) qui fixe le
-   fichier, son statut d'outil non normatif, son plafond et les trois moments
-   (lu par `lot-start`, amendé par `lot-test`, vérifié par `lot-review`) ;
-   carte `rules/deepseek.json` régénérée.
-6. Squelette `templates/project/` : `docs/memory.md` vide aux sections fixes,
-   listé dans le census du `CLAUDE.md` modèle ; `claude-harness` reçoit le
+5. `lot-review`, étape 2 : relecture de `docs/memory.md` contre le code et le
+   diff. Une note fausse, périmée ou formulée en conclusion sans raison est
+   un constat, corrigé comme les autres. Contrôle indépendant de la frontière
+   de `lot-test` : un commit `test(N)` qui touche un fichier hors test, ou qui
+   affaiblit une assertion existante, est un constat.
+6. `CONVENTIONS.md` :
+   - une règle courte (identifiant stable) qui fixe le fichier, son statut
+     d'outil non normatif, son plafond et ses moments : lu par `lot-start`,
+     amendé en fin de développement (B3), lu par `lot-test`, vérifié par
+     `lot-review` ;
+   - **LOT-7** réécrite : le développement s'achève à l'étape B3 de
+     `lot-start`. `lot-test` tourne dans une nouvelle session, sous
+     n'importe quel profil, et n'écrit que des fichiers de test. `lot-review`
+     reste réservé au profil `claude` ;
+   - carte `rules/deepseek.json` régénérée.
+7. Squelette `templates/project/` : `docs/memory.md` vide aux sections fixes,
+   listé dans le census du `CLAUDE.md` modèle. `claude-harness` reçoit le
    sien, rempli, dans ce lot.
-7. Tests : le plafond de 6 000 caractères et l'en-tête fixe sont vérifiés
-   sur le modèle et sur le fichier du harnais ; les skills `lot-start`,
-   `lot-test` et `lot-review` nomment `docs/memory.md` (`tests/skills.test.sh`).
+8. Tests : le plafond de 6 000 caractères et l'en-tête fixe sont vérifiés
+   sur le modèle et sur le fichier du harnais. Les skills `lot-start`,
+   `lot-test` et `lot-review` nomment `docs/memory.md` ; `lot-test` nomme
+   le commit `docs(N): update the project memory` qu'il exige et sa règle
+   « fichiers de test seuls » (`tests/skills.test.sh`).
+
+### Arbitrage (2026-10-21) — changement de modèle entre dev et `lot-test`
+
+L'utilisateur prévoit Sonnet pour le développement, DeepSeek pour `lot-test`
+et `lot-ship`, et Opus pour `lot-review` et `lot-audit`, une session neuve par
+étape. Changer de modèle pour **écrire** les tests du lot est écarté. Un modèle
+qui teste un code qu'il n'a pas écrit, sans l'intention derrière, décrit le
+comportement actuel et fige donc les bugs dans des tests verts. Face à un test
+rouge, il risque aussi de corriger le code de production sans connaître les
+décisions, ou d'affaiblir l'assertion (GATE-2). Le changement est retenu pour
+**vérifier et compléter** : regard neuf sur les cas oubliés, tests boîte noire
+tirés de la spécification, et partie mécanique moins chère (relancer la suite,
+lire la couverture). D'où trois conséquences : la mémoire s'écrit en fin de
+dev par le modèle qui connaît les décisions, et non en fin de `lot-test` ;
+`lot-test` est borné aux fichiers de test ; `lot-review`, sous Opus, contrôle
+cette frontière.
 
 ### Critères de validation
 
@@ -1986,6 +2044,9 @@ un gain concentré sur la seule session de dev).
   lot du projet après la promotion.
 - La mémoire automatique de Claude Code (`~/.claude/projects/*/memory/`),
   inchangée.
+- L'orchestrateur qui enchaîne les étapes et choisit le modèle de chacune
+  (lot ultérieur) : ce lot ne fait que rendre chaque étape exécutable dans
+  une session neuve.
 
 ---
 
