@@ -33,6 +33,10 @@
   reviewed, not grepped (lot 24).
 - `CONVENTIONS.md` stays within 15000 bytes, English, no dated story
   (`tests/conventions.test.sh`); a new ID prefix goes in its citation regex.
+- Every lot bumps the plugin version in its own commit,
+  `chore(N): bump the plugin to X.Y.Z`, in both `plugin.json` and
+  `.claude-plugin/marketplace.json` (two fields there): `plugin-currency.py` compares the
+  installed version with the one `main` declares.
 - Lot branches are created `--no-track`: a branch tracking `develop` sends a
   bare `git push` there (lot 22).
 - `lot-test` checks and completes the tests from a fresh session and writes
