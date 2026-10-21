@@ -138,13 +138,17 @@ assert_eq 0 "$(pilot "$R")" "a lot runs to its merge"
 assert_eq "start dev test review audit ship " "$(calls "$R")" \
   "one session per step, and none after the merge"
 log="$R.scen/calls.log"
-assert_contains "$(grep '^start ' "$log")" "--model claude-sonnet-5-5" "lot-start runs on Sonnet"
+for step in start dev test ship; do
+  assert_contains "$(grep "^$step " "$log")" "settings.deepseek.json" "$step runs on the deepseek settings"
+  assert_eq "" "$(grep "^$step " "$log" | grep -o -- '--model' || true)" "$step passes no Claude model"
+done
 assert_contains "$(grep '^dev ' "$log")" "prompt=lot-start confirm 5" "the confirmation is the exact prompt"
 assert_contains "$(grep '^dev ' "$log")" "--resume S-start" "the development resumes the lot-start session"
-assert_contains "$(grep '^test ' "$log")" "settings.deepseek.json" "lot-test runs on the deepseek settings"
-assert_contains "$(grep '^ship ' "$log")" "settings.deepseek.json" "lot-ship runs on the deepseek settings"
 assert_contains "$(grep '^review ' "$log")" "--model claude-opus-5-5" "lot-review runs on Opus"
 assert_contains "$(grep '^audit ' "$log")" "--model claude-opus-5-5" "lot-audit runs on Opus"
+for step in review audit; do
+  assert_contains "$(grep "^$step " "$log")" "settings.claude.json" "$step runs on the claude settings, never deepseek"
+done
 assert_contains "$(grep '^review ' "$log")" "autopilot=1" "HARNESS_AUTOPILOT=1 reaches lot-review"
 assert_contains "$(grep '^audit ' "$log")" "autopilot=1" "HARNESS_AUTOPILOT=1 reaches lot-audit"
 assert_eq "" "$(grep -c -- '--dangerously-skip-permissions' "$log" | grep -v '^0$')" \
@@ -187,7 +191,7 @@ R=$(fixture fixonce harness)
 printf 'failed\nfailed\n' > "$R.scen/test.status"
 assert_eq 1 "$(pilot "$R")" "a second lot-test failure stops the run"
 assert_eq "start dev test fix test " "$(calls "$R")" "one fix session, then lot-test again"
-assert_contains "$(grep '^fix ' "$R.scen/calls.log")" "--model claude-sonnet-5-5" "the fix runs on Sonnet"
+assert_contains "$(grep '^fix ' "$R.scen/calls.log")" "settings.deepseek.json" "the fix runs on the deepseek settings"
 assert_eq test "$(state "$R" resume)" "the stop resumes at lot-test"
 
 R=$(fixture fixok harness)

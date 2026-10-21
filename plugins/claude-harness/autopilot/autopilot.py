@@ -43,16 +43,15 @@ STATE_PATH = os.path.join(".claude", "autopilot-state.json")
 # CI), not a target. The environment override exists for the tests only.
 STEP_TIMEOUT = int(os.environ.get("AUTOPILOT_STEP_TIMEOUT", "1800"))
 
-SONNET = ("--model", "claude-sonnet-5-5", "--effort", "medium")
 OPUS = ("--model", "claude-opus-5-5", "--effort", "medium")
 PROFILES = {"claude": "settings.claude.json", "deepseek": "settings.deepseek.json"}
 
 # step -> (label, model options, profile)
 MODELS = {
-    "start": ("Sonnet", SONNET, "claude"),
-    "dev": ("Sonnet", SONNET, "claude"),
+    "start": ("DeepSeek", (), "deepseek"),
+    "dev": ("DeepSeek", (), "deepseek"),
     "test": ("DeepSeek", (), "deepseek"),
-    "fix": ("Sonnet", SONNET, "claude"),
+    "fix": ("DeepSeek", (), "deepseek"),
     "review": ("Opus", OPUS, "claude"),
     "audit": ("Opus", OPUS, "claude"),
     "ship": ("DeepSeek", (), "deepseek"),

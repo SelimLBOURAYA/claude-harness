@@ -245,9 +245,9 @@ python3 ~/.claude/plugins/marketplaces/claude-harness/plugins/claude-harness/aut
 
 | Step | Model | Settings |
 |---|---|---|
-| `lot-start` part A, then `lot-start confirm N`, development and Step B3 in the same session | Sonnet | `~/.claude/settings.claude.json` |
+| `lot-start` part A, then `lot-start confirm N`, development and Step B3 in the same session | DeepSeek | `~/.claude/settings.deepseek.json` |
 | `lot-test` | DeepSeek | `~/.claude/settings.deepseek.json` |
-| Fix of a bug `lot-test` revealed, once, then `lot-test` again | Sonnet | `~/.claude/settings.claude.json` |
+| Fix of a bug `lot-test` revealed, once, then `lot-test` again | DeepSeek | `~/.claude/settings.deepseek.json` |
 | `lot-review`, then `lot-audit` | Opus | `~/.claude/settings.claude.json` |
 | `lot-ship` | DeepSeek | `~/.claude/settings.deepseek.json` |
 
