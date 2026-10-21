@@ -25,8 +25,10 @@
 ## Decisions
 
 - Consumers run `main`; nothing reaches the 8 repos before the user promotes
-  `develop` → `main`. Skills read harness files from `origin/main`, never the
-  clone's working tree (harness-invariants compares against `main`). Lot 24.
+  `develop` → `main`. Skills read `CONVENTIONS.md`, the plugin version and the
+  memory template from `origin/main`, never the clone's working tree
+  (harness-invariants compares against `main`). Lot 24. `bootstrap-project`
+  still copies `templates/project/` from the working tree.
 - Freeze since lot 24: a change needs a broken CI, a security flaw or a real
   incident; lots 26 and 27 are user-decided exceptions.
 - Skills and docs cite a rule by its ID, never restate it; what a rule says is
