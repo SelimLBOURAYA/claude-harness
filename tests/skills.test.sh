@@ -116,6 +116,22 @@ assert_eq "" "$(grep -n 'update the project memory' "$SKILLS/lot-test/SKILL.md" 
 assert_ok "lot-review checks the test(N) commits" -- \
   grep -qF -- "--grep='^test('" "$SKILLS/lot-review/SKILL.md"
 
+# Completion from the lot 26 specification: reading order, no empty commit,
+# the skeleton mirror, and the rules that name the close.
+START_SKILL="$SKILLS/lot-start/SKILL.md"
+a2=$(sed -n '/^### Step A2/,/^### Step A3/p' "$START_SKILL")
+assert_ok "lot-start reads the memory in step A2, before the candidate section" -- \
+  test "$(grep -n 'docs/memory.md' <<< "$a2" | head -1 | cut -d: -f1)" -lt "$(grep -n 'candidate' <<< "$a2" | head -1 | cut -d: -f1)"
+assert_contains "$(cat "$START_SKILL")" "Unchanged → no commit" "lot-start skips the memory commit when the file is unchanged"
+assert_contains "$(cat "$START_SKILL")" "never an empty one" "lot-start never makes an empty memory commit"
+assert_ok "the skeleton CLAUDE.md and AGENTS.md are byte-identical" -- \
+  cmp -s "$REPO_ROOT/templates/project/CLAUDE.md" "$REPO_ROOT/templates/project/AGENTS.md"
+conv_rule() { grep -E "^- \*\*$1\*\* " "$REPO_ROOT/CONVENTIONS.md"; }
+assert_contains "$(conv_rule GATE-7)" "its close (MEM-1) → \`lot-test\`" "GATE-7 names the close before lot-test"
+assert_contains "$(conv_rule LOT-7)" "test files only" "LOT-7 limits lot-test to test files"
+assert_contains "$(conv_rule LOT-7)" "any profile" "LOT-7 lets lot-test run under any profile"
+assert_contains "$(conv_rule MEM-1)" "6000 characters" "MEM-1 states the cap"
+
 # i-have-adhd stays user-invoked only.
 assert_ok "i-have-adhd is never model-invoked" -- \
   grep -q '^disable-model-invocation: true' "$SKILLS/i-have-adhd/SKILL.md"
