@@ -1,20 +1,25 @@
 ---
 name: lot-test
 description: >-
-  Guarantees that every lot is covered by written, passing tests before the PR
-  is opened, with the coverage gate green at the repository's own threshold.
-  Use at the end of a lot, before lot-review, or when the user mentions tests,
-  coverage, JUnit, Vitest, Karma, JaCoCo or verification.
+  Checks and completes the tests of a lot in a new session, after the
+  development's close: black-box tests drawn from the lot's specification,
+  test files only, coverage gate green at the repository's own threshold. Use
+  after lot-start closed the development, before lot-review, or when the user
+  mentions tests, coverage, JUnit, Vitest, Karma, JaCoCo or verification.
 metadata:
-  version: "3.0"
+  version: "4.0"
 ---
 
-# Lot Test — Coverage & quality
+# Lot Test — Check and complete the coverage
 
-The last step of a lot's development. A lot without tests is incomplete.
+Runs in a **new session**, under any profile, once `lot-start` has closed the
+development (its Step B3). The lot's tests were written with its code (GATE-3):
+this skill **checks and completes** them, it does not rewrite them. A fresh
+look finds the forgotten cases; it does not know the decisions behind the code,
+so it never touches the code.
 
 ```
-lot-test  →  lot-review  →  lot-audit  →  lot-ship
+development  →  close  →  [lot-test]  →  lot-review  →  lot-audit  →  lot-ship
 ```
 
 ## 0. Read the gate parameters first
@@ -33,10 +38,40 @@ values throughout; this skill hard-codes no command and no threshold.
 
 A missing section or parameter → **stop** and ask the user to fill it.
 
-## 1. Write the tests
+### 0.1 Starting point and what you may write
 
-1. Read the lot's section in the `Lots file`: its acceptance criteria are the
-   test list.
+```bash
+git status --porcelain        # must print nothing
+START=$(git rev-parse HEAD)   # the starting point of this run
+```
+
+Write down the SHA `START` holds: a shell variable does not survive from one
+`Bash` call to the next, so section 5 uses that SHA, never a new
+`git rev-parse HEAD`, which would make the check pass on an empty range.
+
+A dirty tree → **stop** and report it: the development is not closed, or a
+previous run left a test revealing a bug (section 1, step 6), whose fix belongs
+to a development session.
+
+Then read `docs/memory.md` (MEM-1), if it exists, and the lot's section in the
+`Lots file`.
+
+You write **test files only**, chosen by `Stack`:
+
+| `Stack` | Test files |
+|---|---|
+| `backend` | under `src/test/` |
+| `frontend` | `*.spec.ts` |
+| `harness` | under `tests/` |
+| `other` | any file, each one listed in your report |
+
+The one other file you may write is `docs/audits/lot-N-friction.md`, your
+friction entry (GATE-9). Never modify production code, an existing assertion, or the coverage
+configuration (threshold, exclusions).
+
+## 1. Complete the tests
+
+1. The lot's acceptance criteria are the test list.
 2. List what the lot added or modified, against the fetched `origin/develop`,
    never the local `develop`:
 
@@ -47,9 +82,20 @@ A missing section or parameter → **stop** and ask the user to fill it.
 
    - backend: services, controllers, entities, mappers, migrations;
    - frontend: components, services, guards, interceptors, stores, routes.
-3. Write the corresponding tests (section 2).
-4. Run the `Validation command` until green (section 3).
-5. Commit the tests on the lot branch, with the code they cover (GATE-3).
+3. Fill the business-rule matrix (section 2) and find each row's existing test.
+4. For each criterion or branch left uncovered, write a **black-box** test:
+   drawn from the lot's specification, not from the code, so that it asserts
+   what the code should do rather than what it does.
+5. `Validation command` green (section 3) → commit the added tests:
+   `test(N): complete the lot coverage`. Nothing added → no commit.
+6. A test you added is red → it has revealed a bug. **Do not fix it**: no
+   change to the code, no weakened assertion (GATE-2). Put it in a new test file
+   of its own, the bug at its top as a comment (expected, actual). Commit the
+   other added tests only if the `Validation command` is green with that file
+   moved out of the repository for the run, never skipped or disabled; then put
+   it back, uncommitted in the working tree. Go to section 4, then stop and
+   report the bug: a development session fixes it, and `lot-test` runs again in
+   a new session.
 
 ## 2. What to test
 
@@ -133,17 +179,32 @@ added to turn a build green. A lot that cannot reach it is a finding to report.
 ## 4. Checklist
 
 - [ ] `Gate parameters` read; no command or threshold improvised
+- [ ] Clean tree at the start, `START` noted, `docs/memory.md` read
 - [ ] Tests for every class or component the lot modified
 - [ ] Business-rule matrix filled, every row covered
 - [ ] Backend: migrations executed by a real-database integration test
 - [ ] `<Validation command>` green
 - [ ] Coverage report opened — no business class at 0 %
 - [ ] `Coverage exclusions` reviewed, any business-package exclusion reported
-- [ ] Tests committed on the lot branch, with the code they cover
+- [ ] Added tests black-box, committed as `test(N): complete the lot coverage`
+- [ ] A test revealing a bug left uncommitted, the code untouched
+- [ ] Boundary check passed (section 5)
 
-## 5. Stop: the development ends here
+## 5. Boundary check, before the stop
 
-Whatever the profile, stop after this skill (LOT-7): tell the user the
-development is done, and to end the session, run
-`/home/selim/.local/bin/claude-profile claude` if the profile is `deepseek`, and
-open a new session for `lot-review`, then `lot-audit` and `lot-ship`.
+```bash
+git diff --name-only "$START" HEAD
+```
+
+Every path listed is a test file of the table in section 0.1, or the friction
+file. Another path →
+**stop** and report it; never rewrite the history to hide it. The check sees
+only this run's commits: a fix committed by a development session before the
+run is not in it. `lot-review` checks the `test(N)` commits again.
+
+## 6. Stop
+
+Whatever the profile, stop after this skill (LOT-7): tell the user to end the
+session, run `/home/selim/.local/bin/claude-profile claude` if the profile is
+`deepseek`, and open a new session for `lot-review`, then `lot-audit` and
+`lot-ship`.

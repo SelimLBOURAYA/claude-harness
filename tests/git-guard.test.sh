@@ -128,6 +128,12 @@ expect ask "$FEAT" "git push origin \$(git branch --show-current)"
 expect ask "$FEAT" "git push origin 'unbalanced"
 expect ask "$WORK" "git push"
 
+# --- an autopilot session has no human to ask: denied instead (lot 27) ----
+assert_eq deny "$(HARNESS_AUTOPILOT=1 decision "$FEAT" "B=main; git push origin \$B")" \
+  "autopilot: an unresolved push is denied, not asked"
+assert_eq pass "$(HARNESS_AUTOPILOT=1 decision "$FEAT" "git status")" \
+  "autopilot: a harmless command still passes"
+
 # --- a heredoc body is data, unless a shell reads it (lot 25) -------------
 NL=$'\n'
 # Incident 2 (elya, 2026-10-04): French apostrophes in a python3 heredoc.

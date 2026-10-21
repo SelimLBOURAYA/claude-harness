@@ -196,8 +196,8 @@ missing line is a drift that `harness-sync` and `harness-invariants.yml` report.
 
 | Skill | Role |
 |---|---|
-| `lot-start` | Syncs the lots file status table with develop, asks every ambiguity, creates the branch, waits for `lot-start confirm N` |
-| `lot-test` | Tests written and green, coverage gate at the repo threshold |
+| `lot-start` | Syncs the lots file status table with develop, asks every ambiguity, creates the branch, waits for `lot-start confirm N`; Step B3 closes the development by amending `docs/memory.md` |
+| `lot-test` | Checks and completes the tests in a new session, test files only, coverage gate at the repo threshold |
 | `lot-review` | Code review of the lot, applied fixes, questions on the findings that need a decision (`claude` profile, new session) |
 | `lot-audit` | Security, performance and architecture audit, findings fixed → `docs/audits/lot-N.md` |
 | `lot-ship` | Commits, lot marked ✅, push, PR to `develop`, merge once the CI is green, then stop |
@@ -217,7 +217,7 @@ Gate, mandatory in order: `lot-test → lot-review → lot-audit → lot-ship`, 
 | `git-guard.py` | `PreToolUse` on `Bash` | Denies pushes to `main`, force pushes, `--no-verify`, `reset --hard`, remote branch deletion, `gh pr create` without `--base develop`, and any `gh pr merge` but a lot pull request (`feat/lot-*` into `develop`) whose checks are all green, read through `gh pr view`; `--delete-branch` and `--admin` are denied. Gate deliverables are not its business: `lot-deliverables.yml` owns that rule, and owns it alone. Every other push or PR creation passes without a prompt (lot 24); it asks only for a push target it cannot resolve and for anything it cannot parse. |
 | `mirror-sync.sh` | `PostToolUse` on `Edit`, `Write`, `Bash` | Keeps `AGENTS.md` byte-identical to `CLAUDE.md`, including after shell edits (`cp`, `mv`, `sed -i`, redirections). |
 | `lot-lock-guard.py` | `PreToolUse` on `Edit`, `Write`, `MultiEdit`, `NotebookEdit` | On a `feat/lot-*` branch, denies every write until `.claude/current-lot` names that branch; always lets the lots file through, never the lock itself. The repository is resolved from the written path. Writes made through `Bash` are not covered: a documented limit. |
-| `lot-confirm.sh` | `UserPromptSubmit` | Writes `.claude/current-lot` when the whole user prompt is `lot-start confirm N` or `/claude-harness:lot-start confirm N` on a `feat/lot-N-*` branch; the lock holds that branch and the date, and `lot-ship` removes it after the merge. The model cannot forge a user prompt. |
+| `lot-confirm.sh` | `UserPromptSubmit` | Writes `.claude/current-lot` when the whole user prompt is `lot-start confirm N` or `/claude-harness:lot-start confirm N` on a `feat/lot-N-*` branch; the lock holds that branch and the date, and `lot-ship` removes it after the merge. The model cannot forge a user prompt; the user's autopilot submits it only once its own checks passed. |
 | `session-context.sh` | `SessionStart` (`startup`, `resume`, `clear`, `compact`) | Re-injects branch, working tree, last merges on develop, the lot lock and the open rows of the status table; flags a compaction summary as untrusted; adds `rules/deepseek.json` when `ANTHROPIC_BASE_URL` is set. Capped at ~2K tokens, never blocks. |
 
 `session-context.sh` reads that freshness through `hooks/plugin-currency.py`, a
@@ -228,7 +228,57 @@ able to report that the copy reading it is the outdated one.
 ignores it.
 
 The guard is intentionally conservative: an unparseable command produces a
-confirmation prompt, never a silent allow.
+confirmation prompt, never a silent allow. Under `HARNESS_AUTOPILOT=1` there is
+nobody to answer that prompt, so the guard denies instead.
+
+## Autopilot
+
+`autopilot/autopilot.py` runs **one** lot of the current repository from
+`lot-start` to the merge, a fresh `claude -p` session per step, and stops at the
+first blocker (lot 27). Launch it from the root of the project, through the
+marketplace clone, which follows `main` like the plugin of the sessions it opens:
+
+```bash
+python3 ~/.claude/plugins/marketplaces/claude-harness/plugins/claude-harness/autopilot/autopilot.py --dry-run
+python3 ~/.claude/plugins/marketplaces/claude-harness/plugins/claude-harness/autopilot/autopilot.py
+```
+
+| Step | Model | Settings |
+|---|---|---|
+| `lot-start` part A, then `lot-start confirm N`, development and Step B3 in the same session | DeepSeek | `~/.claude/settings.deepseek.json` |
+| `lot-test` | DeepSeek | `~/.claude/settings.deepseek.json` |
+| Fix of a bug `lot-test` revealed, once, then `lot-test` again | DeepSeek | `~/.claude/settings.deepseek.json` |
+| `lot-review`, then `lot-audit` | Opus | `~/.claude/settings.claude.json` |
+| `lot-ship` | DeepSeek | `~/.claude/settings.deepseek.json` |
+
+- **Profile precondition**: `~/.claude/settings.json` carries no
+  `ANTHROPIC_BASE_URL` (run `claude-profile claude` first). `--settings` merges
+  and cannot remove a variable, so the script refuses to start otherwise.
+- **Checks**: every step answers through a JSON schema (`status`, `lot`,
+  `questions`, `reason`), and the script checks it itself before the next one:
+  no `sync-status.py` stop and the lot branch created before the confirmation; a
+  clean tree, a commit scoped to the lot and a green `Validation command` after
+  the development; test files only from `lot-test`; the review and audit reports
+  committed, their commits inside the lot's diff, `docs/audits/`, the `Lots file`
+  and `docs/memory.md`, even when the step ends `blocked`; the pull request
+  `MERGED` and the lock removed after `lot-ship`.
+- **Permissions**: `--permission-mode acceptEdits` and a per-process allowlist
+  (`Validation command`, `gh pr`, `gh run`, `jq`, and `python3` on the plugin's
+  own scripts under `~/.claude/plugins/cache/claude-harness/`) on top of the
+  profile's; never `--dangerously-skip-permissions`. A refused command stops the
+  step.
+- **Stop**: at the first `blocked`, `failed`, failed check or step over 30
+  minutes, the state goes to `.claude/autopilot-state.json` (kept out of git
+  through `.git/info/exclude`), `notify-send` is called and the script exits 1.
+  A frontend without `docs/audits/lot-0-integration.md` stops before `lot-ship`:
+  `integration-check` stays manual.
+- **Resume**: settle the reason, then run the script again with `--resume`. It
+  restarts at the recorded step in a new session, or, after a review or audit
+  finding that needed your decision, at the following step.
+- **Log**: each session's `stream-json` output is in
+  `~/.claude/autopilot/<project>/<date>-lot-N-<step>.jsonl`; the last line the
+  script prints sums up the merge or the stop, with the findings fixed, ignored
+  and deferred.
 
 ## Reusable CI workflows
 

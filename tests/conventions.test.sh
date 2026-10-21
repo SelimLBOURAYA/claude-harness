@@ -25,7 +25,7 @@ assert_eq "" "$(grep -E '^- ' "$C" | grep -vE '^- \*\*[A-Z]+-[0-9]+\*\* ' || tru
 # A rule cites another by its identifier: each cited one must exist.
 while IFS= read -r ref; do
   assert_ok "the rule $ref cited in the master exists" -- grep -qE "^- \*\*$ref\*\* " "$C"
-done < <(grep -oE '\b(CODE|LOT|GATE|ASK|SEC|API|GIT|DOC|START|CTX|PLUG|PROF|OUT)-[0-9]+\b' "$C" | sort -u)
+done < <(grep -oE '\b(CODE|LOT|GATE|ASK|SEC|API|GIT|DOC|START|CTX|PLUG|PROF|OUT|MEM)-[0-9]+\b' "$C" | sort -u)
 
 # --- the rules other machinery reads ---------------------------------------
 # The eleven parameters, spelled as harness-invariants.yml greps for them.

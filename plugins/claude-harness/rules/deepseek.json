@@ -5,7 +5,7 @@
   "rules": [
     {
       "id": "LOT-1",
-      "rule": "Start every lot with the `lot-start` skill, never by inferring \"the next lot\" yourself. It synchronises the lots file status table with `develop` (first commit of the lot branch, `docs: sync lots file status`), creates `feat/lot-N-slug` from `develop`, and waits for the user's `lot-start confirm N` before any file is written."
+      "rule": "Start every lot with the `lot-start` skill, never by inferring \"the next lot\" yourself. It syncs the status table with `develop` (first commit of the lot branch, `docs: sync lots file status`), creates `feat/lot-N-slug` from `develop`, and waits for `lot-start confirm N`, from the user or their autopilot, before any file is written."
     },
     {
       "id": "LOT-3",
@@ -25,7 +25,7 @@
     },
     {
       "id": "LOT-7",
-      "rule": "Development ends after `lot-test`, whatever the profile. Tell the user to end the session, run `claude-profile claude` if the profile is `deepseek`, and open a new session for `lot-review`, `lot-audit` and `lot-ship`. `lot-review` runs only when `ANTHROPIC_BASE_URL` is empty; a model's account of its own identity is never the signal."
+      "rule": "Development closes with `lot-start` Step B3; `lot-test` follows in a new session, any profile, test files only. The user then runs `claude-profile claude` under `deepseek` and opens a new session for `lot-review`, `lot-audit` and `lot-ship`. `lot-review` needs an empty `ANTHROPIC_BASE_URL`, never a model's account of its identity."
     },
     {
       "id": "CTX-1",

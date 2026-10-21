@@ -10,7 +10,7 @@ Cross-cutting rules of every project; project-specific rules go to the project's
 
 ## 2. Lot workflow
 
-- **LOT-1** Start every lot with the `lot-start` skill, never by inferring "the next lot" yourself. It synchronises the lots file status table with `develop` (first commit of the lot branch, `docs: sync lots file status`), creates `feat/lot-N-slug` from `develop`, and waits for the user's `lot-start confirm N` before any file is written.
+- **LOT-1** Start every lot with the `lot-start` skill, never by inferring "the next lot" yourself. It syncs the status table with `develop` (first commit of the lot branch, `docs: sync lots file status`), creates `feat/lot-N-slug` from `develop`, and waits for `lot-start confirm N`, from the user or their autopilot, before any file is written.
 - **LOT-2** A status row changes only on evidence from git: its merge on `develop`, or its audit commit. When the mapping is ambiguous, or a row is done with no merge, stop and ask; never pick a lot yourself.
 - **LOT-3** Never redo work merged on `develop`: commits there scoped to the candidate lot are a question for the user.
 - **LOT-4** If an acceptance criterion is ambiguous, ask all your questions in one batch before writing code; otherwise say "no ambiguity" and restate the criteria in one list.
@@ -19,6 +19,7 @@ Cross-cutting rules of every project; project-specific rules go to the project's
 - **GATE-1** During development, run only the targeted tests of the changed code. Run the full `Validation command` of the project `CLAUDE.md` once, before each commit.
 - **GATE-2** The `Validation command` is green before every commit and before the PR. A red test is fixed, never skipped, disabled (`@Disabled`, `@Ignore`, `test.skip`) or stripped of its assertion.
 - **LOT-6** One lot per session. Once `lot-ship` has merged the lot's pull request, stop: never start, prepare or test the next lot.
+- **MEM-1** `docs/memory.md` is the project memory: working notes, not the truth (the code and git are), at most 6000 characters, in four sections: `Code map`, `Decisions`, `Pitfalls`, `Open questions`. `lot-start` reads it before the lot section. The development session amends it at its close (`lot-start` Step B3, or `lot-start close N`), rewriting or deleting the notes the lot touched, and commits `docs(N): update the project memory` only when it changed. `lot-test` reads it, `lot-review` checks it against the code. A note the code contradicts is fixed in the current lot.
 
 ## 2.5 What an integration test is
 
@@ -92,14 +93,14 @@ Cross-cutting rules of every project; project-specific rules go to the project's
 ## 13. Skills and the lot gate
 
 - **GATE-6** Invoke a skill with the `Skill` tool when its trigger is met, before doing the work it covers. Its procedure overrides your default approach.
-- **GATE-7** The lot gate runs once per lot, in order: `lot-start` → development → `lot-test` → `lot-review` → `lot-audit` → `lot-ship`, with `integration-check` before `lot-ship` on a frontend. Each step is invoked explicitly; never skip one, never run two from one invocation.
+- **GATE-7** The lot gate runs once per lot, in order: `lot-start` → development → its close (MEM-1) → `lot-test` → `lot-review` → `lot-audit` → `lot-ship`, with `integration-check` before `lot-ship` on a frontend. Each step is invoked explicitly, except the close, which the development session runs on its own; never skip one, never run two from one invocation.
 - **GATE-8** A gate skill commits its deliverable alone, after a green `Validation command`, before it reports back, and adds it to the census when new: `docs/audits/lot-N-review.md` (`docs(N): add the lot review report`), `docs/audits/lot-N.md` (`docs(N): add the lot audit report`), `docs/audits/lot-0-integration.md` (`docs: add the integration check report`). `lot-deliverables.yml` blocks a pull request without them.
 - **GATE-9** When a gate skill fails or costs work for nothing in its own run, record it in `docs/audits/lot-N-friction.md` under `## <skill>`, each entry opening with the key `` `<skill> / <step>` ``. The lot's own bugs are `lot-review` findings, not friction. No check requires the file.
 
 ## 14. Review in a new session, under the claude profile
 
-- **PROF-1** Two profiles, switched by `/home/selim/.local/bin/claude-profile`: `claude` (a native Claude model) for review, audit and judgement on produced work; `deepseek` (`ANTHROPIC_BASE_URL=https://api.deepseek.com/anthropic`) for delegated coding. The script rewrites `settings.json`, which only the next session reads: never switch on your own initiative.
-- **LOT-7** Development ends after `lot-test`, whatever the profile. Tell the user to end the session, run `claude-profile claude` if the profile is `deepseek`, and open a new session for `lot-review`, `lot-audit` and `lot-ship`. `lot-review` runs only when `ANTHROPIC_BASE_URL` is empty; a model's account of its own identity is never the signal.
+- **PROF-1** Two profiles, switched by `/home/selim/.local/bin/claude-profile`: `claude` (a native Claude model) for review, audit and judgement on produced work; `deepseek` (`ANTHROPIC_BASE_URL=https://api.deepseek.com/anthropic`) for delegated coding. The script rewrites `settings.json`, which only the next session reads: never switch on your own initiative. The autopilot picks each step's model per process, never through `settings.json`.
+- **LOT-7** Development closes with `lot-start` Step B3; `lot-test` follows in a new session, any profile, test files only. The user then runs `claude-profile claude` under `deepseek` and opens a new session for `lot-review`, `lot-audit` and `lot-ship`. `lot-review` needs an empty `ANTHROPIC_BASE_URL`, never a model's account of its identity.
 
 ## 15. Response shape
 

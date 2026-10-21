@@ -17,7 +17,8 @@
 > **Gel du harnais (lot 24).** Depuis le lot 24, le harnais ne change que pour
 > (a) une CI cassée ou une faille de sécurité, (b) un incident sur un projet qui a
 > coûté du temps réel. Une entrée de friction n'ouvre plus de lot. Toute
-> modification reste un lot avec gate complet.
+> modification reste un lot avec gate complet. Exception décidée par
+> l'utilisateur le 2026-10-21 : lot 26 (mémoire de projet).
 
 ## Vue d'ensemble
 
@@ -51,6 +52,8 @@
 | 23 | `feat/lot-23-sync-automerge` | A – Harness | Merge automatique des PR de synchro de `CONVENTIONS.md`, version du plugin pour l'auto-update, et les deux constats reportés de la revue du lot 22 | claude-harness, les 8 repos (via `main`) | ✅ |
 | 24 | `feat/lot-24-harness-freeze` | D – Clôture | Gel du harnais : contradictions corrigées, boucle de friction coupée, `CONVENTIONS.md` allégé, verrou simplifié, merge par `lot-ship` | claude-harness, les 8 repos (via `main` et la PR de synchro) | ✅ |
 | 25 | `feat/lot-25-guard-heredoc-report-fields` | A – Harness | Incident elya-frontend : champs SHA du modèle `integration-check`, heredoc lu comme du shell par le garde git | claude-harness, les 8 repos (via `main`) | ✅ |
+| 26 | `feat/lot-26-project-memory` | A – Harness | Mémoire de projet : `docs/memory.md` lu par `lot-start`, amendé en fin de développement, lu par `lot-test` (vérifier et compléter, fichiers de test seuls), vérifié par `lot-review` | claude-harness, les 8 repos (via `main` et la PR de synchro) | ✅ |
+| 27 | `feat/lot-27-autopilot` | A – Harness | Autopilot : enchaînement des étapes d'un lot, une session neuve et un modèle par étape, jusqu'au merge, arrêt et notification au premier blocage | claude-harness, les 8 repos (via `main` et la PR de synchro) | ✅ |
 
 Légende des statuts *(P6-D10)* : ⬜ à faire · 🔄 en cours (livré sur la branche, PR non
 mergée) · ✅ mergé sur `develop` · ⏸️ planifié mais dormant · ❄️ gelé.
@@ -84,7 +87,7 @@ meal-planner-backend / -frontend, elya-fe = elya-frontend.
 | Découpage | Par vagues : harness → conventions → adoption repo par repo → clôture |
 | Version du plugin | Les projets **suivent `main`** du harness (pas de tag figé). Un changement n'est actif qu'après ta promotion `develop` → `main` du repo harness. Les rapports de revue et d'audit citent la version installée du harnais *(réécrit au lot 24)*. *(précisé le 2026-09-17, doc Claude Code « plugin marketplaces »)* Sans ref, Claude Code clone la **branche par défaut** du repo, qui est `develop` (et le reste après le lot 6b) : la ref **`main` est donc obligatoire** partout où le marketplace est déclaré (`"ref": "main"` dans `extraKnownMarketplaces`, `@main` en ligne de commande), sinon tout merge sur `develop` devient actif dans les 8 repos. `main` existe depuis le 2026-09-17 (`d7b1438`) mais ne contient que ce plan, **aucun plugin** : déclarer le marketplace avec cette ref avant la promotion qui suit le lot 4 installerait un marketplace vide ou invalide. **Cette** promotion `develop` → `main` (première version de `main` contenant le plugin) est le prérequis du lot 5 (activation user-level) et du lot 7 (première adoption) |
 | Paramètres par projet | Section `## Gate parameters` dans `CLAUDE.md` (donc dans `AGENTS.md`) |
-| Sprint vs stop | **Stop après le merge** (LOT-6) : un lot = une PR vers `develop`, mergée par `lot-ship` une fois la CI verte, puis arrêt *(réécrit au lot 24)*. « Sprint chaining » supprimé partout ; skill `sprint` non repris dans le plugin |
+| Sprint vs stop | **Stop après le merge** (LOT-6) : un lot = une PR vers `develop`, mergée par `lot-ship` une fois la CI verte, puis arrêt *(réécrit au lot 24)*. « Sprint chaining » supprimé partout ; skill `sprint` non repris dans le plugin. L'autopilot (lot 27) enchaîne les étapes d'**un** lot, une session neuve par étape, et s'arrête après le merge |
 | Garde git | Hook `PreToolUse` Bash. **Refus** : push vers `main`, `--force`/`--force-with-lease`, `--no-verify`, `reset --hard`, suppression de branche distante, `gh pr create` sans `--base develop`, `gh pr merge` hors PR de lot (`feat/lot-*` vers `develop`) aux checks tous verts *(lot 24)*. **Confirmation** : tout `git push`, tout `gh pr create` |
 | Rapport d'audit | Exigé sur la PR par `lot-deliverables.yml`, seule vérification ; la garde git ne le contrôle pas *(réécrit au lot 24, C1)* |
 | Hooks git locaux | Aucun (pas de lefthook/husky) : les invariants sont vérifiés **en CI** |
@@ -1902,6 +1905,363 @@ ont coûté du temps réel.
 - Toute autre règle du garde git.
 - Les rapports déjà écrits dans les projets (celui d'`elya-frontend` porte
   déjà `Frontend SHA` / `Backend SHA`).
+
+## LOT 26 — Mémoire de projet ✅
+
+Branche `feat/lot-26-project-memory`, depuis `develop`. Repo touché :
+`claude-harness` ; les 8 repos en héritent à la promotion `develop` → `main`
+(plugin) et par la PR de synchro de `CONVENTIONS.md`.
+
+### Origine
+
+Exception au gel décidée par l'utilisateur le 2026-10-21 : fonctionnalité
+nouvelle, demandée explicitement. L'utilisateur nettoie le contexte entre
+chaque lot, pour économiser des tokens et pour casser les biais pris par le
+modèle ; la perte de ce contexte se paie en reparcours du code, et les
+raisonnements d'un lot (décisions, pièges) ne passent pas au suivant.
+
+Mesure de référence (2026-10-21, 20 sessions de dev de lot d'`elya`,
+`elya-frontend`, `claude-harness` et `deployment`) : entre
+`lot-start confirm N` et la première écriture, l'exploration (`Read`,
+`Grep`, `Glob`, `Bash`, `Agent`) coûte en médiane **6 appels et ≈ 2 400
+tokens** de sorties d'outils, au pire ≈ 25 000 ; une session entière en
+coûte ≈ 34 000 en médiane, surtout de l'implémentation qu'aucune mémoire
+n'évite. Le gain attendu est donc d'abord la cohérence entre sessions (ne
+pas retomber dans un piège déjà payé, ne pas redécider ce qui est tranché,
+écrêter les pires cas), pas un volume de tokens.
+
+Options écartées (2026-10-21) : archive brute des transcripts avec recherche
+plein texte (une consultation lit 5 à 15 K tokens pour en économiser ≈ 2,4 K,
+et ramène des hypothèses abandonnées) ; synthèse dans `lot-ship` (relit
+≈ 35 K tokens de transcripts, la session de dev étant close) ; injection du
+fichier à chaque `SessionStart` (≈ 2 K tokens × 5 à 7 sessions par lot, pour
+un gain concentré sur la seule session de dev).
+
+### Livrables
+
+1. Un fichier `docs/memory.md` par projet, commité, en anglais (DOC-2 :
+   document d'instruction d'agent), plafonné à **6 000 caractères**
+   (≈ 1 500 tokens). En-tête fixe : ces notes sont des outils de travail, pas
+   une vérité ; le code et git font foi ; une note se vérifie avant de guider
+   une écriture, et une note contredite par le code se corrige dans le lot en
+   cours. Sections : `## Code map` (fichiers et modules, rôle, points
+   d'entrée), `## Decisions` (fait, raison, lot d'origine), `## Pitfalls`,
+   `## Open questions`.
+2. `lot-start`, nouvelle étape B3 « Clore le développement » : la session de
+   dev, la seule qui a encore le raisonnement en contexte, l'exécute
+   **d'elle-même** dès que le code du lot est complet et la `Validation
+   command` verte, sans action de l'utilisateur. `lot-start close N` (nommé
+   dans la description de la skill) n'en est que le point d'entrée explicite,
+   pour l'enchaînement automatique du lot 27 ou pour forcer la clôture. B3
+   amende `docs/memory.md` avant de passer la main. Elle réécrit ou supprime
+   les notes touchées par le lot, n'ajoute rien à la suite et reste sous le
+   plafond. Si le fichier manque, elle le crée depuis le modèle (ajout au
+   census `## Project documents`, DOC-1). Commit
+   `docs(N): update the project memory`, après une `Validation command`
+   verte, **seulement si le fichier a changé** (jamais de commit vide), puis
+   fin de session : `lot-test` s'ouvre dans une **nouvelle session**, sous
+   n'importe quel profil (`deepseek` prévu).
+3. `lot-test` **vérifie et complète, il ne réécrit pas** (arbitrage
+   ci-dessous). Les tests du code restent écrits pendant le développement,
+   dans le commit du code (GATE-3, inchangée).
+   - Étape 0 : lecture de `docs/memory.md` (s'il existe) et des critères
+     d'acceptation du lot. Arbre de travail propre exigé, et `HEAD` noté
+     comme **point de départ** de `lot-test`. Le commit de la mémoire n'est
+     pas exigé : une mémoire inchangée ne bloque rien.
+   - Les tests ajoutés sont **boîte noire**. Ils couvrent les critères
+     d'acceptation et les branches non couvertes, à partir de la spécification
+     du lot et non du code. Ils sont commités à part :
+     `test(N): complete the lot coverage`.
+   - Écritures limitées aux **fichiers de test**, déduits du `Stack` :
+     `src/test/` en `backend`, `*.spec.ts` en `frontend`, `tests/` en
+     `harness`. En `other`, les fichiers touchés sont listés dans le compte
+     rendu. Ni le code de production ni une assertion existante ne sont
+     modifiés, pas plus que la configuration de couverture (seuil,
+     exclusions).
+   - Un test qui révèle un bug **n'est pas corrigé** : il n'est pas commité
+     (GATE-2). `lot-test` le laisse dans l'arbre de travail, le bug (attendu,
+     obtenu) en commentaire en tête du test, et s'arrête. La session de
+     développement suivante le voit dans `git status` (hook `SessionStart`)
+     sans autre mécanisme.
+   - Contrôle avant « Stop » : `git diff --name-only` du point de départ à
+     `HEAD` ne liste que des fichiers de test. Sinon, arrêt. Le contrôle ne
+     voit que les commits de `lot-test` : un correctif de production commité
+     par une session de dev entre deux passages de `lot-test` ne le fausse
+     pas.
+   - §5 « Stop » : la fin du développement est désormais l'étape B3 de
+     `lot-start`. `lot-test` s'arrête puis renvoie vers `lot-review` dans une
+     nouvelle session, sous le profil `claude`.
+4. `lot-start`, étape A2 : lecture de `docs/memory.md`, une fois, avant la
+   section du lot candidat. Pas d'injection au `SessionStart`.
+5. `lot-review`, étape 2 : relecture de `docs/memory.md` contre le code et le
+   diff. Une note fausse, périmée ou formulée en conclusion sans raison est
+   un constat, corrigé comme les autres. Contrôle indépendant de la frontière
+   de `lot-test` : un commit `test(N)` qui touche un fichier hors test, ou qui
+   affaiblit une assertion existante, est un constat.
+6. `CONVENTIONS.md` :
+   - une règle courte **MEM-1**, au §2 (flux des lots), qui fixe le fichier,
+     son statut d'outil non normatif, son plafond et ses moments : lu par
+     `lot-start`, amendé en fin de développement (B3), lu par `lot-test`,
+     vérifié par `lot-review` ;
+   - **GATE-7** : la chaîne nomme la clôture du développement
+     (`lot-start` → développement → clôture B3 → `lot-test` → …) ;
+   - **LOT-7** réécrite : le développement s'achève à l'étape B3 de
+     `lot-start`. `lot-test` tourne dans une nouvelle session, sous
+     n'importe quel profil, et n'écrit que des fichiers de test. `lot-review`
+     reste réservé au profil `claude` ;
+   - carte `rules/deepseek.json` régénérée.
+7. Squelette `templates/project/` : `docs/memory.md` vide aux sections fixes,
+   listé dans le census du `CLAUDE.md` modèle. `claude-harness` reçoit le
+   sien, rempli, dans ce lot.
+8. Tests : le plafond de 6 000 caractères et l'en-tête fixe sont vérifiés
+   sur le modèle et sur le fichier du harnais. Les skills `lot-start`,
+   `lot-test` et `lot-review` nomment `docs/memory.md` ; `lot-start` nomme
+   `lot-start close N` et le commit `docs(N): update the project memory` ;
+   `lot-test` nomme son point de départ et sa règle « fichiers de test
+   seuls » (`tests/skills.test.sh`).
+
+Amendement (2026-10-21, à la confirmation du lot) : B3 s'exécute d'elle-même
+en fin de dev, `lot-start close N` restant un point d'entrée explicite ; le
+commit de la mémoire n'a lieu que si le fichier change, et `lot-test` ne
+l'exige plus ; la frontière de `lot-test` se mesure depuis son propre point de
+départ ; règle MEM-1 au §2 et GATE-7 complétée. Plafond de 6 000 caractères
+maintenu, revu au contrôle différé.
+
+### Arbitrage (2026-10-21) — changement de modèle entre dev et `lot-test`
+
+L'utilisateur prévoit Sonnet pour le développement, DeepSeek pour `lot-test`
+et `lot-ship`, et Opus pour `lot-review` et `lot-audit`, une session neuve par
+étape. Changer de modèle pour **écrire** les tests du lot est écarté. Un modèle
+qui teste un code qu'il n'a pas écrit, sans l'intention derrière, décrit le
+comportement actuel et fige donc les bugs dans des tests verts. Face à un test
+rouge, il risque aussi de corriger le code de production sans connaître les
+décisions, ou d'affaiblir l'assertion (GATE-2). Le changement est retenu pour
+**vérifier et compléter** : regard neuf sur les cas oubliés, tests boîte noire
+tirés de la spécification, et partie mécanique moins chère (relancer la suite,
+lire la couverture). D'où trois conséquences : la mémoire s'écrit en fin de
+dev par le modèle qui connaît les décisions, et non en fin de `lot-test` ;
+`lot-test` est borné aux fichiers de test ; `lot-review`, sous Opus, contrôle
+cette frontière.
+
+### Critères de validation
+
+- `./tests/run.sh` vert.
+- `docs/memory.md` du harnais sous le plafond, en-tête fixe présent.
+- Contrôle différé, à la clôture du 5e lot livré après celui-ci, tous
+  projets confondus : la mesure de référence est rejouée sur les sessions de
+  dev postérieures. Si la médiane et les pires cas d'exploration ne baissent
+  pas, et qu'aucun piège déjà noté n'a été évité, le mécanisme est retiré
+  dans un lot dédié.
+
+### Hors périmètre
+
+- Archive des transcripts, index de recherche, script dédié, hook.
+- Rétro-remplissage des projets existants : chaque fichier naît au premier
+  lot du projet après la promotion.
+- La mémoire automatique de Claude Code (`~/.claude/projects/*/memory/`),
+  inchangée.
+- L'orchestrateur qui enchaîne les étapes et choisit le modèle de chacune
+  (lot 27) : ce lot ne fait que rendre chaque étape exécutable dans une
+  session neuve.
+
+## LOT 27 — Autopilot ✅
+
+Branche `feat/lot-27-autopilot`, depuis `develop`, **après le merge du lot
+26**, dont il exige l'étape B3, la frontière de `lot-test` et la mémoire.
+Repo touché : `claude-harness`. Les 8 repos en héritent à la promotion
+`develop` → `main` (plugin) et par la PR de synchro de `CONVENTIONS.md`.
+
+### Origine
+
+Exception au gel décidée par l'utilisateur le 2026-10-21. Il veut que les
+lots de ses projets soient développés et mergés sans autre action humaine
+que le lancement de l'autopilot, avec un contexte vierge à chaque étape et
+un modèle choisi pour chacune. Section rédigée exceptionnellement sur la
+branche du lot 26, pour gagner du temps (demande de l'utilisateur,
+2026-10-21) : seul le plan y entre, le code vient sur sa propre branche.
+
+Modèle de développement **de ce lot** : Sonnet, pas DeepSeek. Le lot touche
+aux invariants de sécurité (confirmation du verrou et merge sans humain, sur
+8 repos), et les lots 24 et 25 sont nés de défauts de la garde.
+
+### Livrables
+
+1. **Script** `plugins/claude-harness/autopilot/autopilot.py`, en Python
+   avec la bibliothèque standard seule (V6). Il est lancé depuis le clone de
+   la marketplace (`~/.claude/plugins/marketplaces/claude-harness/…`), qui
+   suit `main` comme le plugin des sessions qu'il ouvre. Il se lance **dans
+   le répertoire du projet** et ne traite que le repo du répertoire courant :
+   pas de boucle sur `projects.json`, pas d'option `--project` ni `--all`.
+   Hors d'un repo harnaissé (sans `## Gate parameters` ni table de statut), il
+   refuse de démarrer. **Un lot par lancement** : le script s'arrête après le
+   merge, et le lot suivant demande un nouveau lancement. Options :
+   `--resume` (reprise à l'étape en échec), `--dry-run` (affiche les
+   commandes sans les lancer).
+2. **Une session `claude -p` neuve par étape**, le modèle passé par process,
+   sans jamais réécrire `~/.claude/settings.json` (`claude-profile` n'est pas
+   appelé) :
+
+   | Étape | Modèle | Invocation |
+   |---|---|---|
+   | `lot-start` partie A | DeepSeek | `--settings ~/.claude/settings.deepseek.json` |
+   | `lot-start confirm N`, dev, B3 | DeepSeek | même session, `--resume <session-id>`, prompt exact `lot-start confirm N` |
+   | `lot-test` | DeepSeek | `--settings ~/.claude/settings.deepseek.json` |
+   | correctif d'un bug révélé par `lot-test` | DeepSeek | session neuve, puis `lot-test` relancé |
+   | `lot-review` | Opus | `--model claude-opus-5-5 --effort medium --settings ~/.claude/settings.claude.json` |
+   | `lot-audit` | Opus | idem, session neuve |
+   | `lot-ship` | DeepSeek | `--settings ~/.claude/settings.deepseek.json` |
+
+   **Précondition** : `~/.claude/settings.json` ne porte pas
+   `ANTHROPIC_BASE_URL`. `--settings` fusionne les réglages et ne peut pas
+   retirer une variable : sous le profil `deepseek` actif, les étapes Claude
+   partiraient chez DeepSeek, et `lot-review` refuserait de tourner (LOT-7).
+   Le script refuse alors de démarrer.
+3. **Contrat de sortie** : chaque session reçoit `--json-schema` (`status` :
+   `ok | blocked | failed`, `lot`, `questions`, `reason`) et un
+   `--append-system-prompt`. Celui-ci dit qu'aucun humain n'est présent :
+   toute question qu'une skill poserait à l'utilisateur termine le tour en
+   `blocked` avec les questions dans `questions`, sans rien trancher. Le
+   statut du modèle ne suffit jamais : chaque étape est aussi validée par
+   un **contrôle déterministe** du script (livrable 4).
+4. **Contrôles entre étapes**, par le script :
+   - avant `lot-start confirm N` : `sync-status.py` lancé par le script sort
+     en 0 (aucun stop), la branche `feat/lot-N-*` est créée, le statut est
+     `ok` et `questions` est vide. Sinon : pas de confirmation, arrêt ;
+   - après le dev : le commit `docs(N): update the project memory` est sur
+     la branche (**remplacé** au démarrage du lot 27 : voir les arbitrages) ;
+   - après `lot-test` : ses commits ne touchent que des fichiers de test
+     (même règle que le lot 26) ;
+   - après `lot-review` puis `lot-audit` : `docs/audits/lot-N-review.md`
+     puis `docs/audits/lot-N.md` sont commités ;
+   - après `lot-ship` : `gh pr view` donne `MERGED`, et
+     `.claude/current-lot` est supprimé.
+5. **Politique d'arrêt** : au premier `blocked`, `failed`, contrôle en échec
+   ou dépassement du délai d'une étape, le projet s'arrête. L'état est écrit
+   dans `.claude/autopilot-state.json` (ignoré par git), puis notifié par
+   `notify-send`, et le script s'arrête. **Délai : 30 min par étape**, une
+   seule constante du script. Ce n'est pas un temps visé, c'est un plafond
+   contre une session qui ne finit pas (boucle sur un test rouge, CI
+   bloquée) ; au-delà, le process est tué, et `--resume` relance l'étape dans
+   une session neuve, depuis l'état de la branche. Cas fixés :
+   - constat de `lot-review` ou `lot-audit` dont le correctif relève d'une
+     décision (livrable 6, exceptions) → arrêt avant `lot-ship` ;
+     l'utilisateur tranche, puis `--resume` reprend à l'étape suivante.
+     Tous les autres constats sont corrigés ou ignorés sans arrêt ;
+   - bug révélé par `lot-test` → **une** session de correctif DeepSeek (le
+     verrou reste valide jusqu'à `lot-ship`, aucune reconfirmation), puis
+     `lot-test` relancé ; second échec → arrêt. Ce point ferme la question
+     laissée ouverte par le lot 26 ;
+   - `Stack = frontend` sans `docs/audits/lot-0-integration.md` → arrêt
+     avant `lot-ship` : `integration-check` reste manuel.
+6. **Correctifs automatiques de `lot-review` et `lot-audit`** (décision de
+   l'utilisateur, 2026-10-21). Le script pose `HARNESS_AUTOPILOT=1` dans
+   l'environnement des sessions : c'est le signal, jamais ce que le modèle
+   dit de lui-même. Les deux skills reçoivent une section « Autopilot »
+   appliquée à ce signal :
+   - **Corrigé d'office**, sans question : tout **bug** (comportement faux,
+     c'est l'objet même de la review) et tout constat qui a un impact sur la
+     **sécurité**, la **performance** ou la **maintenabilité**. Cela couvre les Critical et
+     Warning de `lot-audit`, et les constats de même nature de `lot-review`.
+     Le correctif reste dans le diff du lot, le `Validation command` est vert
+     avant le commit, et les titres ne changent pas : `fix(N): apply the lot
+     review findings` et `fix(N): apply the lot audit findings`.
+   - **Ignoré** : constats mineurs et sans valeur ajoutée (style et
+     nommage de préférence, commentaires, micro-optimisations sans effet
+     mesurable, refactorings d'opportunité, Info de `lot-audit`). Ils ne sont
+     ni corrigés ni reportés en lot candidat. Le rapport garde leur ligne,
+     avec `rejected: minor (autopilot)`, pour que le garde CI lise une
+     résolution sur chaque ligne.
+   - **Exceptions, qui arrêtent le projet** : le correctif exige un
+     changement du modèle de données ou une migration (ASK-1, CODE-3), une
+     dépendance nouvelle (ASK-1), un changement du modèle d'autorisation, ou
+     un écart à la spécification du lot.
+   - **Constat hors du diff du lot** : il n'est pas corrigé (LOT-5). S'il a
+     un impact sécurité, performance ou maintenabilité, il devient un lot
+     candidat dans le rapport ; s'il est Critical, il arrête le projet,
+     puisqu'un Critical non corrigé bloque la PR.
+   - **Correctif qui ne passe pas le `Validation command`** après une
+     seconde tentative : il est annulé (`git restore`) et le constat est
+     différé. S'il était Critical, le projet s'arrête.
+   - **Contrôle par le script** : les commits `fix(N)` de ces deux étapes ne
+     touchent que des fichiers du diff du lot, plus `docs/audits/` et le
+     `Lots file`. Sinon, arrêt.
+7. **Journal** : sortie de chaque session (`--output-format stream-json`)
+   dans `~/.claude/autopilot/<projet>/<date>-lot-N-<étape>.jsonl`, et un
+   résumé final : le lot mergé ou l'arrêt avec sa raison, et le nombre de
+   constats corrigés, ignorés et différés.
+8. **`CONVENTIONS.md`** :
+   - **LOT-1** : la confirmation peut venir de l'autopilot, aux seules
+     conditions du livrable 4 ;
+   - **PROF-1** : l'autopilot choisit le modèle par étape, par process,
+     sans toucher `settings.json` ;
+   - **LOT-6** inchangée (une étape, une session ; l'enchaînement est celui
+     du script, pas d'une session) ;
+   - ligne « Sprint vs stop » des Décisions réécrite dans le même sens ;
+   - commentaire de `lot-confirm.sh` : la confirmation reste un prompt
+     soumis par l'utilisateur ou par son autopilot, jamais par le modèle ;
+   - carte `rules/deepseek.json` régénérée.
+9. **`README.md`** : section « Autopilot » (lancement, précondition de
+   profil, reprise, lecture du journal), et census `## Project documents`.
+10. **Tests** `tests/autopilot.test.sh` avec un faux binaire `claude` en
+   tête du `PATH` qui rend des statuts préparés, sans aucun appel d'API :
+   - pas de confirmation si `questions` n'est pas vide ou si
+     `sync-status.py` sort en 3 ;
+   - `settings.deepseek.json` passé à `lot-test` et `lot-ship`, Opus à
+     `lot-review` et `lot-audit` ;
+   - refus de démarrer sous un `settings.json` qui porte
+     `ANTHROPIC_BASE_URL` ;
+   - une seule itération de correctif ;
+   - arrêt d'un frontend sans rapport d'intégration ;
+   - `--resume` reprend à l'étape enregistrée ;
+   - `HARNESS_AUTOPILOT=1` passé aux sessions `lot-review` et `lot-audit` ;
+   - arrêt quand un commit `fix(N)` touche un fichier hors du diff du lot ;
+   - arrêt après le merge d'un lot, sans ouvrir le suivant ;
+   - refus de démarrer hors d'un repo harnaissé ;
+   - une étape qui dépasse le délai est tuée et enregistrée en échec (délai
+     réduit par variable d'environnement de test).
+
+   Et dans `tests/skills.test.sh`, les sections « Autopilot » de
+   `lot-review` et `lot-audit` nomment les trois classes (corrigé, ignoré,
+   exception).
+
+### Arbitrages (2026-10-21, à la rédaction)
+
+| Sujet | Décision |
+|---|---|
+| Permissions des sessions headless | `--permission-mode acceptEdits`, allowlist commitée dans le `.claude/settings.json` de chaque projet (`Validation command`, `gh pr`/`gh run`, `python3`, `jq` en plus du profil). `--dangerously-skip-permissions` écarté : il laisse passer toute commande que les hooks ne bloquent pas, dans des sessions sans surveillance dont deux tournent chez un fournisseur tiers. Une commande refusée vaut un arrêt lisible dans le journal |
+| Lots par lancement | **Un.** Un lot raté ne sert pas de base au suivant avant que l'utilisateur ait vu le merge |
+| Délai | **30 min par étape**, une seule valeur : les lots sont courts, le délai ne sert qu'à couper une session qui ne finit pas |
+| Périmètre d'un lancement | Le repo du répertoire courant, dans lequel l'utilisateur lance l'autopilot |
+| Bugs | Corrigés d'office par `lot-review` et `lot-audit`, au même titre que la sécurité, la performance et la maintenabilité |
+| Marqueur de clôture du dev (2026-10-21, au démarrage) | Statut `ok`, arbre propre, au moins un commit `(N)` après la synchro, et `Validation command` relancé vert par le script. Remplace le commit `docs(N): update the project memory`, conditionnel depuis le lot 26 |
+| Allowlist (2026-10-21, au démarrage) | Passée par process (`--allowedTools`, `Validation command` lu dans `## Gate parameters`), rien de commité dans les projets : `projects.json` ne synchronise que `CONVENTIONS.md` |
+| Bug révélé par `lot-test` (2026-10-21, au démarrage) | `status: failed` rendu par `lot-test` vaut bug révélé et ouvre la session de correctif ; un `blocked`, un contrôle en échec ou un délai arrête le projet |
+| Modèle de développement du lot (2026-10-21, au démarrage) | Opus, choix de l'utilisateur, au lieu de Sonnet |
+| Modèle du développement sous autopilot (2026-10-21, après le dev) | **DeepSeek** pour `lot-start` A, la confirmation, le dev, B3 et le correctif, au lieu de Sonnet : l'utilisateur a des crédits DeepSeek à consommer, et c'est l'usage de PROF-1 (DeepSeek code, Claude contrôle). `lot-review` et `lot-audit` restent sous Opus. La session A + dev + B3 reste d'un seul tenant, chez un seul fournisseur |
+| « ask » de `git-guard.py` en `-p` (2026-10-21) | Non vérifié par un essai réel (refusé par l'utilisateur) : sous `HARNESS_AUTOPILOT=1`, le garde répond « deny » dans tous les cas |
+| `python3` de l'allowlist (2026-10-21, `lot-review`) | Restreint aux scripts du plugin (`~/.claude/plugins/cache/claude-harness/*`) au lieu de `python3 *` : `python3 -c` lancerait toute commande git hors de la vue de `git-guard.py`. Choix de l'utilisateur |
+| État ignoré par git (2026-10-21) | Le script ajoute `.claude/autopilot-state.json` à `.git/info/exclude`, sans toucher le `.gitignore` des projets |
+
+À vérifier en début de lot (pas une question) : ce que devient un « ask » de
+`git-guard.py` en mode `-p`. Si c'est un refus, l'étape échoue proprement ; si
+c'est un passage, le garde répond « deny » sous `HARNESS_AUTOPILOT=1`.
+
+### Critères de validation
+
+- `./tests/run.sh` vert, `tests/autopilot.test.sh` inclus.
+- `--dry-run` sur un projet réel affiche la séquence attendue, avec le bon
+  modèle à chaque étape.
+- Premier passage réel sur un projet choisi par l'utilisateur, un seul lot :
+  le lot est mergé sans action humaine, ou s'arrête sur un cas du
+  livrable 5 avec une raison lisible.
+
+### Hors périmètre
+
+- Plusieurs lots ou plusieurs projets par lancement, exécution parallèle,
+  planification (cron, routines).
+- Automatisation d'`integration-check`.
+- La promotion `develop` → `main`, qui reste à l'utilisateur.
+- Le repo `claude-harness` lui-même, absent de `projects.json` et gelé.
 
 ---
 
