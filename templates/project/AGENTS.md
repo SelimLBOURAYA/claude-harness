@@ -69,8 +69,8 @@ Claude Code session with the plugin enabled they are announced as
 
 | Skill | Trigger | Role |
 |---|---|---|
-| `lot-start` | before any lot development, and on `lot-start confirm N` | Syncs the status table with develop, asks every ambiguity, creates the branch; the user's `lot-start confirm N` opens writes |
-| `lot-test` | lot code complete | Tests written and green, coverage at the threshold above |
+| `lot-start` | before any lot development, on `lot-start confirm N`, and once the lot's code is complete | Syncs the status table with develop, asks every ambiguity, creates the branch; the user's `lot-start confirm N` opens writes; Step B3 closes the development by amending `docs/memory.md` |
+| `lot-test` | development closed, in a new session | Checks and completes the tests, black-box, test files only, coverage at the threshold above |
 | `lot-review` | after `lot-test`, in a new session | Code review of the lot, applied fixes and one batch of questions for the findings that need a decision; **requires the `claude` profile** |
 | `lot-audit` | after `lot-review` | Security, performance and architecture audit, findings fixed; writes `docs/audits/lot-N.md` |
 | `lot-ship` | after `lot-audit` | Commits, push, PR to `develop`, merge once the CI is green, then stop |
@@ -100,6 +100,7 @@ directory Claude Code scans — and are listed in the census below.
 | [`CONVENTIONS.md`](CONVENTIONS.md) | Copy of the cross-cutting conventions master |
 | [`README.md`](README.md) | Presentation and quick start |
 | [`lots.md`](lots.md) | Planning: lots, statuses, specifications (French) |
+| [`docs/memory.md`](docs/memory.md) | Project memory: working notes read by `lot-start`, amended at the close of development (MEM-1) |
 | `docs/audits/` | Lot reports produced by `lot-review` and `lot-audit` |
 
 Any document added to this project is added to this census **in the same commit**.

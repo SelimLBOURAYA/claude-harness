@@ -197,7 +197,7 @@ missing line is a drift that `harness-sync` and `harness-invariants.yml` report.
 | Skill | Role |
 |---|---|
 | `lot-start` | Syncs the lots file status table with develop, asks every ambiguity, creates the branch, waits for `lot-start confirm N` |
-| `lot-test` | Tests written and green, coverage gate at the repo threshold |
+| `lot-test` | Checks and completes the tests in a new session, test files only, coverage gate at the repo threshold |
 | `lot-review` | Code review of the lot, applied fixes, questions on the findings that need a decision (`claude` profile, new session) |
 | `lot-audit` | Security, performance and architecture audit, findings fixed → `docs/audits/lot-N.md` |
 | `lot-ship` | Commits, lot marked ✅, push, PR to `develop`, merge once the CI is green, then stop |

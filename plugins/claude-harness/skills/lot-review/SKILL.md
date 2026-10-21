@@ -7,7 +7,7 @@ description: >-
   session. Use after lot-test and before lot-audit, or when the user asks for a
   code review of the lot.
 metadata:
-  version: "2.0"
+  version: "2.1"
 ---
 
 # Lot Review — Code review before the audit
@@ -83,12 +83,28 @@ It may run as a forked agent writing the tree while this session reads it:
 - **Edit nothing until it has returned.**
 - **Keep its fixes inside the lot's source diff.** Revert a change to any other
   file (`git -C "$REVIEW_REPO" restore <path>`) and record its finding as
-  deferred. The lot's status line in the `Lots file` is the one exception.
+  deferred. The lot's status line in the `Lots file` and `docs/memory.md` are
+  the exceptions.
 - **Findings that need a decision** (an authorization model, a deviation from
   the lot's specification, a schema change): ask the owner, all in one batch,
   then apply the answers before Step 3.
 
 A finding about code the lot did not touch becomes a candidate lot in Step 4.
+
+Then, yourself, once `code-review` has returned:
+
+- **The project memory.** Read `docs/memory.md` (MEM-1) against the code and
+  the lot's diff. A note that is wrong, stale, or a conclusion without its
+  reason is a finding, fixed like the others; the header stays, and the file
+  stays within 6000 characters (`wc -m`).
+- **The `lot-test` boundary.** Its `test(N)` commits touch test files only and
+  never weaken an existing assertion:
+
+  ```bash
+  rtk proxy git -C "$REVIEW_REPO" log --format='%h %s' --name-only --grep='^test(' origin/develop..HEAD
+  ```
+
+  A file outside the tests, or an assertion removed or loosened, is a finding.
 
 ## Step 3 — Commit the fixes
 
@@ -101,7 +117,8 @@ git -C "$REVIEW_REPO" commit -m "fix(N): apply the lot review findings"
 ```
 
 `fix(N)` for a defect, `refactor(N)` for a cleanup with no behaviour change; two
-commits when the lot produced both. A rejected finding gets its reason in the
+commits when the lot produced both. A memory correction is its own commit:
+`docs(N): update the project memory`. A rejected finding gets its reason in the
 report.
 
 ## Step 4 — Write the deliverable
