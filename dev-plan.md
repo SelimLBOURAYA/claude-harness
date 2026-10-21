@@ -2103,10 +2103,10 @@ aux invariants de sécurité (confirmation du verrou et merge sans humain, sur
 
    | Étape | Modèle | Invocation |
    |---|---|---|
-   | `lot-start` partie A | Sonnet | `--model claude-sonnet-5-5 --effort medium --settings ~/.claude/settings.claude.json` |
-   | `lot-start confirm N`, dev, B3 | Sonnet | même session, `--resume <session-id>`, prompt exact `lot-start confirm N` |
+   | `lot-start` partie A | DeepSeek | `--settings ~/.claude/settings.deepseek.json` |
+   | `lot-start confirm N`, dev, B3 | DeepSeek | même session, `--resume <session-id>`, prompt exact `lot-start confirm N` |
    | `lot-test` | DeepSeek | `--settings ~/.claude/settings.deepseek.json` |
-   | correctif d'un bug révélé par `lot-test` | Sonnet | session neuve, puis `lot-test` relancé |
+   | correctif d'un bug révélé par `lot-test` | DeepSeek | session neuve, puis `lot-test` relancé |
    | `lot-review` | Opus | `--model claude-opus-5-5 --effort medium --settings ~/.claude/settings.claude.json` |
    | `lot-audit` | Opus | idem, session neuve |
    | `lot-ship` | DeepSeek | `--settings ~/.claude/settings.deepseek.json` |
@@ -2147,7 +2147,7 @@ aux invariants de sécurité (confirmation du verrou et merge sans humain, sur
      décision (livrable 6, exceptions) → arrêt avant `lot-ship` ;
      l'utilisateur tranche, puis `--resume` reprend à l'étape suivante.
      Tous les autres constats sont corrigés ou ignorés sans arrêt ;
-   - bug révélé par `lot-test` → **une** session de correctif Sonnet (le
+   - bug révélé par `lot-test` → **une** session de correctif DeepSeek (le
      verrou reste valide jusqu'à `lot-ship`, aucune reconfirmation), puis
      `lot-test` relancé ; second échec → arrêt. Ce point ferme la question
      laissée ouverte par le lot 26 ;
@@ -2237,6 +2237,7 @@ aux invariants de sécurité (confirmation du verrou et merge sans humain, sur
 | Allowlist (2026-10-21, au démarrage) | Passée par process (`--allowedTools`, `Validation command` lu dans `## Gate parameters`), rien de commité dans les projets : `projects.json` ne synchronise que `CONVENTIONS.md` |
 | Bug révélé par `lot-test` (2026-10-21, au démarrage) | `status: failed` rendu par `lot-test` vaut bug révélé et ouvre la session de correctif ; un `blocked`, un contrôle en échec ou un délai arrête le projet |
 | Modèle de développement du lot (2026-10-21, au démarrage) | Opus, choix de l'utilisateur, au lieu de Sonnet |
+| Modèle du développement sous autopilot (2026-10-21, après le dev) | **DeepSeek** pour `lot-start` A, la confirmation, le dev, B3 et le correctif, au lieu de Sonnet : l'utilisateur a des crédits DeepSeek à consommer, et c'est l'usage de PROF-1 (DeepSeek code, Claude contrôle). `lot-review` et `lot-audit` restent sous Opus. La session A + dev + B3 reste d'un seul tenant, chez un seul fournisseur |
 | « ask » de `git-guard.py` en `-p` (2026-10-21) | Non vérifié par un essai réel (refusé par l'utilisateur) : sous `HARNESS_AUTOPILOT=1`, le garde répond « deny » dans tous les cas |
 | État ignoré par git (2026-10-21) | Le script ajoute `.claude/autopilot-state.json` à `.git/info/exclude`, sans toucher le `.gitignore` des projets |
 
