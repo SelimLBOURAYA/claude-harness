@@ -80,8 +80,8 @@ with the plugin enabled they are announced as `claude-harness:<name>`.
 
 | Skill | Trigger | Role |
 |---|---|---|
-| `lot-start` | before any lot development, and on `lot-start confirm N` | Syncs the status table with develop, asks every ambiguity, creates the branch; the user's `lot-start confirm N` writes the lock that opens writes |
-| `lot-test` | lot code complete | Tests written and green, coverage gate at the repo threshold |
+| `lot-start` | before any lot development, on `lot-start confirm N`, and once the lot's code is complete | Syncs the status table with develop, asks every ambiguity, creates the branch; the user's `lot-start confirm N` writes the lock that opens writes; Step B3 closes the development by amending `docs/memory.md` |
+| `lot-test` | development closed, in a new session | Checks and completes the tests, black-box, test files only, coverage gate at the repo threshold |
 | `lot-review` | after `lot-test`, in a new session | Code review of the lot, applied fixes and one batch of questions for the findings that need a decision; **requires the `claude` profile** |
 | `lot-audit` | after `lot-review` | Security, performance and architecture audit, findings fixed; writes `docs/audits/lot-N.md` |
 | `lot-ship` | after `lot-audit` | Commits, lot marked ✅, push, PR to `develop`, merge once the CI is green, then stop |
@@ -109,6 +109,7 @@ Every blocking invariant is also enforced in CI, which is the only agent-agnosti
 | [`CONVENTIONS.md`](CONVENTIONS.md) | **Master** of the cross-cutting conventions (lot 5) |
 | [`README.md`](README.md) | Plugin installation, the two owner settings that make the harness consumable, gate parameters contract |
 | [`dev-plan.md`](dev-plan.md) | Remediation plan — lots, decisions, findings matrices (French) |
+| [`docs/memory.md`](docs/memory.md) | Project memory: working notes read by `lot-start`, amended at the close of development (MEM-1) |
 | [`projects.json`](projects.json) | The portfolio: projects and harness-managed files that `sync-projects.yml` keeps current |
 | `plugins/claude-harness/skills/bootstrap-project/SKILL.md` | New project generation skill |
 | `plugins/claude-harness/skills/dep-update/SKILL.md` | Dependency refresh skill |
@@ -161,6 +162,8 @@ Every blocking invariant is also enforced in CI, which is the only agent-agnosti
 | `docs/audits/lot-25-friction.md` | Lot 25 friction record — what each gate skill's own run cost |
 | `docs/audits/lot-25-review.md` | Lot 25 code-review report |
 | `docs/audits/lot-25.md` | Lot 25 audit report — security, performance, architecture |
+| `docs/audits/lot-26-review.md` | Lot 26 code-review report |
+| `docs/audits/lot-26.md` | Lot 26 audit report — security, performance, architecture |
 | `docs/audits/portfolio/p4-meta-harness-2026-09-17-v2.md` | P4 portfolio audit (supersedes the removed morning v1) |
 | `docs/audits/portfolio/p5-harness-cicd-2026-09-17.md` | P5 CI/CD guards audit |
 | `docs/audits/portfolio/p6-meta-portfolio-2026-09-17.md` | P6 cross-cutting portfolio audit |
@@ -170,6 +173,7 @@ Every blocking invariant is also enforced in CI, which is the only agent-agnosti
 | `templates/project/AGENTS.md` | Byte-identical mirror shipped with the skeleton |
 | `templates/project/README.md` | Skeleton readme |
 | `templates/project/lots.md` | Skeleton lots file, opens with the status table |
+| `templates/project/docs/memory.md` | Skeleton project memory: fixed header, empty sections (MEM-1) |
 | `templates/ci-caller.yml` | Caller workflow template for consuming repos |
 | `templates/dependabot.yml` | Dependabot template for consuming repos |
 

@@ -4,17 +4,19 @@ description: >-
   Starts a lot: resolves the repository, re-reads the project references,
   synchronises the lots file status table with develop, computes the candidate
   lot, asks every ambiguity in one batch and creates the lot branch, then waits
-  for the user to type `lot-start confirm N`. Use before any lot development,
-  when the user says "develop the next lot" or names a lot, and after the user
-  confirms with `lot-start confirm N`.
+  for the user to type `lot-start confirm N`; closes the development by
+  amending the project memory docs/memory.md. Use before any lot development,
+  when the user says "develop the next lot" or names a lot, after the user
+  confirms with `lot-start confirm N`, and once the lot's code is complete or on
+  `lot-start close N`.
 metadata:
-  version: "2.0"
+  version: "2.1"
 ---
 
 # Lot Start — Frame the lot before the first write
 
 ```
-[lot-start]  →  development  →  lot-test  →  lot-review  →  lot-audit  →  lot-ship
+[lot-start]  →  development  →  [close]  →  lot-test  →  lot-review  →  lot-audit  →  lot-ship
 ```
 
 Two hooks back this skill:
@@ -28,7 +30,8 @@ Two hooks back this skill:
 
 **Part A** runs when a lot is to be started, **Part B** once the user has
 confirmed (`lot-start confirm N` in the prompt, or this skill invoked with
-`confirm N`).
+`confirm N`). Its Step B3 closes the development (`lot-start close N`, or on
+your own once the code is complete).
 
 ## Part A — Before the confirmation
 
@@ -46,9 +49,12 @@ reopen the session there. Every command below is scoped with `-C "$LOT_REPO"`.
 ### Step A2 — Re-read the references, by extracts
 
 1. `CLAUDE.md`: the `Gate parameters`, `Skills` and `Project documents` sections.
-2. The `Lots file`: the status table, then only the candidate lot's section once
+2. `docs/memory.md`, the project memory (MEM-1), once, if it exists: working
+   notes, not the truth. Check a note against the code before it guides a
+   write.
+3. The `Lots file`: the status table, then only the candidate lot's section once
    Step A4 names it.
-3. The project's own skills listed in `CLAUDE.md` (`.claude/skills/<name>/SKILL.md`),
+4. The project's own skills listed in `CLAUDE.md` (`.claude/skills/<name>/SKILL.md`),
    if any.
 
 `CONVENTIONS.md` is read only by an agent that does not load it (START-1).
@@ -164,16 +170,60 @@ git -C "$LOT_REPO" status --short
 
 Report in three lines: lot confirmed, what the sync changed (or « table already
 up to date »), the first development step. Then start that step in the same
-turn. Development follows LOT-5, GATE-1 to GATE-3, and ends with `lot-test`.
+turn. Development follows LOT-5, GATE-1 to GATE-3, and ends with Step B3.
 
 The one exception is a question the confirmation did not settle: ask it, and
 stop.
+
+### Step B3 — Close the development
+
+Run it on your own as soon as the lot's code and its tests (GATE-3) are complete
+and the `Validation command` is green. `lot-start close N` (the prompt, or this
+skill invoked with `close N`) is its explicit entry point. This session is the
+only one that still holds the lot's reasoning: `lot-test` opens in a new
+session, under any profile, and starts from the memory and the lots file.
+
+1. `docs/memory.md` missing → create it from the harness template, header kept
+   verbatim, and add it to the `## Project documents` census of `CLAUDE.md`,
+   copied to `AGENTS.md` (DOC-1):
+
+   ```bash
+   git -C ~/ENV/projets/claude-harness fetch -q origin main
+   mkdir -p "$LOT_REPO/docs"
+   git -C ~/ENV/projets/claude-harness show origin/main:templates/project/docs/memory.md > "$LOT_REPO/docs/memory.md"
+   ```
+
+2. Amend it with what the next session would otherwise pay to rediscover:
+
+   | Section | What goes in |
+   |---|---|
+   | `## Code map` | Files and modules the lot created or moved: role, entry point |
+   | `## Decisions` | Fact, reason, origin lot: a decision without its reason is not kept |
+   | `## Pitfalls` | What cost this session time, and how to avoid it |
+   | `## Open questions` | What the lot left unsettled |
+
+   Rewrite or delete the notes the lot made wrong or obsolete; never append a
+   lot journal. The header stays as is, and the file stays within 6000
+   characters (`wc -m`): over the cap, merge or drop the least useful notes.
+3. The file changed → `Validation command` green, then commit it alone, with
+   its census entry when it is new:
+
+   ```bash
+   git -C "$LOT_REPO" add docs/memory.md   # plus CLAUDE.md AGENTS.md when new
+   git -C "$LOT_REPO" commit -m "docs(N): update the project memory"
+   ```
+
+   Unchanged → no commit; never an empty one.
+4. Stop. Report the lot's last commit and tell the user to open a **new
+   session** for `lot-test` (LOT-7).
 
 ## Rules
 
 - Never write `.claude/current-lot`.
 - Never arbitrate a stop of `sync-status.py`: ask.
 - The sync commit is alone and first on the branch; no empty commit.
+- The memory is amended by the development session only (Step B3), and
+  committed only when it changed.
 - History reads go through `rtk proxy git log`.
 - Every repository read or write is scoped to `$LOT_REPO`.
 - The write guard does not see a write made through `Bash`; using `Bash` to get
