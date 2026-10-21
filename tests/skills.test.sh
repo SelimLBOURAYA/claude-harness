@@ -132,6 +132,18 @@ assert_contains "$(conv_rule LOT-7)" "test files only" "LOT-7 limits lot-test to
 assert_contains "$(conv_rule LOT-7)" "any profile" "LOT-7 lets lot-test run under any profile"
 assert_contains "$(conv_rule MEM-1)" "6000 characters" "MEM-1 states the cap"
 
+# --- the autopilot (lot 27) ------------------------------------------------
+# lot-review and lot-audit sort every finding into three classes under the
+# autopilot's signal; the script reads the outcome they write.
+for skill in lot-review lot-audit; do
+  section=$(sed -n '/^## Autopilot$/,/^## /p' "$SKILLS/$skill/SKILL.md")
+  assert_contains "$section" "HARNESS_AUTOPILOT" "$skill: the Autopilot section keys on HARNESS_AUTOPILOT"
+  for class in "**Fixed**" "**Ignored**" "**Exception**"; do
+    assert_contains "$section" "$class" "$skill: the Autopilot section names the class $class"
+  done
+  assert_contains "$section" "rejected: minor (autopilot)" "$skill: an ignored finding keeps its row"
+done
+
 # i-have-adhd stays user-invoked only.
 assert_ok "i-have-adhd is never model-invoked" -- \
   grep -q '^disable-model-invocation: true' "$SKILLS/i-have-adhd/SKILL.md"

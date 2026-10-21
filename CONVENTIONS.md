@@ -10,7 +10,7 @@ Cross-cutting rules of every project; project-specific rules go to the project's
 
 ## 2. Lot workflow
 
-- **LOT-1** Start every lot with the `lot-start` skill, never by inferring "the next lot" yourself. It synchronises the lots file status table with `develop` (first commit of the lot branch, `docs: sync lots file status`), creates `feat/lot-N-slug` from `develop`, and waits for the user's `lot-start confirm N` before any file is written.
+- **LOT-1** Start every lot with the `lot-start` skill, never by inferring "the next lot" yourself. It syncs the status table with `develop` (first commit of the lot branch, `docs: sync lots file status`), creates `feat/lot-N-slug` from `develop`, and waits for `lot-start confirm N`, from the user or their autopilot, before any file is written.
 - **LOT-2** A status row changes only on evidence from git: its merge on `develop`, or its audit commit. When the mapping is ambiguous, or a row is done with no merge, stop and ask; never pick a lot yourself.
 - **LOT-3** Never redo work merged on `develop`: commits there scoped to the candidate lot are a question for the user.
 - **LOT-4** If an acceptance criterion is ambiguous, ask all your questions in one batch before writing code; otherwise say "no ambiguity" and restate the criteria in one list.
@@ -99,7 +99,7 @@ Cross-cutting rules of every project; project-specific rules go to the project's
 
 ## 14. Review in a new session, under the claude profile
 
-- **PROF-1** Two profiles, switched by `/home/selim/.local/bin/claude-profile`: `claude` (a native Claude model) for review, audit and judgement on produced work; `deepseek` (`ANTHROPIC_BASE_URL=https://api.deepseek.com/anthropic`) for delegated coding. The script rewrites `settings.json`, which only the next session reads: never switch on your own initiative.
+- **PROF-1** Two profiles, switched by `/home/selim/.local/bin/claude-profile`: `claude` (a native Claude model) for review, audit and judgement on produced work; `deepseek` (`ANTHROPIC_BASE_URL=https://api.deepseek.com/anthropic`) for delegated coding. The script rewrites `settings.json`, which only the next session reads: never switch on your own initiative. The autopilot picks each step's model per process, never through `settings.json`.
 - **LOT-7** Development closes with `lot-start` Step B3; `lot-test` follows in a new session, any profile, test files only. The user then runs `claude-profile claude` under `deepseek` and opens a new session for `lot-review`, `lot-audit` and `lot-ship`. `lot-review` needs an empty `ANTHROPIC_BASE_URL`, never a model's account of its identity.
 
 ## 15. Response shape

@@ -3,8 +3,9 @@
 #
 # The lock `.claude/current-lot` is what lot-lock-guard.py requires before any
 # write on a `feat/lot-*` branch. It is written here and nowhere else, because
-# this hook only sees prompts the *user* submitted: the model cannot forge one,
-# so the lock proves a human confirmed the lot.
+# this hook only sees submitted prompts: the model cannot forge one. The
+# confirmation stays a prompt submitted by the user, or by their autopilot
+# (lot 27) once its own checks passed, never by the model.
 #
 # Accepted, as the whole prompt and nothing else (surrounding blanks aside):
 #   lot-start confirm <N>

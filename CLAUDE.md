@@ -51,6 +51,7 @@ plugins/claude-harness/
   hooks/mirror-sync.sh               CLAUDE.md <-> AGENTS.md mirror
   skills/<name>/SKILL.md             generic skills shared by every repo
   skills/lot-start/sync-status.py    status table sync with develop
+  autopilot/autopilot.py             runs one lot from lot-start to merge, a headless session per step
 .github/workflows/*.yml              reusable workflows called by every repo
 .github/scripts/deepseek-card.py     generates rules/deepseek.json from CONVENTIONS.md
 templates/                           project skeleton, CI caller, dependabot
@@ -123,6 +124,7 @@ Every blocking invariant is also enforced in CI, which is the only agent-agnosti
 | `plugins/claude-harness/skills/lot-start/SKILL.md` | Lot start skill: status sync, questions, branch, confirmation (lot 19) |
 | `plugins/claude-harness/skills/lot-test/SKILL.md` | Lot test and coverage skill |
 | `plugins/claude-harness/rules/deepseek.json` | Imperative rules card for the `deepseek` profile, injected at session start (lot 19) |
+| `plugins/claude-harness/autopilot/autopilot.py` | Autopilot: one lot from `lot-start` to merge, a session and a model per step, stop and notification at the first blocker (lot 27) |
 | `docs/audits/lot-0.md` | Lot 0 report — technical verifications V1 to V7 |
 | `docs/audits/lot-1.md` | Lot 1 report — hooks |
 | `docs/audits/lot-2.md` | Lot 2 report — generic skills |
@@ -164,6 +166,8 @@ Every blocking invariant is also enforced in CI, which is the only agent-agnosti
 | `docs/audits/lot-25.md` | Lot 25 audit report — security, performance, architecture |
 | `docs/audits/lot-26-review.md` | Lot 26 code-review report |
 | `docs/audits/lot-26.md` | Lot 26 audit report — security, performance, architecture |
+| `docs/audits/lot-27-review.md` | Lot 27 code-review report |
+| `docs/audits/lot-27.md` | Lot 27 audit report — security, performance, architecture |
 | `docs/audits/portfolio/p4-meta-harness-2026-09-17-v2.md` | P4 portfolio audit (supersedes the removed morning v1) |
 | `docs/audits/portfolio/p5-harness-cicd-2026-09-17.md` | P5 CI/CD guards audit |
 | `docs/audits/portfolio/p6-meta-portfolio-2026-09-17.md` | P6 cross-cutting portfolio audit |

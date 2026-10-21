@@ -17,6 +17,9 @@
   `lot-start/sync-status.py` maps develop merges to status rows.
 - `CONVENTIONS.md`: master of the rules; `.github/scripts/deepseek-card.py`
   generates `plugins/claude-harness/rules/deepseek.json` from it, by rule ID.
+- `plugins/claude-harness/autopilot/autopilot.py`: one lot from `lot-start` to
+  merge, a `claude -p` session per step; `tests/autopilot.test.sh` drives it
+  with fake `claude`, `gh` and `notify-send` (lot 27).
 - `templates/project/`: skeleton copied by `bootstrap-project`.
 - `.github/workflows/`: reusable workflows; `sync-projects.yml` pushes the
   synced files of `projects.json` to the 8 repos.
@@ -44,13 +47,19 @@
 - `lot-test` checks and completes the tests from a fresh session and writes
   test files only; the memory is written by the dev session, which alone knows
   the decisions (lot 26).
+- Autopilot (lot 27): the model's status is never enough, the script checks
+  each step itself; the dev close is status `ok` + clean tree + a `(N)` commit
+  + `Validation command` rerun green. `HARNESS_AUTOPILOT=1` is the only
+  signal: it turns a `git-guard.py` ask into a deny (no human to answer). The
+  allowlist goes per process (`--allowedTools`), the state file is kept out
+  of git through `.git/info/exclude`: nothing is committed in the projects.
 
 ## Pitfalls
 
 - The deepseek card budget (4500 rendered characters) is nearly full: lengthening
   a carded rule fails `tests/deepseek-card.test.sh`, and that test adds 5
-  characters to OUT-1, so keep a margin of 10 or more. MEM-1 is off the card
-  for this reason.
+  characters to OUT-1. Lot 27 left a margin of about 7: shorten another
+  carded rule before lengthening one. MEM-1 is off the card for this reason.
 - The session runs the **installed** plugin copy, not the branch: a skill fixed
   on the branch still behaves the old way until promotion and update.
 - `shellcheck` is not installed locally: the workflows suite skips its shell
@@ -65,5 +74,8 @@
 
 - `lot-test` section 2 has no `Stack = harness` branch, and sections 3.1 and
   3.2 have nothing to act on when `Coverage tool` is `none` (friction 22-24).
-- Lot 27 needs a deterministic marker of the development's close, now that the
-  memory commit happens only when the file changes.
+- The autopilot is tested against a fake `claude` only. Unverified on the real
+  CLI: a `/claude-harness:<skill>` prompt in `-p`, `--json-schema` with
+  `--resume`, the `structured_output` field of the result event, and what a
+  hook `ask` does in `-p` (the probe was declined). The first real run needs
+  lots 26 and 27 promoted to `main`.

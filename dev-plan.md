@@ -53,7 +53,7 @@
 | 24 | `feat/lot-24-harness-freeze` | D – Clôture | Gel du harnais : contradictions corrigées, boucle de friction coupée, `CONVENTIONS.md` allégé, verrou simplifié, merge par `lot-ship` | claude-harness, les 8 repos (via `main` et la PR de synchro) | ✅ |
 | 25 | `feat/lot-25-guard-heredoc-report-fields` | A – Harness | Incident elya-frontend : champs SHA du modèle `integration-check`, heredoc lu comme du shell par le garde git | claude-harness, les 8 repos (via `main`) | ✅ |
 | 26 | `feat/lot-26-project-memory` | A – Harness | Mémoire de projet : `docs/memory.md` lu par `lot-start`, amendé en fin de développement, lu par `lot-test` (vérifier et compléter, fichiers de test seuls), vérifié par `lot-review` | claude-harness, les 8 repos (via `main` et la PR de synchro) | ✅ |
-| 27 | `feat/lot-27-autopilot` | A – Harness | Autopilot : enchaînement des étapes d'un lot, une session neuve et un modèle par étape, jusqu'au merge, arrêt et notification au premier blocage | claude-harness, les 8 repos (via `main` et la PR de synchro) | ⬜ |
+| 27 | `feat/lot-27-autopilot` | A – Harness | Autopilot : enchaînement des étapes d'un lot, une session neuve et un modèle par étape, jusqu'au merge, arrêt et notification au premier blocage | claude-harness, les 8 repos (via `main` et la PR de synchro) | ✅ |
 
 Légende des statuts *(P6-D10)* : ⬜ à faire · 🔄 en cours (livré sur la branche, PR non
 mergée) · ✅ mergé sur `develop` · ⏸️ planifié mais dormant · ❄️ gelé.
@@ -87,7 +87,7 @@ meal-planner-backend / -frontend, elya-fe = elya-frontend.
 | Découpage | Par vagues : harness → conventions → adoption repo par repo → clôture |
 | Version du plugin | Les projets **suivent `main`** du harness (pas de tag figé). Un changement n'est actif qu'après ta promotion `develop` → `main` du repo harness. Les rapports de revue et d'audit citent la version installée du harnais *(réécrit au lot 24)*. *(précisé le 2026-09-17, doc Claude Code « plugin marketplaces »)* Sans ref, Claude Code clone la **branche par défaut** du repo, qui est `develop` (et le reste après le lot 6b) : la ref **`main` est donc obligatoire** partout où le marketplace est déclaré (`"ref": "main"` dans `extraKnownMarketplaces`, `@main` en ligne de commande), sinon tout merge sur `develop` devient actif dans les 8 repos. `main` existe depuis le 2026-09-17 (`d7b1438`) mais ne contient que ce plan, **aucun plugin** : déclarer le marketplace avec cette ref avant la promotion qui suit le lot 4 installerait un marketplace vide ou invalide. **Cette** promotion `develop` → `main` (première version de `main` contenant le plugin) est le prérequis du lot 5 (activation user-level) et du lot 7 (première adoption) |
 | Paramètres par projet | Section `## Gate parameters` dans `CLAUDE.md` (donc dans `AGENTS.md`) |
-| Sprint vs stop | **Stop après le merge** (LOT-6) : un lot = une PR vers `develop`, mergée par `lot-ship` une fois la CI verte, puis arrêt *(réécrit au lot 24)*. « Sprint chaining » supprimé partout ; skill `sprint` non repris dans le plugin |
+| Sprint vs stop | **Stop après le merge** (LOT-6) : un lot = une PR vers `develop`, mergée par `lot-ship` une fois la CI verte, puis arrêt *(réécrit au lot 24)*. « Sprint chaining » supprimé partout ; skill `sprint` non repris dans le plugin. L'autopilot (lot 27) enchaîne les étapes d'**un** lot, une session neuve par étape, et s'arrête après le merge |
 | Garde git | Hook `PreToolUse` Bash. **Refus** : push vers `main`, `--force`/`--force-with-lease`, `--no-verify`, `reset --hard`, suppression de branche distante, `gh pr create` sans `--base develop`, `gh pr merge` hors PR de lot (`feat/lot-*` vers `develop`) aux checks tous verts *(lot 24)*. **Confirmation** : tout `git push`, tout `gh pr create` |
 | Rapport d'audit | Exigé sur la PR par `lot-deliverables.yml`, seule vérification ; la garde git ne le contrôle pas *(réécrit au lot 24, C1)* |
 | Hooks git locaux | Aucun (pas de lefthook/husky) : les invariants sont vérifiés **en CI** |
@@ -2064,7 +2064,7 @@ cette frontière.
   (lot 27) : ce lot ne fait que rendre chaque étape exécutable dans une
   session neuve.
 
-## LOT 27 — Autopilot ⬜
+## LOT 27 — Autopilot ✅
 
 Branche `feat/lot-27-autopilot`, depuis `develop`, **après le merge du lot
 26**, dont il exige l'étape B3, la frontière de `lot-test` et la mémoire.
@@ -2103,10 +2103,10 @@ aux invariants de sécurité (confirmation du verrou et merge sans humain, sur
 
    | Étape | Modèle | Invocation |
    |---|---|---|
-   | `lot-start` partie A | Sonnet | `--model claude-sonnet-5-5 --effort medium --settings ~/.claude/settings.claude.json` |
-   | `lot-start confirm N`, dev, B3 | Sonnet | même session, `--resume <session-id>`, prompt exact `lot-start confirm N` |
+   | `lot-start` partie A | DeepSeek | `--settings ~/.claude/settings.deepseek.json` |
+   | `lot-start confirm N`, dev, B3 | DeepSeek | même session, `--resume <session-id>`, prompt exact `lot-start confirm N` |
    | `lot-test` | DeepSeek | `--settings ~/.claude/settings.deepseek.json` |
-   | correctif d'un bug révélé par `lot-test` | Sonnet | session neuve, puis `lot-test` relancé |
+   | correctif d'un bug révélé par `lot-test` | DeepSeek | session neuve, puis `lot-test` relancé |
    | `lot-review` | Opus | `--model claude-opus-5-5 --effort medium --settings ~/.claude/settings.claude.json` |
    | `lot-audit` | Opus | idem, session neuve |
    | `lot-ship` | DeepSeek | `--settings ~/.claude/settings.deepseek.json` |
@@ -2128,9 +2128,7 @@ aux invariants de sécurité (confirmation du verrou et merge sans humain, sur
      en 0 (aucun stop), la branche `feat/lot-N-*` est créée, le statut est
      `ok` et `questions` est vide. Sinon : pas de confirmation, arrêt ;
    - après le dev : le commit `docs(N): update the project memory` est sur
-     la branche (**à revoir** : depuis l'amendement du lot 26, ce commit
-     n'a lieu que si la mémoire change ; un autre marqueur déterministe de
-     clôture est à trancher au démarrage du lot 27) ;
+     la branche (**remplacé** au démarrage du lot 27 : voir les arbitrages) ;
    - après `lot-test` : ses commits ne touchent que des fichiers de test
      (même règle que le lot 26) ;
    - après `lot-review` puis `lot-audit` : `docs/audits/lot-N-review.md`
@@ -2149,7 +2147,7 @@ aux invariants de sécurité (confirmation du verrou et merge sans humain, sur
      décision (livrable 6, exceptions) → arrêt avant `lot-ship` ;
      l'utilisateur tranche, puis `--resume` reprend à l'étape suivante.
      Tous les autres constats sont corrigés ou ignorés sans arrêt ;
-   - bug révélé par `lot-test` → **une** session de correctif Sonnet (le
+   - bug révélé par `lot-test` → **une** session de correctif DeepSeek (le
      verrou reste valide jusqu'à `lot-ship`, aucune reconfirmation), puis
      `lot-test` relancé ; second échec → arrêt. Ce point ferme la question
      laissée ouverte par le lot 26 ;
@@ -2235,6 +2233,14 @@ aux invariants de sécurité (confirmation du verrou et merge sans humain, sur
 | Délai | **30 min par étape**, une seule valeur : les lots sont courts, le délai ne sert qu'à couper une session qui ne finit pas |
 | Périmètre d'un lancement | Le repo du répertoire courant, dans lequel l'utilisateur lance l'autopilot |
 | Bugs | Corrigés d'office par `lot-review` et `lot-audit`, au même titre que la sécurité, la performance et la maintenabilité |
+| Marqueur de clôture du dev (2026-10-21, au démarrage) | Statut `ok`, arbre propre, au moins un commit `(N)` après la synchro, et `Validation command` relancé vert par le script. Remplace le commit `docs(N): update the project memory`, conditionnel depuis le lot 26 |
+| Allowlist (2026-10-21, au démarrage) | Passée par process (`--allowedTools`, `Validation command` lu dans `## Gate parameters`), rien de commité dans les projets : `projects.json` ne synchronise que `CONVENTIONS.md` |
+| Bug révélé par `lot-test` (2026-10-21, au démarrage) | `status: failed` rendu par `lot-test` vaut bug révélé et ouvre la session de correctif ; un `blocked`, un contrôle en échec ou un délai arrête le projet |
+| Modèle de développement du lot (2026-10-21, au démarrage) | Opus, choix de l'utilisateur, au lieu de Sonnet |
+| Modèle du développement sous autopilot (2026-10-21, après le dev) | **DeepSeek** pour `lot-start` A, la confirmation, le dev, B3 et le correctif, au lieu de Sonnet : l'utilisateur a des crédits DeepSeek à consommer, et c'est l'usage de PROF-1 (DeepSeek code, Claude contrôle). `lot-review` et `lot-audit` restent sous Opus. La session A + dev + B3 reste d'un seul tenant, chez un seul fournisseur |
+| « ask » de `git-guard.py` en `-p` (2026-10-21) | Non vérifié par un essai réel (refusé par l'utilisateur) : sous `HARNESS_AUTOPILOT=1`, le garde répond « deny » dans tous les cas |
+| `python3` de l'allowlist (2026-10-21, `lot-review`) | Restreint aux scripts du plugin (`~/.claude/plugins/cache/claude-harness/*`) au lieu de `python3 *` : `python3 -c` lancerait toute commande git hors de la vue de `git-guard.py`. Choix de l'utilisateur |
+| État ignoré par git (2026-10-21) | Le script ajoute `.claude/autopilot-state.json` à `.git/info/exclude`, sans toucher le `.gitignore` des projets |
 
 À vérifier en début de lot (pas une question) : ce que devient un « ask » de
 `git-guard.py` en mode `-p`. Si c'est un refus, l'étape échoue proprement ; si

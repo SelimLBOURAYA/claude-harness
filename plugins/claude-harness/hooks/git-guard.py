@@ -99,6 +99,10 @@ def deny(reason):
 
 
 def ask(reason):
+    # An autopilot session (lot 27) has no human to answer a prompt: what would
+    # be asked is denied, so the step fails with a reason instead of passing.
+    if os.environ.get("HARNESS_AUTOPILOT") == "1":
+        deny("Autopilot session, no human to confirm: " + reason)
     decide("ask", reason)
 
 
