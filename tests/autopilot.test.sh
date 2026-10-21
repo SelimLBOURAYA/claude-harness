@@ -237,5 +237,7 @@ R=$(fixture dry harness)
 out=$(cd "$R" && PATH="$FAKEBIN:$PATH" HOME="$FAKEHOME" python3 "$PILOT" --dry-run)
 assert_contains "$out" "review Opus" "--dry-run shows the model of each step"
 assert_eq "" "$(calls "$R")" "--dry-run runs no session"
+assert_ok "the script leaves no __pycache__ in the plugin" -- \
+  test ! -e "$REPO_ROOT/plugins/claude-harness/hooks/__pycache__"
 
 finish

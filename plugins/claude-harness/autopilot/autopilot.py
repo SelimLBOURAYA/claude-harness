@@ -31,6 +31,8 @@ import subprocess
 import sys
 
 HERE = os.path.dirname(os.path.realpath(__file__))
+# The import below must leave no __pycache__ in the marketplace clone.
+sys.dont_write_bytecode = True
 sys.path.insert(0, os.path.join(HERE, "..", "hooks"))
 import lotfile  # noqa: E402
 
