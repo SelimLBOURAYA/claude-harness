@@ -2239,6 +2239,7 @@ aux invariants de sécurité (confirmation du verrou et merge sans humain, sur
 | Modèle de développement du lot (2026-10-21, au démarrage) | Opus, choix de l'utilisateur, au lieu de Sonnet |
 | Modèle du développement sous autopilot (2026-10-21, après le dev) | **DeepSeek** pour `lot-start` A, la confirmation, le dev, B3 et le correctif, au lieu de Sonnet : l'utilisateur a des crédits DeepSeek à consommer, et c'est l'usage de PROF-1 (DeepSeek code, Claude contrôle). `lot-review` et `lot-audit` restent sous Opus. La session A + dev + B3 reste d'un seul tenant, chez un seul fournisseur |
 | « ask » de `git-guard.py` en `-p` (2026-10-21) | Non vérifié par un essai réel (refusé par l'utilisateur) : sous `HARNESS_AUTOPILOT=1`, le garde répond « deny » dans tous les cas |
+| `python3` de l'allowlist (2026-10-21, `lot-review`) | Restreint aux scripts du plugin (`~/.claude/plugins/cache/claude-harness/*`) au lieu de `python3 *` : `python3 -c` lancerait toute commande git hors de la vue de `git-guard.py`. Choix de l'utilisateur |
 | État ignoré par git (2026-10-21) | Le script ajoute `.claude/autopilot-state.json` à `.git/info/exclude`, sans toucher le `.gitignore` des projets |
 
 À vérifier en début de lot (pas une question) : ce que devient un « ask » de

@@ -259,10 +259,12 @@ python3 ~/.claude/plugins/marketplaces/claude-harness/plugins/claude-harness/aut
   no `sync-status.py` stop and the lot branch created before the confirmation; a
   clean tree, a commit scoped to the lot and a green `Validation command` after
   the development; test files only from `lot-test`; the review and audit reports
-  committed, their `fix(N)` commits inside the lot's diff; the pull request
+  committed, their commits inside the lot's diff, `docs/audits/`, the `Lots file`
+  and `docs/memory.md`, even when the step ends `blocked`; the pull request
   `MERGED` and the lock removed after `lot-ship`.
 - **Permissions**: `--permission-mode acceptEdits` and a per-process allowlist
-  (`Validation command`, `gh pr`, `gh run`, `python3`, `jq`) on top of the
+  (`Validation command`, `gh pr`, `gh run`, `jq`, and `python3` on the plugin's
+  own scripts under `~/.claude/plugins/cache/claude-harness/`) on top of the
   profile's; never `--dangerously-skip-permissions`. A refused command stops the
   step.
 - **Stop**: at the first `blocked`, `failed`, failed check or step over 30

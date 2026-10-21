@@ -115,17 +115,18 @@ class Stop(Exception):
 # repository
 
 
-def git(root, *args):
-    result = subprocess.run(["git", "-C", root, *args], capture_output=True, text=True)
-    return result.stdout.strip() if result.returncode == 0 else None
+git = lotfile.run_git
 
 
-def changed_files(root, base, head="HEAD", grep=None):
-    """Files touched by the commits base..head, only those whose subject matches grep."""
-    args = ["log", "--format=", "--name-only", "%s..%s" % (base, head)]
-    if grep:
-        args[1:1] = ["-E", "--grep=" + grep]
-    out = git(root, *args) or ""
+def validation_command(params):
+    """The Validation command of the Gate parameters, None when it does not apply."""
+    validation = params.get("Validation command", "")
+    return validation if validation and validation.lower() != "n/a" else None
+
+
+def changed_files(root, base, head="HEAD"):
+    """Files touched by the commits base..head."""
+    out = git(root, "log", "--format=", "--name-only", "%s..%s" % (base, head)) or ""
     return sorted({line for line in out.splitlines() if line})
 
 
@@ -180,21 +181,31 @@ def command(step, home, session=None):
     return cmd
 
 
-def allowed_tools(params):
-    """Per-process allowlist, on top of the profile's: nothing committed in the project."""
-    tools = ["Bash(gh pr *)", "Bash(gh run *)", "Bash(python3 *)", "Bash(jq *)"]
-    validation = params.get("Validation command", "")
-    if validation and validation.lower() != "n/a":
+def allowed_tools(params, home):
+    """Per-process allowlist, on top of the profile's: nothing committed in the project.
+
+    python3 is limited to the plugin's own scripts: `python3 -c` would run any
+    git command out of the git guard's sight.
+    """
+    plugin = os.path.join(home, ".claude", "plugins", "cache", "claude-harness")
+    tools = ["Bash(gh pr *)", "Bash(gh run *)", "Bash(python3 %s/*)" % plugin, "Bash(jq *)"]
+    validation = validation_command(params)
+    if validation:
         tools[:0] = ["Bash(%s)" % validation, "Bash(%s *)" % validation]
     return ["--allowedTools", ",".join(tools)]
 
 
-def parse_output(path):
-    """(structured answer or None, session id) from a stream-json log."""
+def parse_output(path, offset=0):
+    """(structured answer or None, session id) from a stream-json log, read from offset.
+
+    The log is appended to: a rerun of a step the same day must never read the
+    answer of an earlier session, so only what follows offset counts.
+    """
     answer, session = None, None
     try:
-        with open(path, encoding="utf-8") as handle:
-            lines = handle.readlines()
+        with open(path, "rb") as handle:
+            handle.seek(offset)
+            lines = handle.read().decode("utf-8", "replace").splitlines()
     except OSError:
         return None, None
     for line in lines:
@@ -233,12 +244,13 @@ class Pilot:
 
     def session(self, step, resume=None):
         """Run one step's session; returns its structured answer, or stops."""
-        cmd = command(step, self.home, resume) + allowed_tools(self.params)
+        cmd = command(step, self.home, resume) + allowed_tools(self.params, self.home)
         prompt = PROMPTS[step].format(lot=self.lot)
         env = dict(os.environ, HARNESS_AUTOPILOT="1")
         path = self.log_path(step)
         os.makedirs(self.logs, exist_ok=True)
         print("autopilot: %s (%s), log %s" % (step, MODELS[step][0], path), flush=True)
+        offset = os.path.getsize(path) if os.path.exists(path) else 0
         with open(path, "a", encoding="utf-8") as out:
             proc = subprocess.Popen(
                 cmd, cwd=self.root, env=env, stdin=subprocess.PIPE, stdout=out,
@@ -250,7 +262,12 @@ class Pilot:
                 os.killpg(proc.pid, signal.SIGKILL)
                 proc.wait()
                 raise Stop("%s: timeout after %ss, session killed" % (step, STEP_TIMEOUT), step)
-        answer, session = parse_output(path)
+            except KeyboardInterrupt:
+                # The session has its own process group: Ctrl-C does not reach it.
+                os.killpg(proc.pid, signal.SIGKILL)
+                proc.wait()
+                raise Stop("%s: interrupted, session killed" % step, step)
+        answer, session = parse_output(path, offset)
         if session:
             self.state["session_id"] = session
         if answer is None:
@@ -268,8 +285,8 @@ class Pilot:
         raise Stop(reason, blocked_resume if status == "blocked" and blocked_resume else step)
 
     def validation_green(self, step):
-        validation = self.params.get("Validation command", "")
-        if not validation or validation.lower() == "n/a":
+        validation = validation_command(self.params)
+        if not validation:
             return
         with open(self.log_path(step), "a", encoding="utf-8") as out:
             try:
@@ -314,16 +331,8 @@ class Pilot:
             raise Stop("dev: no commit scoped to lot %s on the branch" % self.lot, "dev")
         self.validation_green("dev")
 
-    def step_test(self):
-        while True:
-            before = git(self.root, "rev-parse", "HEAD")
-            answer = self.session("test")
-            if answer.get("status") == "failed" and not self.state.get("fix_used"):
-                self.state["fix_used"] = True
-                self.expect_ok("fix", self.session("fix"))
-                continue
-            self.expect_ok("test", answer)
-            break
+    def check_test_files(self, before):
+        """Every lot-test session's own commits, before a fix commit joins the range."""
         allowed = TEST_FILES.get(self.params.get("Stack", ""), lambda path: True)
         friction = "docs/audits/lot-%s-friction.md" % self.lot
         outside = [
@@ -333,25 +342,43 @@ class Pilot:
         if outside:
             raise Stop("test: lot-test committed non-test files: " + ", ".join(outside), "test")
 
+    def step_test(self):
+        while True:
+            before = git(self.root, "rev-parse", "HEAD")
+            answer = self.session("test")
+            self.check_test_files(before)
+            if answer.get("status") == "failed" and not self.state.get("fix_used"):
+                self.state["fix_used"] = True
+                try:
+                    self.expect_ok("fix", self.session("fix"))
+                except Stop as stop:
+                    # "fix" is no step of SEQUENCE: settle the bug, resume lot-test.
+                    raise Stop(stop.reason, "test") from None
+                continue
+            self.expect_ok("test", answer)
+            break
+
     def gate_step(self, step, report, following):
         develop = lotfile.develop_ref(self.root) or "origin/develop"
         before = git(self.root, "rev-parse", "HEAD")
         lot_diff = set((git(self.root, "diff", "--name-only", "%s...%s" % (develop, before)) or "").splitlines())
         answer = self.session(step)
+        # Checked whatever the status: a blocked step resumes at the following
+        # one, so its commits are never checked again.
+        lots = os.path.relpath(lotfile.lots_file(self.root, self.params) or "", self.root)
+        allowed = {lots, "docs/memory.md"}
+        outside = [
+            path for path in changed_files(self.root, before)
+            if path not in lot_diff and not path.startswith("docs/audits/") and path not in allowed
+        ]
+        if outside:
+            raise Stop("%s: a commit touches files outside the lot's diff: %s"
+                       % (step, ", ".join(outside)), step)
+        if answer.get("status") in ("ok", "blocked") and not committed(self.root, report):
+            raise Stop("%s: %s is not committed" % (step, report), step)
         # A finding that needs a decision: the owner settles it, then --resume
         # goes on with the following step.
         self.expect_ok(step, answer, blocked_resume=following)
-        if not committed(self.root, report):
-            raise Stop("%s: %s is not committed" % (step, report), step)
-        lots = os.path.relpath(lotfile.lots_file(self.root, self.params) or "", self.root)
-        grep = r"^(fix|refactor)\(%s\)" % re.escape(self.lot)
-        outside = [
-            path for path in changed_files(self.root, before, grep=grep)
-            if path not in lot_diff and not path.startswith("docs/audits/") and path != lots
-        ]
-        if outside:
-            raise Stop("%s: a fix commit touches files outside the lot's diff: %s"
-                       % (step, ", ".join(outside)), step)
 
     def step_review(self):
         self.gate_step("review", "docs/audits/lot-%s-review.md" % self.lot, "audit")
@@ -453,7 +480,7 @@ def main(argv=None):
         print("<schema> = %s\n<system prompt> = %s\n" % (json.dumps(SCHEMA), SYSTEM_PROMPT))
         for step in SEQUENCE[:3] + ("fix",) + SEQUENCE[3:]:
             session = "<lot-start session>" if step == "dev" else None
-            cmd = [long_values.get(arg, arg) for arg in command(step, home, session) + allowed_tools(params)]
+            cmd = [long_values.get(arg, arg) for arg in command(step, home, session) + allowed_tools(params, home)]
             prompt = PROMPTS[step].format(lot="<N>")
             print("%-6s %-8s %s <<< %s" % (step, MODELS[step][0], " ".join(cmd), prompt))
         return 0

@@ -41,6 +41,7 @@ if [ -f "$SCEN/$step.status" ]; then
     tail -n +2 "$SCEN/$step.status" > "$SCEN/$step.next" && mv "$SCEN/$step.next" "$SCEN/$step.status"
   fi
 fi
+[ -f "$SCEN/$step.silent" ] && exit 1
 questions='[]'
 [ "$step" = start ] && [ -f "$SCEN/start.questions" ] && questions=$(cat "$SCEN/start.questions")
 echo "{\"type\":\"system\",\"subtype\":\"init\",\"session_id\":\"S-$step\"}"
@@ -137,6 +138,10 @@ R=$(fixture happy harness)
 assert_eq 0 "$(pilot "$R")" "a lot runs to its merge"
 assert_eq "start dev test review audit ship " "$(calls "$R")" \
   "one session per step, and none after the merge"
+assert_contains "$(cat "$R.scen/calls.log")" "Bash(python3 $FAKEHOME/.claude/plugins/cache/claude-harness/*)" \
+  "python3 is allowed on the plugin's scripts"
+assert_eq 0 "$(grep -cF 'Bash(python3 *)' "$R.scen/calls.log")" \
+  "python3 is never allowed on any argument"
 log="$R.scen/calls.log"
 for step in start dev test ship; do
   assert_contains "$(grep "^$step " "$log")" "settings.deepseek.json" "$step runs on the deepseek settings"
@@ -199,6 +204,29 @@ printf 'failed\nok\n' > "$R.scen/test.status"
 assert_eq 0 "$(pilot "$R")" "a fixed bug lets the lot go on"
 assert_eq "start dev test fix test review audit ship " "$(calls "$R")" "the run goes on after the fix"
 
+R=$(fixture fixfail harness)
+echo failed > "$R.scen/test.status"
+echo blocked > "$R.scen/fix.status"
+assert_eq 1 "$(pilot "$R")" "a fix session that does not end ok stops the run"
+assert_eq test "$(state "$R" resume)" "a stopped fix resumes at lot-test, a step of the sequence"
+: > "$R.scen/calls.log"
+echo ok > "$R.scen/test.status"
+assert_eq 0 "$(pilot "$R" --resume)" "--resume after a stopped fix finishes the lot"
+assert_eq "test review audit ship " "$(calls "$R")" "--resume reruns lot-test, no second fix"
+
+# --- a rerun the same day never reads an earlier session's answer ----------
+R=$(fixture stale harness)
+cat > "$R.scen/dev.sh" <<'EOF'
+mkdir -p .claude src && printf 'branch=feat/lot-5-x\n' > .claude/current-lot
+echo a > src/a.txt && git add src && git commit -qm "feat(5): add a"
+echo dirty > src/dirty.txt
+EOF
+assert_eq 1 "$(pilot "$R")" "a dirty tree after the development stops the run"
+rm "$R/src/dirty.txt"
+touch "$R.scen/dev.silent"
+assert_eq 1 "$(pilot "$R" --resume)" "a rerun with no answer stops, whatever the earlier log holds"
+assert_contains "$(state "$R" reason)" "no structured answer" "the earlier ok answer is not reused"
+
 # --- a frontend without its integration report, then --resume -------------
 R=$(fixture front frontend)
 assert_eq 1 "$(pilot "$R")" "a frontend without integration report stops"
@@ -217,6 +245,15 @@ cat >> "$R.scen/review.sh" <<'EOF'
 echo x > other.txt && git add other.txt && git commit -qm "fix(5): apply the lot review findings"
 EOF
 assert_eq 1 "$(pilot "$R")" "a fix outside the diff stops the run"
+
+R=$(fixture outsideblocked harness)
+cat >> "$R.scen/review.sh" <<'EOF'
+echo x > other.txt && git add other.txt && git commit -qm "feat(5): extend the lot"
+EOF
+echo blocked > "$R.scen/review.status"
+assert_eq 1 "$(pilot "$R")" "a blocked lot-review with a commit outside the diff stops the run"
+assert_eq review "$(state "$R" resume)" "the out-of-diff commit is not skipped by resuming at lot-audit"
+assert_contains "$(state "$R" reason)" "other.txt" "any commit type outside the diff is named"
 assert_eq "start dev test review " "$(calls "$R")" "the stop comes right after lot-review"
 assert_contains "$(state "$R" reason)" "other.txt" "the reason names the file"
 
