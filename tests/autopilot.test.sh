@@ -220,6 +220,72 @@ assert_eq 1 "$(pilot "$R")" "a fix outside the diff stops the run"
 assert_eq "start dev test review " "$(calls "$R")" "the stop comes right after lot-review"
 assert_contains "$(state "$R" reason)" "other.txt" "the reason names the file"
 
+# --- the close of the development -----------------------------------------
+R=$(fixture dirty harness)
+echo 'echo x > stray.txt' >> "$R.scen/dev.sh"
+assert_eq 1 "$(pilot "$R")" "a dirty tree after the development stops the run"
+assert_eq "start dev " "$(calls "$R")" "no lot-test on a dirty tree"
+assert_eq dev "$(state "$R" resume)" "the stop resumes at the development"
+
+R=$(fixture unscoped harness)
+sed -i 's/feat(5): add a/feat: add a/' "$R.scen/dev.sh"
+assert_eq 1 "$(pilot "$R")" "a development without a lot-scoped commit stops the run"
+assert_eq "start dev " "$(calls "$R")" "no lot-test without a commit scoped to the lot"
+
+R=$(fixture red harness)
+sed -i 's/| `true` |/| `false` |/' "$R/CLAUDE.md"
+git -C "$R" commit -qam "chore: red gate" && git -C "$R" push -q origin develop
+assert_eq 1 "$(pilot "$R")" "a red Validation command after the development stops the run"
+assert_eq "start dev " "$(calls "$R")" "no lot-test on a red Validation command"
+assert_contains "$(state "$R" reason)" "Validation command" "the reason names the Validation command"
+
+# --- what lot-test may commit ---------------------------------------------
+R=$(fixture testscope harness)
+cat > "$R.scen/test.sh" <<'EOF'
+echo b > src/b.txt && git add src && git commit -qm "test(5): complete the lot coverage"
+EOF
+assert_eq 1 "$(pilot "$R")" "a lot-test commit outside the test files stops the run"
+assert_eq "start dev test " "$(calls "$R")" "no lot-review after it"
+assert_contains "$(state "$R" reason)" "src/b.txt" "the reason names the file"
+
+R=$(fixture testblocked harness)
+echo blocked > "$R.scen/test.status"
+assert_eq 1 "$(pilot "$R")" "a blocked lot-test stops the run"
+assert_eq "start dev test " "$(calls "$R")" "a blocked lot-test opens no fix session"
+assert_eq test "$(state "$R" resume)" "the stop resumes at lot-test"
+
+# --- a missing report, a finding that needs a decision --------------------
+R=$(fixture noreport harness)
+: > "$R.scen/review.sh"
+assert_eq 1 "$(pilot "$R")" "a lot-review without its committed report stops the run"
+assert_eq "start dev test review " "$(calls "$R")" "no lot-audit without the review report"
+assert_contains "$(state "$R" reason)" "lot-5-review.md" "the reason names the report"
+
+R=$(fixture decision harness)
+cat > "$R.scen/test.sh" <<'EOF'
+mkdir -p tests docs/audits && echo t > tests/a.test.sh && echo f > docs/audits/lot-5-friction.md
+git add tests docs && git commit -qm "test(5): complete the lot coverage"
+EOF
+echo blocked > "$R.scen/review.status"
+assert_eq 1 "$(pilot "$R")" "a finding that needs a decision stops the run"
+assert_eq "start dev test review " "$(calls "$R")" "test files and the friction entry pass the lot-test check"
+assert_eq audit "$(state "$R" resume)" "once the owner decided, --resume goes on with lot-audit"
+assert_eq 2 "$(pilot "$R")" "a stopped run refuses a fresh launch"
+: > "$R.scen/calls.log"
+assert_eq 0 "$(pilot "$R" --resume)" "--resume finishes the lot after the decision"
+assert_eq "audit ship " "$(calls "$R")" "lot-review is not run again"
+
+# --- the merge, checked by the script -------------------------------------
+R=$(fixture notmerged harness)
+assert_eq 1 "$(FAKE_GH_STATE=OPEN pilot "$R")" "a pull request left open stops the run"
+assert_contains "$(state "$R" reason)" "OPEN" "the reason gives the pull request state"
+assert_eq ship "$(state "$R" resume)" "the stop resumes at lot-ship"
+
+R=$(fixture locked harness)
+: > "$R.scen/ship.sh"
+assert_eq 1 "$(pilot "$R")" "a lot lock left after lot-ship stops the run"
+assert_contains "$(state "$R" reason)" "current-lot" "the reason names the lock"
+
 # --- outside a harnessed repository ---------------------------------------
 mkdir -p "$WORK/plain" && git -C "$WORK/plain" init -q
 code=$(cd "$WORK/plain" && PATH="$FAKEBIN:$PATH" HOME="$FAKEHOME" python3 "$PILOT" >/dev/null 2>&1; echo $?)
