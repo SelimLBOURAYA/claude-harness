@@ -5,7 +5,7 @@
   "rules": [
     {
       "id": "LOT-1",
-      "rule": "Start every lot with the `lot-start` skill, never by inferring \"the next lot\" yourself. It synchronises the lots file status table with `develop` (first commit of the lot branch, `docs: sync lots file status`), creates `feat/lot-N-slug` from `develop`, and waits for the user's `lot-start confirm N` before any file is written."
+      "rule": "Start every lot with the `lot-start` skill, never by inferring \"the next lot\" yourself. It syncs the status table with `develop` (first commit of the lot branch, `docs: sync lots file status`), creates `feat/lot-N-slug` from `develop`, and waits for `lot-start confirm N`, from the user or their autopilot, before any file is written."
     },
     {
       "id": "LOT-3",

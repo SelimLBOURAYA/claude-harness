@@ -7,7 +7,7 @@ description: >-
   user asks for an audit, a security review or an architecture review of lot
   work.
 metadata:
-  version: "3.0"
+  version: "3.1"
 ---
 
 # Lot Audit — Security, Performance, Architecture
@@ -131,7 +131,7 @@ A finding that needs a decision (an authorization model, a deviation from the
 lot's specification, a schema change) is not fixed by default: ask the owner, all
 such findings in one batch, then apply the answers and commit as above. A
 finding left unfixed stays in the report with its reason; an unfixed Critical
-blocks the PR.
+blocks the PR. Under the autopilot, see [Autopilot](#autopilot) instead.
 
 ### Step 8 — Consolidated report
 
@@ -218,6 +218,27 @@ commit of its own.
    ```
 
 4. Do not push: the push belongs to `lot-ship`.
+
+## Autopilot
+
+Applies only when `printenv HARNESS_AUTOPILOT` prints `1`: the autopilot script
+sets it, and a model's account of the session is never the signal. No owner is
+present, so nothing is asked; every finding falls in one of three classes:
+
+| Class | Findings | What you do |
+|---|---|---|
+| **Fixed**, without a question | Every Critical and Warning: bugs, and findings with a security, performance or maintainability impact | Fixed in Step 7, `Validation command` green, committed `fix(N): apply the lot audit findings` |
+| **Ignored** | Info, and minor findings with no added value: style or naming preference, comments, micro-optimisations with no measurable effect, opportunistic refactorings | Neither fixed nor turned into a recommended lot; the report keeps the row, action `rejected: minor (autopilot)` |
+| **Exception**, which stops the run | The fix needs a data model change or a migration (ASK-1, CODE-3), a new dependency (ASK-1), an authorization model change, or a deviation from the lot's specification | Not fixed, action `open: owner decision (autopilot)`; commit the report (Steps 8 and 9), then end the turn `blocked`, one question per exception |
+
+- A finding outside the lot's diff is not fixed (LOT-5): with a security,
+  performance or maintainability impact it becomes a **Recommended lot**; a
+  Critical one ends the turn `blocked`, since an unfixed Critical blocks the PR.
+- A fix the `Validation command` still rejects at the second attempt is reverted
+  (`git -C "$AUDIT_REPO" restore <path>`) and deferred; a Critical one ends the
+  turn `blocked`.
+- The autopilot then checks that the `fix(N)` commits touch only the lot's diff,
+  `docs/audits/` and the `Lots file`, and stops the run otherwise.
 
 ## Rules
 

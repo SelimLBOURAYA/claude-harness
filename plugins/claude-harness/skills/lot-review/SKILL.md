@@ -7,7 +7,7 @@ description: >-
   session. Use after lot-test and before lot-audit, or when the user asks for a
   code review of the lot.
 metadata:
-  version: "2.1"
+  version: "2.2"
 ---
 
 # Lot Review — Code review before the audit
@@ -87,7 +87,8 @@ It may run as a forked agent writing the tree while this session reads it:
   the exceptions.
 - **Findings that need a decision** (an authorization model, a deviation from
   the lot's specification, a schema change): ask the owner, all in one batch,
-  then apply the answers before Step 3.
+  then apply the answers before Step 3. Under the autopilot, see
+  [Autopilot](#autopilot) instead.
 
 A finding about code the lot did not touch becomes a candidate lot in Step 4.
 
@@ -172,6 +173,27 @@ Empty output (an agent that loads no plugin) → the version `main` declares:
 
 Report the verdict and the deliverable path, then hand over to `lot-audit`. Do
 not run the audit from this skill (GATE-7).
+
+## Autopilot
+
+Applies only when `printenv HARNESS_AUTOPILOT` prints `1`: the autopilot script
+sets it, and a model's account of the session is never the signal. No owner is
+present, so nothing is asked; every finding falls in one of three classes:
+
+| Class | Findings | What you do |
+|---|---|---|
+| **Fixed**, without a question | Every bug (wrong behaviour), and every finding with a security, performance or maintainability impact | Fixed inside the lot's diff, `Validation command` green, committed as in Step 3 |
+| **Ignored** | Minor findings with no added value: style or naming preference, comments, micro-optimisations with no measurable effect, opportunistic refactorings | Neither fixed nor turned into a candidate lot; the report keeps the row, outcome `rejected: minor (autopilot)` |
+| **Exception**, which stops the run | The fix needs a data model change or a migration (ASK-1, CODE-3), a new dependency (ASK-1), an authorization model change, or a deviation from the lot's specification | Not fixed, outcome `open: owner decision (autopilot)`; commit the report (Steps 4 and 5), then end the turn `blocked`, one question per exception |
+
+- A finding outside the lot's diff is not fixed (LOT-5): with a security,
+  performance or maintainability impact it becomes a candidate lot (Step 4); a
+  Critical one ends the turn `blocked`.
+- A fix the `Validation command` still rejects at the second attempt is reverted
+  (`git -C "$REVIEW_REPO" restore <path>`) and deferred; a Critical one ends the
+  turn `blocked`.
+- The autopilot then checks that the `fix(N)` commits touch only the lot's diff,
+  `docs/audits/` and the `Lots file`, and stops the run otherwise.
 
 ## Rules
 
