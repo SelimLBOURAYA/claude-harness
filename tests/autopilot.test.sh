@@ -542,6 +542,10 @@ R=$(fixture dry harness)
 out=$(cd "$R" && PATH="$FAKEBIN:$PATH" HOME="$FAKEHOME" python3 "$PILOT" --dry-run)
 assert_contains "$out" "review Opus" "--dry-run shows the model of each step"
 assert_eq "" "$(calls "$R")" "--dry-run runs no session"
+assert_contains "$out" "Bash(printenv ANTHROPIC_BASE_URL)" \
+  "the allowlist lets lot-review run its profile guard"
+assert_contains "$out" "Bash(printenv HARNESS_AUTOPILOT)" \
+  "the allowlist lets lot-review and lot-audit read HARNESS_AUTOPILOT"
 out=$(cd "$R" && PATH="$FAKEBIN:$PATH" HOME="$FAKEHOME" python3 "$PILOT" --dry-run --lot 5)
 assert_contains "$out" "/claude-harness:lot-start 5" "--dry-run --lot shows the named lot-start prompt"
 assert_eq "" "$(calls "$R")" "--dry-run --lot runs no session"

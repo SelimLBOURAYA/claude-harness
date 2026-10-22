@@ -212,10 +212,13 @@ def allowed_tools(params, home):
     """Per-process allowlist, on top of the profile's: nothing committed in the project.
 
     python3 is limited to the plugin's own scripts: `python3 -c` would run any
-    git command out of the git guard's sight.
+    git command out of the git guard's sight. The two printenv are the profile
+    guard and the Autopilot section of lot-review and lot-audit: a headless
+    session denies what it cannot ask.
     """
     plugin = os.path.join(home, ".claude", "plugins", "cache", "claude-harness")
-    tools = ["Bash(gh pr *)", "Bash(gh run *)", "Bash(python3 %s/*)" % plugin, "Bash(jq *)"]
+    tools = ["Bash(printenv ANTHROPIC_BASE_URL)", "Bash(printenv HARNESS_AUTOPILOT)",
+             "Bash(gh pr *)", "Bash(gh run *)", "Bash(python3 %s/*)" % plugin, "Bash(jq *)"]
     validation = validation_command(params)
     if validation:
         tools[:0] = ["Bash(%s)" % validation, "Bash(%s *)" % validation]
