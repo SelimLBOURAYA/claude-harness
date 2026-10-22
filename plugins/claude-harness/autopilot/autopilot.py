@@ -99,7 +99,8 @@ SYSTEM_PROMPT = (
     "Autopilot run (HARNESS_AUTOPILOT=1): no human is present in this session. "
     "Any question a skill would ask the user ends the turn instead: answer with "
     "status `blocked` and the questions in `questions`, without deciding them "
-    "yourself. Answer `failed` with the reason when the step cannot complete "
+    "yourself: one entry per question, in French, each option of a question on "
+    "its own line. Answer `failed` with the reason when the step cannot complete "
     "(for lot-test: when an added test reveals a bug), and `ok` only when the "
     "step's skill reached its end. The `lot-start confirm N` hand-off that ends "
     "lot-start's Part A is that normal end: answer `ok`, never put it in "
@@ -340,8 +341,6 @@ class Pilot:
             # Questions are a block whatever the status says: --answer must reach them.
             status = "blocked"
         reason = "%s: %s - %s" % (step, status, answer.get("reason", ""))
-        if questions:
-            reason += " | questions: " + "; ".join(questions)
         raise Stop(reason, blocked_resume if status == "blocked" and blocked_resume else step,
                    status=status, questions=questions)
 
@@ -475,7 +474,9 @@ class Pilot:
             raise Stop("%s: a commit touches files outside the lot's diff: %s"
                        % (step, ", ".join(outside)), step)
         if answer.get("status") in ("ok", "blocked") and not committed(self.root, report):
-            raise Stop("%s: %s is not committed" % (step, report), step)
+            # The step's own questions often say why the report is not committed.
+            raise Stop("%s: %s is not committed" % (step, report), step,
+                       status=answer.get("status"), questions=answer.get("questions"))
         # A finding that needs a decision: the owner settles it, then --resume
         # goes on with the following step.
         self.expect_ok(step, answer, blocked_resume=following)
@@ -538,12 +539,20 @@ def answerable(status, resume):
 
 
 def answer_hint(stop):
-    """The questions and the command that sends the answers (lot 28)."""
-    if not answerable(stop.status, stop.resume):
+    """The questions, numbered one per line, and the command that settles them
+    (lot 28, laid out for the terminal in lot 29)."""
+    answer = answerable(stop.status, stop.resume)
+    if not stop.questions and not answer:
         return ""
-    questions = "; ".join(stop.questions) if stop.questions else "none"
-    return (' Questions: %s. Answer with: autopilot.py --resume --answer '
-            '"<your answers>"' % questions)
+    lines = ["", "Questions:"]
+    for number, question in enumerate(stop.questions, 1):
+        lines.append("  %d. %s" % (number, question.strip().replace("\n", "\n     ")))
+        lines.append("")
+    if not stop.questions:
+        lines = ["", "Questions: none", ""]
+    lines.append('Answer with: autopilot.py --resume --answer "<your answers>"' if answer
+                 else "Settle them, then: autopilot.py --resume")
+    return "\n".join(lines)
 
 
 def notify(message):
