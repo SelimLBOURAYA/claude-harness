@@ -53,7 +53,9 @@ if [ -f "$SCEN/$step.status" ]; then
 fi
 [ -f "$SCEN/$step.silent" ] && exit 1
 questions='[]'
-[ "$step" = start ] && [ -f "$SCEN/start.questions" ] && questions=$(cat "$SCEN/start.questions")
+if [ "$step" = start ] || [ "$step" = answer ]; then
+  [ -f "$SCEN/$step.questions" ] && questions=$(cat "$SCEN/$step.questions")
+fi
 lot=5
 [ -f "$SCEN/$step.lot" ] && lot=$(cat "$SCEN/$step.lot")
 echo "{\"type\":\"system\",\"subtype\":\"init\",\"session_id\":\"$session\"}"
@@ -424,6 +426,75 @@ assert_eq "answer test review audit ship " "$(calls "$R")" \
 assert_contains "$(grep '^answer ' "$R.scen/calls.log")" "--resume S-start" \
   "the stopped development session is resumed"
 
+# --- the lot-start checks still run on the answered session ----------------
+R=$(fixture answersync harness)
+echo blocked > "$R.scen/start.status"
+assert_eq 1 "$(pilot "$R")" "a blocked lot-start without questions stops the run"
+assert_contains "$(tail -1 "$R.out")" "Questions: none" \
+  "a blocked stop without questions says none"
+cat > "$R.scen/answer.sh" <<'EOF'
+sed -i 's/| 6 | `feat\/lot-6-y` | ⬜ |/| 6 | `feat\/lot-6-y` | ✅ |/' lots.md
+EOF
+: > "$R.scen/calls.log"
+assert_eq 1 "$(pilot "$R" --resume --answer "lot 5")" \
+  "a sync-status stop after the answer stops the run"
+assert_eq "answer " "$(calls "$R")" "no confirmation when sync-status.py rejects the answer"
+assert_contains "$(state "$R" reason)" "sync-status.py exited 3" \
+  "sync-status.py runs on the answered session too"
+
+R=$(fixture answerbranch harness)
+echo blocked > "$R.scen/start.status"
+assert_eq 1 "$(pilot "$R")" "a blocked lot-start stops the run"
+cat > "$R.scen/answer.sh" <<'EOF'
+git switch -q -c feat/lot-6-z
+EOF
+: > "$R.scen/calls.log"
+assert_eq 1 "$(pilot "$R" --resume --answer "lot 5")" \
+  "a branch outside the lot after the answer stops the run"
+assert_contains "$(state "$R" reason)" "is not feat/lot-5-" \
+  "the branch check runs on the answered session too"
+assert_eq "answer " "$(calls "$R")" "no confirmation on a branch outside the lot"
+
+R=$(fixture answeragain harness)
+echo blocked > "$R.scen/start.status"
+echo '["Which lot?"]' > "$R.scen/start.questions"
+assert_eq 1 "$(pilot "$R")" "a blocked lot-start stops the run"
+rm "$R.scen/start.questions"
+echo '["Which branch?"]' > "$R.scen/answer.questions"
+: > "$R.scen/calls.log"
+assert_eq 1 "$(pilot "$R" --resume --answer "lot 5")" \
+  "an answered session that still asks questions stops the run"
+assert_eq "answer " "$(calls "$R")" "no confirmation while questions remain after the answer"
+assert_contains "$(state "$R" reason)" "Which branch?" "the remaining questions are in the reason"
+
+# --- --answer needs the stopped session in the state ----------------------
+R=$(fixture answersession harness)
+echo blocked > "$R.scen/start.status"
+echo '["Which lot?"]' > "$R.scen/start.questions"
+assert_eq 1 "$(pilot "$R")" "a blocked lot-start stops the run"
+assert_eq "S-start" "$(state "$R" session_id)" "the stopped session is in the state"
+jq 'del(.session_id)' "$R/.claude/autopilot-state.json" > "$R/state.tmp" \
+  && mv "$R/state.tmp" "$R/.claude/autopilot-state.json"
+: > "$R.scen/calls.log"
+assert_eq 2 "$(pilot "$R" --resume --answer "lot 5")" \
+  "--answer refuses a state without the stopped session"
+assert_eq "" "$(calls "$R")" "no session when the stopped one is missing from the state"
+
+# --- --resume without --answer after a blocked lot-start ------------------
+R=$(fixture freshresume harness)
+echo blocked > "$R.scen/start.status"
+echo '["Which lot?"]' > "$R.scen/start.questions"
+assert_eq 1 "$(pilot "$R")" "a blocked lot-start stops the run"
+rm "$R.scen/start.status" "$R.scen/start.questions"
+: > "$R.scen/calls.log"
+assert_eq 0 "$(pilot "$R" --resume)" "--resume without --answer runs lot-start again"
+assert_eq "start dev test review audit ship " "$(calls "$R")" \
+  "the fresh lot-start opens the run"
+assert_eq "" "$(grep '^start ' "$R.scen/calls.log" | grep -o -- '--resume' || true)" \
+  "--resume without --answer opens a new session, never the stopped one"
+assert_contains "$(grep '^start ' "$R.scen/calls.log")" "prompt=/claude-harness:lot-start" \
+  "the fresh lot-start gets its own prompt, without the answers"
+
 # --- --answer is refused wherever it cannot apply -------------------------
 R=$(fixture answertest harness)
 echo blocked > "$R.scen/test.status"
@@ -447,6 +518,8 @@ assert_eq 2 "$(pilot "$R" --resume --answer "/claude-harness:lot-start confirm 5
   "--answer refuses the slash confirmation"
 assert_eq 2 "$(pilot "$R" --resume --answer "  lot-start confirm 5  ")" \
   "--answer refuses a padded confirmation"
+assert_eq 2 "$(pilot "$R" --resume --answer "lot-start confirm 5.1")" \
+  "--answer refuses a sub-lot confirmation"
 
 # --- the stop line carries the questions and the command ------------------
 R=$(fixture stopline harness)
