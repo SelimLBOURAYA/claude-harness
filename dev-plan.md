@@ -2443,6 +2443,7 @@ raison une confirmation tapée par l'utilisateur.
 | Consigne seule ou filet | Les deux : la consigne évite le tour perdu, le filet tient quel que soit le modèle |
 | Reconnaître une question de confirmation | Le motif `CONFIRMATION` présent dans le texte de la question. Une question qui mêlerait une vraie ambiguïté et la confirmation serait retirée : risque accepté, la partie A pose ses ambiguïtés en Step A5, avant la passation |
 | `lot-start` `SKILL.md` | Inchangé pour la passation : la consigne du prompt système suffit. Modifié par l'amendement pour la mise en page et la langue des questions |
+| Question qui contient une confirmation (revue, 2026-10-22) | Retirée seulement si toutes ses confirmations visent le lot répondu : un choix entre lots (« lot-start confirm 5 » ou « 6 ») reste une question et arrête le run. Remplace le risque accepté ci-dessus |
 
 ### Critères de validation
 
