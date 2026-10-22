@@ -12,9 +12,11 @@ script stops. One lot per launch: it stops after the merge.
 
 Usage, from the root of a harnessed repository:
 
-    autopilot.py              start the next lot
-    autopilot.py --resume     resume a stopped run at its recorded step
-    autopilot.py --dry-run    print the step commands without running them
+    autopilot.py                         start the next lot
+    autopilot.py --lot N                 start lot N, named to lot-start
+    autopilot.py --resume                resume a stopped run at its recorded step
+    autopilot.py --resume --answer TEXT  answer the questions of a blocked start or dev
+    autopilot.py --dry-run               print the step commands without running them
 
 Exit status: 0 merged (or dry run), 1 stopped, 2 refused to start.
 
@@ -61,6 +63,11 @@ SEQUENCE = ("start", "dev", "test", "review", "audit", "ship")
 # names log files, reports and the confirmation prompt: nothing else passes.
 LOT_ID = re.compile(r"[0-9]+[a-z]?(\.[0-9]+)?")
 
+# The two forms lot-confirm.sh accepts as the whole prompt (lot 28): --answer
+# must never carry one, the confirmation only comes after the checks.
+CONFIRMATION = re.compile(r"(?:/claude-harness:)?lot-start confirm [0-9]+[a-z]?(\.[0-9]+)?")
+ANSWER_PREFIX = "Owner answers to your questions:"
+
 FIX_PROMPT = (
     "A test that lot-test left uncommitted in the working tree reveals a bug of "
     "lot {lot}. Fix the production code, never the test (GATE-2), run the "
@@ -76,6 +83,17 @@ PROMPTS = {
     "audit": "/claude-harness:lot-audit",
     "ship": "/claude-harness:lot-ship",
 }
+
+
+def start_prompt(lot):
+    """The lot-start prompt, naming the lot when --lot was given (lot 28)."""
+    return PROMPTS["start"] + (" " + lot if lot else "")
+
+
+def answer_prompt(text):
+    """The owner's answers, sent to the stopped session that asked (lot 28)."""
+    return ANSWER_PREFIX + "\n" + text
+
 
 SYSTEM_PROMPT = (
     "Autopilot run (HARNESS_AUTOPILOT=1): no human is present in this session. "
@@ -106,12 +124,18 @@ TEST_FILES = {
 
 
 class Stop(Exception):
-    """A stop: the reason, and the step a --resume starts from."""
+    """A stop: the reason, the step a --resume starts from, and the answer.
 
-    def __init__(self, reason, resume):
+    `status` and `questions` are the model's own answer when a blocked session
+    stopped the run; any other stop leaves them empty (lot 28).
+    """
+
+    def __init__(self, reason, resume, status=None, questions=None):
         super().__init__(reason)
         self.reason = reason
         self.resume = resume
+        self.status = status
+        self.questions = questions or []
 
 
 # --------------------------------------------------------------------------
@@ -230,11 +254,15 @@ def parse_output(path, offset=0):
 
 
 class Pilot:
-    def __init__(self, root, params, home, state):
+    def __init__(self, root, params, home, state, expected_lot=None,
+                 answer_step=None, answer_text=None):
         self.root = root
         self.params = params
         self.home = home
         self.state = state
+        self.expected_lot = expected_lot
+        self.answer_step = answer_step
+        self.answer_text = answer_text
         self.logs = os.path.join(home, ".claude", "autopilot", os.path.basename(root))
 
     @property
@@ -245,10 +273,18 @@ class Pilot:
         date = datetime.date.today().isoformat()
         return os.path.join(self.logs, "%s-lot-%s-%s.jsonl" % (date, self.lot or "new", step))
 
-    def session(self, step, resume=None):
+    def take_answer(self, step):
+        """The owner's answers when they answer this very step, once (lot 28)."""
+        if self.answer_step != step:
+            return None
+        self.answer_step = None
+        return self.answer_text
+
+    def session(self, step, resume=None, prompt=None):
         """Run one step's session; returns its structured answer, or stops."""
         cmd = command(step, self.home, resume) + allowed_tools(self.params, self.home)
-        prompt = PROMPTS[step].format(lot=self.lot)
+        if prompt is None:
+            prompt = PROMPTS[step].format(lot=self.lot)
         env = dict(os.environ, HARNESS_AUTOPILOT="1")
         path = self.log_path(step)
         os.makedirs(self.logs, exist_ok=True)
@@ -279,13 +315,14 @@ class Pilot:
 
     def expect_ok(self, step, answer, blocked_resume=None):
         status = answer.get("status")
-        if status == "ok" and not answer.get("questions"):
+        questions = answer.get("questions") or []
+        if status == "ok" and not questions:
             return
-        questions = "; ".join(answer.get("questions") or [])
         reason = "%s: %s - %s" % (step, status, answer.get("reason", ""))
         if questions:
-            reason += " | questions: " + questions
-        raise Stop(reason, blocked_resume if status == "blocked" and blocked_resume else step)
+            reason += " | questions: " + "; ".join(questions)
+        raise Stop(reason, blocked_resume if status == "blocked" and blocked_resume else step,
+                   status=status, questions=questions)
 
     def validation_green(self, step):
         validation = validation_command(self.params)
@@ -304,8 +341,8 @@ class Pilot:
 
     # --- the steps -------------------------------------------------------
 
-    def step_start(self):
-        answer = self.session("start")
+    def check_start(self, answer):
+        """The checks of lot-start, whether it ran whole or answered (lot 28)."""
         self.expect_ok("start", answer)
         sync = subprocess.run(
             [sys.executable, SYNC_STATUS, self.root], capture_output=True, text=True
@@ -317,15 +354,15 @@ class Pilot:
         lot = str(answer.get("lot", ""))
         if not LOT_ID.fullmatch(lot):
             raise Stop("start: `%s` is not a lot ID" % lot, "start")
+        if self.expected_lot and lot != self.expected_lot:
+            raise Stop("start: lot-start answered lot %s, not the required %s"
+                       % (lot, self.expected_lot), "start")
         if not match or match.group(1) != lotfile.lot_base(lot):
             raise Stop("start: branch `%s` is not feat/lot-%s-*" % (branch, lot), "start")
         self.state.update(lot=lot, branch=branch, start_session=self.state.get("session_id"))
 
-    def step_dev(self):
-        # First pass: the lot-start session itself, which holds Part A. A resume
-        # opens a new session, which rewrites the same lock and continues.
-        session = self.state.pop("start_session", None)
-        answer = self.session("dev", resume=session)
+    def check_dev(self, answer):
+        """The checks of the development, whether it ran whole or answered (lot 28)."""
         self.expect_ok("dev", answer)
         if git(self.root, "status", "--porcelain"):
             raise Stop("dev: the working tree is not clean", "dev")
@@ -335,6 +372,27 @@ class Pilot:
         if not any(pattern.match(subject) for subject in scoped.splitlines()):
             raise Stop("dev: no commit scoped to lot %s on the branch" % self.lot, "dev")
         self.validation_green("dev")
+
+    def step_start(self):
+        answer_text = self.take_answer("start")
+        if answer_text is None:
+            answer = self.session("start", prompt=start_prompt(self.expected_lot))
+        else:
+            answer = self.session("start", resume=self.state.get("session_id"),
+                                  prompt=answer_prompt(answer_text))
+        self.check_start(answer)
+
+    def step_dev(self):
+        answer_text = self.take_answer("dev")
+        if answer_text is not None:
+            answer = self.session("dev", resume=self.state.get("session_id"),
+                                  prompt=answer_prompt(answer_text))
+        else:
+            # First pass: the lot-start session itself, which holds Part A. A resume
+            # opens a new session, which rewrites the same lock and continues.
+            session = self.state.pop("start_session", None)
+            answer = self.session("dev", resume=session)
+        self.check_dev(answer)
 
     def check_test_files(self, before):
         """Every lot-test session's own commits, before a fix commit joins the range."""
@@ -436,6 +494,19 @@ def findings(root, lot):
     return counts
 
 
+def answer_hint(stop):
+    """The questions and the command that sends the answers (lot 28).
+
+    Only a blocked lot-start or development stop accepts --answer: anywhere
+    else the owner settles the stop and --resume goes on.
+    """
+    if stop.status != "blocked" or stop.resume not in ("start", "dev"):
+        return ""
+    questions = "; ".join(stop.questions) if stop.questions else "none"
+    return (' Questions: %s. Answer with: autopilot.py --resume --answer '
+            '"<your answers>"' % questions)
+
+
 def notify(message):
     try:
         subprocess.run(["notify-send", "claude-harness autopilot", message], timeout=10)
@@ -458,9 +529,22 @@ def refuse(message):
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description="Run one lot from lot-start to merge.")
+    parser.add_argument("--lot", metavar="N", help="the lot lot-start must pick, named in its prompt")
     parser.add_argument("--resume", action="store_true", help="resume at the recorded step")
+    parser.add_argument("--answer", metavar="TEXT",
+                        help="the answers to a blocked lot-start or development (with --resume)")
     parser.add_argument("--dry-run", action="store_true", help="print the commands only")
     args = parser.parse_args(argv)
+
+    if args.lot and args.resume:
+        return refuse("--lot and --resume are exclusive: a resumed run takes its lot from the state")
+    if args.lot and not LOT_ID.fullmatch(args.lot):
+        return refuse("`%s` is not a lot ID" % args.lot)
+    if args.answer is not None and not args.resume:
+        return refuse("--answer needs --resume")
+    if args.answer is not None and CONFIRMATION.fullmatch(args.answer.strip()):
+        return refuse("--answer refuses a lot confirmation: the confirmation is sent after "
+                      "the checks, never before them")
 
     root = lotfile.repo_root(os.getcwd())
     params = lotfile.gate_parameters(root) if root else None
@@ -486,7 +570,7 @@ def main(argv=None):
         for step in SEQUENCE[:3] + ("fix",) + SEQUENCE[3:]:
             session = "<lot-start session>" if step == "dev" else None
             cmd = [long_values.get(arg, arg) for arg in command(step, home, session) + allowed_tools(params, home)]
-            prompt = PROMPTS[step].format(lot="<N>")
+            prompt = start_prompt(args.lot) if step == "start" else PROMPTS[step].format(lot="<N>")
             print("%-6s %-8s %s <<< %s" % (step, MODELS[step][0], " ".join(cmd), prompt))
         return 0
 
@@ -495,20 +579,33 @@ def main(argv=None):
         if not state or not state.get("resume"):
             return refuse("nothing to resume: no stopped run in %s" % STATE_PATH)
         first = state["resume"]
+        if args.answer is not None:
+            if state.get("status") != "blocked" or first not in ("start", "dev"):
+                return refuse("--answer applies only to a stop blocked at start or dev, "
+                              "not at %s" % first)
+            if not state.get("session_id"):
+                return refuse("--answer needs the stopped session in %s" % STATE_PATH)
     else:
         if state:
             return refuse("a stopped run exists (%s): use --resume" % STATE_PATH)
         state, first = {}, "start"
+        if args.lot:
+            state["expected_lot"] = args.lot
 
     subprocess.run(["git", "-C", root, "fetch", "-q", "origin"])
-    pilot = Pilot(root, params, home, state)
+    pilot = Pilot(root, params, home, state,
+                  expected_lot=args.lot or state.get("expected_lot"),
+                  answer_step=first if args.answer is not None else None,
+                  answer_text=args.answer)
     try:
         pilot.run(first)
     except Stop as stop:
-        state.update(resume=stop.resume, reason=stop.reason,
+        state.update(resume=stop.resume, reason=stop.reason, status=stop.status,
+                     questions=stop.questions,
                      stopped=datetime.datetime.now().isoformat(timespec="seconds"))
         write_state(root, state)
         message = summary(root, state.get("lot"), "Lot %s stopped: %s" % (state.get("lot") or "?", stop.reason))
+        message += answer_hint(stop)
         notify(message)
         print("autopilot: " + message)
         return 1
