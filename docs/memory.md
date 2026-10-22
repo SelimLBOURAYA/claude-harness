@@ -18,7 +18,7 @@
 - `CONVENTIONS.md`: master of the rules; `.github/scripts/deepseek-card.py`
   generates `plugins/claude-harness/rules/deepseek.json` from it, by rule ID.
 - `plugins/claude-harness/autopilot/autopilot.py`: one lot from `lot-start` to
-  merge, a `claude -p` session per step; `--lot N` names the lot, `--resume
+  merge, a `claude -p` session per step; `autopilot.py N` names the lot, `--resume
   --answer TEXT` answers a blocked `start`/`dev` in the stopped session;
   `tests/autopilot.test.sh` drives it with fake `claude`, `gh` and
   `notify-send` (lots 27, 28).
@@ -93,6 +93,6 @@
 - The autopilot's `--answer` path (`--json-schema` with `--resume`) is only
   tested against the fake `claude`. The rest of the real CLI is now verified by
   a real run: a `/claude-harness:<skill>` prompt in `-p`, the
-  `structured_output` field, and `UserPromptSubmit` on `--resume`. Still
-  unverified: what a hook `ask` does in `-p` (the probe was declined; under
-  `HARNESS_AUTOPILOT=1` an ask is a deny anyway).
+  `structured_output` field, `UserPromptSubmit` on `--resume`, and a
+  permission ask in `-p` is a deny: every command a step's skill runs must be
+  in `allowed_tools()` (lot 28: the `printenv` of `lot-review` Step 0).
