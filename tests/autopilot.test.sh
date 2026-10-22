@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Exercises the autopilot (lot 27) against a fake `claude` first on PATH, which
-# returns prepared statuses and plays each step's git effects: no API call.
+# Exercises the autopilot (lots 27 and 28) against a fake `claude` first on PATH,
+# which returns prepared statuses and plays each step's git effects: no API call.
 # The fixture is a real repository with a bare origin, so sync-status.py and
 # every git check of the script run on real history.
 set -uo pipefail
@@ -15,7 +15,8 @@ trap 'rm -rf "$WORK"' EXIT
 # HARNESS_AUTOPILOT, the arguments), runs $SCEN/<step>.sh in the repository,
 # sleeps $SCEN/<step>.sleep seconds, and answers the first line of
 # $SCEN/<step>.status (`ok` by default; a line is consumed while others follow).
-# $SCEN/start.questions holds questions for the start step.
+# $SCEN/start.questions holds questions for the start step. `--resume <id>`
+# keeps the session id, as a real resume does.
 FAKEBIN="$WORK/bin"
 mkdir -p "$FAKEBIN"
 cat > "$FAKEBIN/claude" <<'EOF'
@@ -23,7 +24,9 @@ cat > "$FAKEBIN/claude" <<'EOF'
 prompt=$(cat)
 case "$prompt" in
   "/claude-harness:lot-start") step=start ;;
+  "/claude-harness:lot-start "*) step=start ;;
   "lot-start confirm "*) step=dev ;;
+  "Owner answers to your questions:"*) step=answer ;;
   "/claude-harness:lot-test") step=test ;;
   "A test that lot-test"*) step=fix ;;
   "/claude-harness:lot-review") step=review ;;
@@ -31,7 +34,14 @@ case "$prompt" in
   "/claude-harness:lot-ship") step=ship ;;
   *) step=unknown ;;
 esac
-printf '%s autopilot=%s prompt=%s args=%s\n' "$step" "${HARNESS_AUTOPILOT:-}" "$prompt" "$*" >> "$SCEN/calls.log"
+session="S-$step"
+previous=
+for arg in "$@"; do
+  [ "$previous" = "--resume" ] && session="$arg"
+  previous="$arg"
+done
+printf '%s autopilot=%s prompt=%s args=%s\n' "$step" "${HARNESS_AUTOPILOT:-}" \
+  "${prompt//$'\n'/\\n}" "$*" >> "$SCEN/calls.log"
 [ -f "$SCEN/$step.sh" ] && bash "$SCEN/$step.sh" >/dev/null 2>&1
 [ -f "$SCEN/$step.sleep" ] && sleep "$(cat "$SCEN/$step.sleep")"
 status=ok
@@ -46,8 +56,8 @@ questions='[]'
 [ "$step" = start ] && [ -f "$SCEN/start.questions" ] && questions=$(cat "$SCEN/start.questions")
 lot=5
 [ -f "$SCEN/$step.lot" ] && lot=$(cat "$SCEN/$step.lot")
-echo "{\"type\":\"system\",\"subtype\":\"init\",\"session_id\":\"S-$step\"}"
-jq -nc --arg s "$status" --argjson q "$questions" --arg id "S-$step" --arg lot "$lot" \
+echo "{\"type\":\"system\",\"subtype\":\"init\",\"session_id\":\"$session\"}"
+jq -nc --arg s "$status" --argjson q "$questions" --arg id "$session" --arg lot "$lot" \
   '{type:"result", subtype:"success", session_id:$id,
     structured_output:{status:$s, lot:$lot, questions:$q, reason:"fake"}}'
 EOF
@@ -348,11 +358,120 @@ assert_ok "the session is killed at the timeout" -- test $(( $(date +%s) - began
 assert_contains "$(state "$R" reason)" "timeout" "the timeout is recorded"
 assert_eq start "$(state "$R" resume)" "the timed-out step is the one resumed"
 
+# --- --lot: lot-start is named the lot (lot 28) ---------------------------
+R=$(fixture namedlot harness)
+assert_eq 0 "$(pilot "$R" --lot 5)" "--lot runs the named lot"
+assert_contains "$(cat "$R.scen/calls.log")" "prompt=/claude-harness:lot-start 5" \
+  "--lot names the lot in the lot-start prompt"
+
+R=$(fixture wronglot harness)
+echo 6 > "$R.scen/start.lot"
+assert_eq 1 "$(pilot "$R" --lot 5)" "an answer naming another lot stops the run"
+assert_eq "start " "$(calls "$R")" "no confirmation when lot-start names another lot"
+assert_contains "$(state "$R" reason)" "not the required 5" "the reason names the required lot"
+
+R=$(fixture badargs harness)
+assert_eq 2 "$(pilot "$R" --lot 5.x)" "--lot refuses a value that is no lot ID"
+assert_eq "" "$(calls "$R")" "no session on a refused --lot"
+assert_eq 2 "$(pilot "$R" --lot 5 --resume)" "--lot and --resume are exclusive"
+assert_eq 2 "$(pilot "$R" --answer x)" "--answer needs --resume"
+
+# --- --resume --answer: the stopped session gets the answers (lot 28) -----
+R=$(fixture answer harness)
+echo blocked > "$R.scen/start.status"
+echo '["Which lot?", "Which branch?"]' > "$R.scen/start.questions"
+assert_eq 1 "$(pilot "$R")" "a blocked lot-start stops the run"
+assert_eq blocked "$(state "$R" status)" "the state records the blocked status"
+assert_contains "$(jq -r '.questions | join("; ")' "$R/.claude/autopilot-state.json")" \
+  "Which lot?" "the state records the questions"
+: > "$R.scen/calls.log"
+rm "$R.scen/start.questions"
+assert_eq 0 "$(pilot "$R" --resume --answer "Lot 5, branch feat/lot-5-x")" \
+  "--resume --answer finishes the lot"
+assert_eq "answer dev test review audit ship " "$(calls "$R")" \
+  "the answers replace the start session, then the confirmation"
+assert_contains "$(grep '^answer ' "$R.scen/calls.log")" "--resume S-start" \
+  "the stopped session is resumed"
+assert_contains "$(grep '^answer ' "$R.scen/calls.log")" "Owner answers to your questions:" \
+  "the answers come with the fixed line"
+assert_contains "$(grep '^answer ' "$R.scen/calls.log")" "Lot 5, branch feat/lot-5-x" \
+  "the owner's answers are in the prompt"
+assert_contains "$(grep '^dev ' "$R.scen/calls.log")" "prompt=lot-start confirm 5" \
+  "the confirmation follows the checks"
+
+R=$(fixture answerlot harness)
+echo blocked > "$R.scen/start.status"
+echo '["Which lot?"]' > "$R.scen/start.questions"
+assert_eq 1 "$(pilot "$R" --lot 5)" "a blocked named lot stops the run"
+rm "$R.scen/start.questions"
+echo 6 > "$R.scen/answer.lot"
+: > "$R.scen/calls.log"
+assert_eq 1 "$(pilot "$R" --resume --answer "lot 6")" \
+  "the answered lot must still be the one --lot named"
+assert_contains "$(state "$R" reason)" "not the required 5" "the --lot check survives the answer"
+assert_eq "answer " "$(calls "$R")" "no confirmation after an answered lot that is not the named one"
+
+R=$(fixture answerdev harness)
+echo blocked > "$R.scen/dev.status"
+assert_eq 1 "$(pilot "$R")" "a blocked development stops the run"
+assert_eq dev "$(state "$R" resume)" "the stop resumes at the development"
+assert_eq blocked "$(state "$R" status)" "the state records the blocked status"
+: > "$R.scen/calls.log"
+assert_eq 0 "$(pilot "$R" --resume --answer "Use the narrow fix")" \
+  "--resume --answer completes a blocked development"
+assert_eq "answer test review audit ship " "$(calls "$R")" \
+  "the answered development is not run again"
+assert_contains "$(grep '^answer ' "$R.scen/calls.log")" "--resume S-start" \
+  "the stopped development session is resumed"
+
+# --- --answer is refused wherever it cannot apply -------------------------
+R=$(fixture answertest harness)
+echo blocked > "$R.scen/test.status"
+assert_eq 1 "$(pilot "$R")" "a blocked lot-test stops the run"
+assert_eq 2 "$(pilot "$R" --resume --answer "anything")" \
+  "--answer refuses a stop that is not a blocked start or development"
+
+R=$(fixture answercheck harness)
+echo 'echo dirty > src/dirty.txt' >> "$R.scen/dev.sh"
+assert_eq 1 "$(pilot "$R")" "a dirty tree after the development stops the run"
+assert_eq 2 "$(pilot "$R" --resume --answer "anything")" \
+  "--answer refuses a failed check, not a blocked session"
+
+R=$(fixture answerconfirm harness)
+echo blocked > "$R.scen/start.status"
+echo '["Which lot?"]' > "$R.scen/start.questions"
+assert_eq 1 "$(pilot "$R")"
+assert_eq 2 "$(pilot "$R" --resume --answer "lot-start confirm 5")" \
+  "--answer refuses a bare confirmation"
+assert_eq 2 "$(pilot "$R" --resume --answer "/claude-harness:lot-start confirm 5")" \
+  "--answer refuses the slash confirmation"
+assert_eq 2 "$(pilot "$R" --resume --answer "  lot-start confirm 5  ")" \
+  "--answer refuses a padded confirmation"
+
+# --- the stop line carries the questions and the command ------------------
+R=$(fixture stopline harness)
+echo blocked > "$R.scen/start.status"
+echo '["Which lot?"]' > "$R.scen/start.questions"
+assert_eq 1 "$(pilot "$R")"
+assert_contains "$(tail -1 "$R.out")" "Which lot?" "the last line lists the questions"
+assert_contains "$(tail -1 "$R.out")" "--resume --answer" "the last line gives the command"
+assert_contains "$(cat "$R.scen/notify.log")" "Which lot?" "the notification lists the questions"
+assert_contains "$(cat "$R.scen/notify.log")" "--resume --answer" "the notification gives the command"
+
+R=$(fixture nohint harness)
+echo 'echo dirty > src/dirty.txt' >> "$R.scen/dev.sh"
+assert_eq 1 "$(pilot "$R")"
+assert_eq "" "$(grep -o -- '--resume --answer' "$R.out" || true)" \
+  "a stop that --answer cannot settle does not advertise it"
+
 # --- dry run --------------------------------------------------------------
 R=$(fixture dry harness)
 out=$(cd "$R" && PATH="$FAKEBIN:$PATH" HOME="$FAKEHOME" python3 "$PILOT" --dry-run)
 assert_contains "$out" "review Opus" "--dry-run shows the model of each step"
 assert_eq "" "$(calls "$R")" "--dry-run runs no session"
+out=$(cd "$R" && PATH="$FAKEBIN:$PATH" HOME="$FAKEHOME" python3 "$PILOT" --dry-run --lot 5)
+assert_contains "$out" "/claude-harness:lot-start 5" "--dry-run --lot shows the named lot-start prompt"
+assert_eq "" "$(calls "$R")" "--dry-run --lot runs no session"
 assert_ok "the script leaves no __pycache__ in the plugin" -- \
   test ! -e "$REPO_ROOT/plugins/claude-harness/hooks/__pycache__"
 
