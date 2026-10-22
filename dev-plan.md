@@ -55,6 +55,7 @@
 | 26 | `feat/lot-26-project-memory` | A – Harness | Mémoire de projet : `docs/memory.md` lu par `lot-start`, amendé en fin de développement, lu par `lot-test` (vérifier et compléter, fichiers de test seuls), vérifié par `lot-review` | claude-harness, les 8 repos (via `main` et la PR de synchro) | ✅ |
 | 27 | `feat/lot-27-autopilot` | A – Harness | Autopilot : enchaînement des étapes d'un lot, une session neuve et un modèle par étape, jusqu'au merge, arrêt et notification au premier blocage | claude-harness, les 8 repos (via `main` et la PR de synchro) | ✅ |
 | 28 | `feat/lot-28-autopilot-lot-answers` | A – Harness | Autopilot : lot nommé par `--lot N`, réponses aux questions de `lot-start` par `--resume --answer`, lancement depuis un terminal | claude-harness, les 8 repos (via `main`) | ✅ |
+| 29 | `feat/lot-29-autopilot-confirm-handoff` | A – Harness | Autopilot : la passation `lot-start confirm N` de `lot-start` n'est plus prise pour une question, l'autopilot envoie la confirmation | claude-harness, les 8 repos (via `main`) | ⬜ |
 
 Légende des statuts *(P6-D10)* : ⬜ à faire · 🔄 en cours (livré sur la branche, PR non
 mergée) · ✅ mergé sur `develop` · ⏸️ planifié mais dormant · ❄️ gelé.
@@ -2364,6 +2365,66 @@ arrêt et question à l'utilisateur avant tout code.
   et vérifier la réponse).
 - Branche ou verrou périmés laissés par une session manuelle.
 - Un skill ou une commande slash qui lance l'autopilot.
+
+---
+
+## LOT 29 — Autopilot : la passation de confirmation n'est pas une question ⬜
+
+Branche `feat/lot-29-autopilot-confirm-handoff`, depuis `develop`. Repo touché :
+`claude-harness`. Les 8 repos en héritent à la promotion `develop` → `main`.
+
+### Origine
+
+Incident du 2026-10-22 sur kreadevis-backend (lot 18), gel critère (b). La
+Step A6 de `lot-start` finit la partie A par « confirmer avec `lot-start
+confirm N` », puis s'arrête. Sous autopilot, DeepSeek a pris cette passation
+pour une question à l'utilisateur et a répondu `blocked`, avec pour seule
+question la confirmation. `expect_ok` refuse toute réponse qui porte des
+questions : l'étape `dev`, qui envoie justement `lot-start confirm N`, n'est
+jamais atteinte. Chaque `--resume --answer` reprend la même session, qui
+repose la même question : le run tourne en rond, et `--answer` refuse à
+raison une confirmation tapée par l'utilisateur.
+
+### Livrables
+
+1. **`SYSTEM_PROMPT`** de `autopilot.py` : une phrase de plus. La passation
+   `lot-start confirm N` de `lot-start` est la fin normale de sa partie A :
+   répondre `ok`, sans la mettre dans `questions`, l'autopilot envoie la
+   confirmation lui-même.
+2. **`check_start`**, filet déterministe : avant `expect_ok`, retirer de
+   `questions` celles qui contiennent une confirmation (recherche du motif
+   `CONFIRMATION` dans le texte). Si la réponse était `blocked` et que toutes
+   ses questions étaient des confirmations (au moins une), elle vaut `ok`.
+   Les contrôles suivants restent inchangés : `sync-status.py`, `lot` valide
+   et égal au lot nommé, branche `feat/lot-N-*`. Une seule autre question
+   restante garde l'arrêt `blocked`, sans confirmation.
+   S'applique au premier passage de `start` comme à sa reprise par
+   `--answer` ; l'étape `dev` n'est pas touchée.
+3. **Tests** `tests/autopilot.test.sh`, faux binaire `claude` :
+   - `start` répond `blocked` avec pour seule question une confirmation : la
+     session `dev` suit, prompt `lot-start confirm 5` ;
+   - même cas après `--resume --answer` ;
+   - `blocked` avec une confirmation et une autre question : arrêt à
+     `start`, pas de confirmation, l'autre question seule dans l'état ;
+   - `blocked` sans aucune question : arrêt inchangé.
+
+### Arbitrages (2026-10-22, à la rédaction)
+
+| Sujet | Décision |
+|---|---|
+| Consigne seule ou filet | Les deux : la consigne évite le tour perdu, le filet tient quel que soit le modèle |
+| Reconnaître une question de confirmation | Le motif `CONFIRMATION` présent dans le texte de la question. Une question qui mêlerait une vraie ambiguïté et la confirmation serait retirée : risque accepté, la partie A pose ses ambiguïtés en Step A5, avant la passation |
+| `lot-start` `SKILL.md` | Inchangé : la consigne du prompt système suffit, et la skill reste celle de l'usage manuel |
+
+### Critères de validation
+
+- `./tests/run.sh` vert, nouveaux cas de `tests/autopilot.test.sh` inclus.
+- `--dry-run` affiche le prompt système avec la nouvelle phrase.
+
+### Hors périmètre
+
+- Réparer à la main l'état arrêté de kreadevis-backend : après la promotion,
+  `autopilot --resume --answer "..."` le reprend.
 
 ---
 
