@@ -15,7 +15,7 @@ trap 'rm -rf "$WORK"' EXIT
 # HARNESS_AUTOPILOT, the arguments), runs $SCEN/<step>.sh in the repository,
 # sleeps $SCEN/<step>.sleep seconds, and answers the first line of
 # $SCEN/<step>.status (`ok` by default; a line is consumed while others follow).
-# $SCEN/start.questions holds questions for the start step. `--resume <id>`
+# $SCEN/<step>.questions holds questions for any step. `--resume <id>`
 # keeps the session id, as a real resume does.
 FAKEBIN="$WORK/bin"
 mkdir -p "$FAKEBIN"
@@ -53,9 +53,7 @@ if [ -f "$SCEN/$step.status" ]; then
 fi
 [ -f "$SCEN/$step.silent" ] && exit 1
 questions='[]'
-if [ "$step" = start ] || [ "$step" = answer ]; then
-  [ -f "$SCEN/$step.questions" ] && questions=$(cat "$SCEN/$step.questions")
-fi
+[ -f "$SCEN/$step.questions" ] && questions=$(cat "$SCEN/$step.questions")
 lot=5
 [ -f "$SCEN/$step.lot" ] && lot=$(cat "$SCEN/$step.lot")
 echo "{\"type\":\"system\",\"subtype\":\"init\",\"session_id\":\"$session\"}"
@@ -535,6 +533,43 @@ R=$(fixture confirmationnone harness)
 echo blocked > "$R.scen/start.status"
 assert_eq 1 "$(pilot "$R")" "a blocked lot-start without questions still stops"
 assert_eq "start " "$(calls "$R")" "no confirmation without any question"
+
+R=$(fixture confirmationslash harness)
+echo blocked > "$R.scen/start.status"
+echo '["Lot 5 : /claude-harness:lot-start confirm 5"]' > "$R.scen/start.questions"
+assert_eq 0 "$(pilot "$R")" "the slash form of the hand-off is no question either"
+assert_contains "$(grep '^dev ' "$R.scen/calls.log")" "prompt=lot-start confirm 5" \
+  "the autopilot sends the confirmation itself after a dropped slash form"
+
+R=$(fixture confirmationbranch harness)
+echo blocked > "$R.scen/start.status"
+echo '["Lot candidat : 5 — confirmer avec `lot-start confirm 5`"]' > "$R.scen/start.questions"
+cat >> "$R.scen/start.sh" <<'EOF'
+git switch -q -c feat/lot-6-z
+EOF
+assert_eq 1 "$(pilot "$R")" "a dropped confirmation does not skip the branch check"
+assert_eq "start " "$(calls "$R")" "no confirmation on a branch outside the lot"
+assert_contains "$(state "$R" reason)" "is not feat/lot-5-" \
+  "the branch check still runs after the hand-off is dropped"
+
+R=$(fixture confirmationsync harness)
+echo blocked > "$R.scen/start.status"
+echo '["Lot candidat : 5 — confirmer avec `lot-start confirm 5`"]' > "$R.scen/start.questions"
+cat >> "$R.scen/start.sh" <<'EOF'
+sed -i 's/| 6 | `feat\/lot-6-y` | ⬜ |/| 6 | `feat\/lot-6-y` | ✅ |/' lots.md
+EOF
+assert_eq 1 "$(pilot "$R")" "a dropped confirmation does not skip sync-status.py"
+assert_eq "start " "$(calls "$R")" "no confirmation when sync-status.py rejects the hand-off"
+assert_contains "$(state "$R" reason)" "sync-status.py exited 3" \
+  "sync-status.py still runs after the hand-off is dropped"
+
+R=$(fixture confirmationdev harness)
+echo blocked > "$R.scen/dev.status"
+echo '["Lot candidat : 5 — confirmer avec `lot-start confirm 5`"]' > "$R.scen/dev.questions"
+assert_eq 1 "$(pilot "$R")" "the development still stops on a confirmation question"
+assert_eq "start dev " "$(calls "$R")" "no lot-test after a blocked development"
+assert_eq blocked "$(state "$R" status)" "the development stop stays blocked"
+assert_eq dev "$(state "$R" resume)" "the development stop resumes at the development"
 
 # --- --answer needs the stopped session in the state ----------------------
 R=$(fixture answersession harness)
