@@ -101,8 +101,11 @@ SYSTEM_PROMPT = (
     "status `blocked` and the questions in `questions`, without deciding them "
     "yourself. Answer `failed` with the reason when the step cannot complete "
     "(for lot-test: when an added test reveals a bug), and `ok` only when the "
-    "step's skill reached its end. `lot` is the lot ID. Never tell the user to "
-    "open a new session or to switch profile: the autopilot does it."
+    "step's skill reached its end. The `lot-start confirm N` hand-off that ends "
+    "lot-start's Part A is that normal end: answer `ok`, never put it in "
+    "`questions`, the autopilot sends the confirmation itself. `lot` is the lot "
+    "ID. Never tell the user to open a new session or to switch profile: the "
+    "autopilot does it."
 )
 SCHEMA = {
     "type": "object",
@@ -359,8 +362,26 @@ class Pilot:
 
     # --- the steps -------------------------------------------------------
 
+    @staticmethod
+    def drop_confirmations(answer):
+        """The `lot-start confirm N` hand-off is Part A's end, not a question (lot 29).
+
+        A blocked answer whose every question was that hand-off is the normal
+        end of lot-start's Part A: it counts as `ok`, and the autopilot sends the
+        confirmation itself. Any other question stays, and the run stops before
+        the confirmation as before.
+        """
+        questions = answer.get("questions") or []
+        kept = [question for question in questions if not CONFIRMATION.search(question)]
+        if len(kept) == len(questions):
+            return
+        answer["questions"] = kept
+        if answer.get("status") == "blocked" and not kept:
+            answer["status"] = "ok"
+
     def check_start(self, answer):
         """The checks of lot-start, whether it ran whole or answered (lot 28)."""
+        self.drop_confirmations(answer)
         self.expect_ok("start", answer)
         sync = subprocess.run(
             [sys.executable, SYNC_STATUS, self.root], capture_output=True, text=True
