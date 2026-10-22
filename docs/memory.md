@@ -80,7 +80,8 @@
 - `rtk` hides merge commits in `git log`: read history with `rtk proxy git log`.
 - `tests/run.sh` unsets `HARNESS_AUTOPILOT` and `ANTHROPIC_BASE_URL` (lot
   29): inherited from an autopilot or deepseek session, they turned the gate
-  red and blocked every gate commit. A suite that tests them sets them itself.
+  red and blocked every gate commit. A suite that tests them sets them itself;
+  a suite run alone (`bash tests/x.test.sh`) still inherits them.
 - The lock guard sees `Edit`/`Write` only; a write through `Bash` bypasses it
   and is forbidden by `lot-start`.
 - Popping a stash onto the lots file after the status sync conflicts on the
