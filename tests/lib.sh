@@ -5,6 +5,10 @@
 REPO_ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 export REPO_ROOT
 
+# Inherited from an autopilot or deepseek session, these turn a suite red even
+# when it runs alone: the suites set them themselves where they test them (lot 29).
+unset HARNESS_AUTOPILOT ANTHROPIC_BASE_URL
+
 _tests_run=0
 _tests_failed=0
 

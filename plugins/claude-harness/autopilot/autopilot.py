@@ -65,7 +65,7 @@ LOT_ID = re.compile(r"[0-9]+[a-z]?(\.[0-9]+)?")
 
 # The two forms lot-confirm.sh accepts as the whole prompt (lot 28): --answer
 # must never carry one, the confirmation only comes after the checks.
-CONFIRMATION = re.compile(r"(?:/claude-harness:)?lot-start confirm (?:%s)" % LOT_ID.pattern)
+CONFIRMATION = re.compile(r"(?:/claude-harness:)?lot-start confirm (?P<lot>%s)" % LOT_ID.pattern)
 ANSWER_PREFIX = "Owner answers to your questions:"
 
 FIX_PROMPT = (
@@ -368,10 +368,17 @@ class Pilot:
         A blocked answer whose every question was that hand-off is the normal
         end of lot-start's Part A: it counts as `ok`, and the autopilot sends the
         confirmation itself. Any other question stays, and the run stops before
-        the confirmation as before.
+        the confirmation as before. A question whose confirmations name another
+        lot than the answered one (a choice between lots) is a real question.
         """
+        lot = str(answer.get("lot", "")).lower()
+
+        def hand_off(question):
+            lots = {match.group("lot").lower() for match in CONFIRMATION.finditer(question)}
+            return lots == {lot}
+
         questions = answer.get("questions") or []
-        kept = [question for question in questions if not CONFIRMATION.search(question)]
+        kept = [question for question in questions if not hand_off(question)]
         if len(kept) == len(questions):
             return
         answer["questions"] = kept

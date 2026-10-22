@@ -25,6 +25,11 @@ assert_contains "$out" "HARNESS_AUTOPILOT=unset ANTHROPIC_BASE_URL=unset" \
 out=$(env -u HARNESS_AUTOPILOT -u ANTHROPIC_BASE_URL bash "$WORK/tests/run.sh" 2>&1)
 assert_eq 0 "$?" "the gate is green without them"
 
+out=$(HARNESS_AUTOPILOT=1 ANTHROPIC_BASE_URL=https://api.deepseek.com/anthropic \
+  bash -c '. "$1/tests/lib.sh"; printf "%s %s" "${HARNESS_AUTOPILOT-unset}" "${ANTHROPIC_BASE_URL-unset}"' \
+  _ "$REPO_ROOT")
+assert_eq "unset unset" "$out" "a suite run alone does not inherit them either"
+
 # --- a red suite still turns the gate red -----------------------------------
 printf 'exit 1\n' > "$WORK/tests/red.test.sh"
 HARNESS_AUTOPILOT=1 bash "$WORK/tests/run.sh" > "$WORK/red.out" 2>&1

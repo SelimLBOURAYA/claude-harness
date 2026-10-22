@@ -562,6 +562,19 @@ assert_eq '["Which branch?"]' "$(jq -c '.questions' "$R/.claude/autopilot-state.
   "only the other question is kept in the state"
 assert_contains "$(cat "$R.out")" "  1. Which branch?" "the other question is shown"
 
+R=$(fixture confirmationchoice harness)
+echo blocked > "$R.scen/start.status"
+printf '%s\n' '["Lot 5 ou 6 ?\n a) lot-start confirm 5\n b) lot-start confirm 6"]' > "$R.scen/start.questions"
+assert_eq 1 "$(pilot "$R")" "a choice between two confirmations is a real question"
+assert_eq "start " "$(calls "$R")" "no confirmation while the owner has not chosen the lot"
+assert_contains "$(state "$R" questions)" "Lot 5 ou 6" "the choice is kept in the state"
+
+R=$(fixture confirmationotherlot harness)
+echo blocked > "$R.scen/start.status"
+echo '["Lot candidat : 6 — confirmer avec `lot-start confirm 6`"]' > "$R.scen/start.questions"
+assert_eq 1 "$(pilot "$R")" "a hand-off naming another lot than the answered one stops the run"
+assert_eq "start " "$(calls "$R")" "no confirmation on a hand-off for another lot"
+
 R=$(fixture confirmationnone harness)
 echo blocked > "$R.scen/start.status"
 assert_eq 1 "$(pilot "$R")" "a blocked lot-start without questions still stops"
