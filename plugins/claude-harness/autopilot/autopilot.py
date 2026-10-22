@@ -13,7 +13,7 @@ script stops. One lot per launch: it stops after the merge.
 Usage, from the root of a harnessed repository:
 
     autopilot.py                         start the next lot
-    autopilot.py --lot N                 start lot N, named to lot-start
+    autopilot.py N                       start lot N, named to lot-start
     autopilot.py --resume                resume a stopped run at its recorded step
     autopilot.py --resume --answer TEXT  answer the questions of a blocked start or dev
     autopilot.py --dry-run               print the step commands without running them
@@ -65,7 +65,7 @@ LOT_ID = re.compile(r"[0-9]+[a-z]?(\.[0-9]+)?")
 
 # The two forms lot-confirm.sh accepts as the whole prompt (lot 28): --answer
 # must never carry one, the confirmation only comes after the checks.
-CONFIRMATION = re.compile(r"(?:/claude-harness:)?lot-start confirm [0-9]+[a-z]?(\.[0-9]+)?")
+CONFIRMATION = re.compile(r"(?:/claude-harness:)?lot-start confirm (?:%s)" % LOT_ID.pattern)
 ANSWER_PREFIX = "Owner answers to your questions:"
 
 FIX_PROMPT = (
@@ -86,7 +86,7 @@ PROMPTS = {
 
 
 def start_prompt(lot):
-    """The lot-start prompt, naming the lot when --lot was given (lot 28)."""
+    """The lot-start prompt, naming the lot when one was given (lot 28)."""
     return PROMPTS["start"] + (" " + lot if lot else "")
 
 
@@ -276,6 +276,18 @@ class Pilot:
         date = datetime.date.today().isoformat()
         return os.path.join(self.logs, "%s-lot-%s-%s.jsonl" % (date, self.lot or "new", step))
 
+    def answered_session(self, step, text):
+        """Resume the stopped session with the owner's answers (lot 28).
+
+        A stop before the session answers (timeout, Ctrl-C, no structured
+        answer) stays blocked, so the same answers can be sent again.
+        """
+        try:
+            return self.session(step, resume=self.state.get("session_id"),
+                                prompt=answer_prompt(text))
+        except Stop as stop:
+            raise Stop(stop.reason, step, status="blocked", questions=self.state.get("questions"))
+
     def take_answer(self, step):
         """The owner's answers when they answer this very step, once (lot 28)."""
         if self.answer_step != step:
@@ -321,6 +333,9 @@ class Pilot:
         questions = answer.get("questions") or []
         if status == "ok" and not questions:
             return
+        if status == "ok":
+            # Questions are a block whatever the status says: --answer must reach them.
+            status = "blocked"
         reason = "%s: %s - %s" % (step, status, answer.get("reason", ""))
         if questions:
             reason += " | questions: " + "; ".join(questions)
@@ -381,15 +396,13 @@ class Pilot:
         if answer_text is None:
             answer = self.session("start", prompt=start_prompt(self.expected_lot))
         else:
-            answer = self.session("start", resume=self.state.get("session_id"),
-                                  prompt=answer_prompt(answer_text))
+            answer = self.answered_session("start", answer_text)
         self.check_start(answer)
 
     def step_dev(self):
         answer_text = self.take_answer("dev")
         if answer_text is not None:
-            answer = self.session("dev", resume=self.state.get("session_id"),
-                                  prompt=answer_prompt(answer_text))
+            answer = self.answered_session("dev", answer_text)
         else:
             # First pass: the lot-start session itself, which holds Part A. A resume
             # opens a new session, which rewrites the same lock and continues.
@@ -497,13 +510,15 @@ def findings(root, lot):
     return counts
 
 
-def answer_hint(stop):
-    """The questions and the command that sends the answers (lot 28).
+def answerable(status, resume):
+    """Only a blocked lot-start or development stop accepts --answer (lot 28):
+    anywhere else the owner settles the stop and --resume goes on."""
+    return status == "blocked" and resume in ("start", "dev")
 
-    Only a blocked lot-start or development stop accepts --answer: anywhere
-    else the owner settles the stop and --resume goes on.
-    """
-    if stop.status != "blocked" or stop.resume not in ("start", "dev"):
+
+def answer_hint(stop):
+    """The questions and the command that sends the answers (lot 28)."""
+    if not answerable(stop.status, stop.resume):
         return ""
     questions = "; ".join(stop.questions) if stop.questions else "none"
     return (' Questions: %s. Answer with: autopilot.py --resume --answer '
@@ -532,19 +547,21 @@ def refuse(message):
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description="Run one lot from lot-start to merge.")
-    parser.add_argument("--lot", metavar="N", help="the lot lot-start must pick, named in its prompt")
+    parser.add_argument("lot", nargs="?", metavar="N", help="the lot lot-start must pick, named in its prompt")
     parser.add_argument("--resume", action="store_true", help="resume at the recorded step")
     parser.add_argument("--answer", metavar="TEXT",
                         help="the answers to a blocked lot-start or development (with --resume)")
     parser.add_argument("--dry-run", action="store_true", help="print the commands only")
     args = parser.parse_args(argv)
 
-    if args.lot and args.resume:
-        return refuse("--lot and --resume are exclusive: a resumed run takes its lot from the state")
-    if args.lot and not LOT_ID.fullmatch(args.lot):
+    if args.lot is not None and args.resume:
+        return refuse("a lot and --resume are exclusive: a resumed run takes its lot from the state")
+    if args.lot is not None and not LOT_ID.fullmatch(args.lot):
         return refuse("`%s` is not a lot ID" % args.lot)
     if args.answer is not None and not args.resume:
         return refuse("--answer needs --resume")
+    if args.answer is not None and not args.answer.strip():
+        return refuse("--answer needs the answers, not an empty text")
     if args.answer is not None and CONFIRMATION.fullmatch(args.answer.strip()):
         return refuse("--answer refuses a lot confirmation: the confirmation is sent after "
                       "the checks, never before them")
@@ -583,21 +600,21 @@ def main(argv=None):
             return refuse("nothing to resume: no stopped run in %s" % STATE_PATH)
         first = state["resume"]
         if args.answer is not None:
-            if state.get("status") != "blocked" or first not in ("start", "dev"):
+            if not answerable(state.get("status"), first):
                 return refuse("--answer applies only to a stop blocked at start or dev, "
-                              "not at %s" % first)
+                              "not to a `%s` stop at %s" % (state.get("status"), first))
             if not state.get("session_id"):
                 return refuse("--answer needs the stopped session in %s" % STATE_PATH)
     else:
         if state:
             return refuse("a stopped run exists (%s): use --resume" % STATE_PATH)
         state, first = {}, "start"
-        if args.lot:
+        if args.lot is not None:
             state["expected_lot"] = args.lot
 
     subprocess.run(["git", "-C", root, "fetch", "-q", "origin"])
     pilot = Pilot(root, params, home, state,
-                  expected_lot=args.lot or state.get("expected_lot"),
+                  expected_lot=state.get("expected_lot"),
                   answer_step=first if args.answer is not None else None,
                   answer_text=args.answer)
     try:

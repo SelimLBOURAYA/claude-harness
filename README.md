@@ -246,7 +246,7 @@ alias autopilot='python3 ~/.claude/plugins/marketplaces/claude-harness/plugins/c
 
 autopilot --dry-run                 # the step commands, no session
 autopilot                           # the next lot lot-start picks
-autopilot --lot 17                  # lot 17, named to lot-start
+autopilot 17                        # lot 17, named to lot-start
 autopilot --resume                  # a stopped run, at its recorded step
 autopilot --resume --answer "..."   # the answers to a blocked lot-start or dev
 ```
@@ -259,7 +259,7 @@ autopilot --resume --answer "..."   # the answers to a blocked lot-start or dev
 | `lot-review`, then `lot-audit` | Opus | `~/.claude/settings.claude.json` |
 | `lot-ship` | DeepSeek | `~/.claude/settings.deepseek.json` |
 
-- **`--lot N`**: `lot-start` receives `/claude-harness:lot-start N`, and the run
+- **`N`**: `lot-start` receives `/claude-harness:lot-start N`, and the run
   stops if the lot it answers is not `N`. Refused with `--resume`, whose lot
   comes from the state, and for a value that is not a lot ID.
 - **`--answer TEXT`**: only after a stop `blocked` at `lot-start` (Part A) or
@@ -281,16 +281,19 @@ autopilot --resume --answer "..."   # the answers to a blocked lot-start or dev
   and `docs/memory.md`, even when the step ends `blocked`; the pull request
   `MERGED` and the lock removed after `lot-ship`.
 - **Permissions**: `--permission-mode acceptEdits` and a per-process allowlist
-  (`Validation command`, `gh pr`, `gh run`, `jq`, and `python3` on the plugin's
-  own scripts under `~/.claude/plugins/cache/claude-harness/`) on top of the
-  profile's; never `--dangerously-skip-permissions`. A refused command stops the
+  (`Validation command`, `gh pr`, `gh run`, `jq`, `printenv ANTHROPIC_BASE_URL`
+  and `printenv HARNESS_AUTOPILOT` for the `lot-review` and `lot-audit` guards,
+  and `python3` on the plugin's own scripts under
+  `~/.claude/plugins/cache/claude-harness/`) on top of the profile's; never `--dangerously-skip-permissions`. A refused command stops the
   step.
 - **Stop**: at the first `blocked`, `failed`, failed check or step over 30
   minutes, the state (reason, status, questions, step) goes to
   `.claude/autopilot-state.json` (kept out of git through `.git/info/exclude`),
   `notify-send` is called and the script exits 1. The last line and the
   notification list the questions, and the `--resume --answer` command when it
-  applies. A frontend without `docs/audits/lot-0-integration.md` stops before
+  applies: a session that lists questions is a `blocked` stop whatever its
+  status, and an answered session that stops before answering (timeout,
+  Ctrl-C) stays `blocked`, so the same answers can be sent again. A frontend without `docs/audits/lot-0-integration.md` stops before
   `lot-ship`: `integration-check` stays manual.
 - **Resume**: settle the reason, then run the script again with `--resume`. It
   restarts at the recorded step in a new session, or, after a review or audit

@@ -360,22 +360,24 @@ assert_ok "the session is killed at the timeout" -- test $(( $(date +%s) - began
 assert_contains "$(state "$R" reason)" "timeout" "the timeout is recorded"
 assert_eq start "$(state "$R" resume)" "the timed-out step is the one resumed"
 
-# --- --lot: lot-start is named the lot (lot 28) ---------------------------
+# --- N: lot-start is named the lot (lot 28) -------------------------------
 R=$(fixture namedlot harness)
-assert_eq 0 "$(pilot "$R" --lot 5)" "--lot runs the named lot"
+assert_eq 0 "$(pilot "$R" 5)" "a named lot runs that lot"
 assert_contains "$(cat "$R.scen/calls.log")" "prompt=/claude-harness:lot-start 5" \
-  "--lot names the lot in the lot-start prompt"
+  "the named lot is in the lot-start prompt"
 
 R=$(fixture wronglot harness)
 echo 6 > "$R.scen/start.lot"
-assert_eq 1 "$(pilot "$R" --lot 5)" "an answer naming another lot stops the run"
+assert_eq 1 "$(pilot "$R" 5)" "an answer naming another lot stops the run"
 assert_eq "start " "$(calls "$R")" "no confirmation when lot-start names another lot"
 assert_contains "$(state "$R" reason)" "not the required 5" "the reason names the required lot"
 
 R=$(fixture badargs harness)
-assert_eq 2 "$(pilot "$R" --lot 5.x)" "--lot refuses a value that is no lot ID"
-assert_eq "" "$(calls "$R")" "no session on a refused --lot"
-assert_eq 2 "$(pilot "$R" --lot 5 --resume)" "--lot and --resume are exclusive"
+assert_eq 2 "$(pilot "$R" 5.x)" "a value that is no lot ID is refused"
+assert_eq 2 "$(pilot "$R" "")" "an empty lot is refused"
+assert_eq 2 "$(pilot "$R" --resume --answer "  ")" "--answer refuses a blank text"
+assert_eq "" "$(calls "$R")" "no session on a refused lot"
+assert_eq 2 "$(pilot "$R" 5 --resume)" "a lot and --resume are exclusive"
 assert_eq 2 "$(pilot "$R" --answer x)" "--answer needs --resume"
 
 # --- --resume --answer: the stopped session gets the answers (lot 28) -----
@@ -404,13 +406,13 @@ assert_contains "$(grep '^dev ' "$R.scen/calls.log")" "prompt=lot-start confirm 
 R=$(fixture answerlot harness)
 echo blocked > "$R.scen/start.status"
 echo '["Which lot?"]' > "$R.scen/start.questions"
-assert_eq 1 "$(pilot "$R" --lot 5)" "a blocked named lot stops the run"
+assert_eq 1 "$(pilot "$R" 5)" "a blocked named lot stops the run"
 rm "$R.scen/start.questions"
 echo 6 > "$R.scen/answer.lot"
 : > "$R.scen/calls.log"
 assert_eq 1 "$(pilot "$R" --resume --answer "lot 6")" \
-  "the answered lot must still be the one --lot named"
-assert_contains "$(state "$R" reason)" "not the required 5" "the --lot check survives the answer"
+  "the answered lot must still be the named one"
+assert_contains "$(state "$R" reason)" "not the required 5" "the named lot check survives the answer"
 assert_eq "answer " "$(calls "$R")" "no confirmation after an answered lot that is not the named one"
 
 R=$(fixture answerdev harness)
@@ -425,6 +427,34 @@ assert_eq "answer test review audit ship " "$(calls "$R")" \
   "the answered development is not run again"
 assert_contains "$(grep '^answer ' "$R.scen/calls.log")" "--resume S-start" \
   "the stopped development session is resumed"
+
+R=$(fixture answerok harness)
+echo '["Which branch?"]' > "$R.scen/start.questions"
+assert_eq 1 "$(pilot "$R")" "an ok lot-start that lists questions stops the run"
+assert_eq blocked "$(state "$R" status)" "questions make the stop blocked whatever the status"
+assert_contains "$(tail -1 "$R.out")" "--resume --answer" "the stop advertises --answer"
+rm "$R.scen/start.questions"
+: > "$R.scen/calls.log"
+assert_eq 0 "$(pilot "$R" --resume --answer "feat/lot-5-x")" \
+  "--answer settles an ok lot-start that listed questions"
+
+R=$(fixture answersilent harness)
+echo blocked > "$R.scen/start.status"
+echo '["Which branch?"]' > "$R.scen/start.questions"
+assert_eq 1 "$(pilot "$R")" "a blocked lot-start stops the run"
+rm "$R.scen/start.questions"
+touch "$R.scen/answer.silent"
+assert_eq 1 "$(pilot "$R" --resume --answer "feat/lot-5-x")" \
+  "an answered session with no structured answer stops the run"
+assert_eq blocked "$(state "$R" status)" "the stop stays blocked"
+assert_eq start "$(state "$R" resume)" "the stop stays at start"
+assert_contains "$(jq -r '.questions | join("; ")' "$R/.claude/autopilot-state.json")" \
+  "Which branch?" "the stop keeps the questions"
+rm "$R.scen/answer.silent"
+: > "$R.scen/calls.log"
+assert_eq 0 "$(pilot "$R" --resume --answer "feat/lot-5-x")" "the same answers can be sent again"
+assert_contains "$(grep '^answer ' "$R.scen/calls.log")" "--resume S-start" \
+  "the second answer reaches the stopped session"
 
 # --- the lot-start checks still run on the answered session ----------------
 R=$(fixture answersync harness)
@@ -546,9 +576,9 @@ assert_contains "$out" "Bash(printenv ANTHROPIC_BASE_URL)" \
   "the allowlist lets lot-review run its profile guard"
 assert_contains "$out" "Bash(printenv HARNESS_AUTOPILOT)" \
   "the allowlist lets lot-review and lot-audit read HARNESS_AUTOPILOT"
-out=$(cd "$R" && PATH="$FAKEBIN:$PATH" HOME="$FAKEHOME" python3 "$PILOT" --dry-run --lot 5)
-assert_contains "$out" "/claude-harness:lot-start 5" "--dry-run --lot shows the named lot-start prompt"
-assert_eq "" "$(calls "$R")" "--dry-run --lot runs no session"
+out=$(cd "$R" && PATH="$FAKEBIN:$PATH" HOME="$FAKEHOME" python3 "$PILOT" --dry-run 5)
+assert_contains "$out" "/claude-harness:lot-start 5" "--dry-run N shows the named lot-start prompt"
+assert_eq "" "$(calls "$R")" "--dry-run N runs no session"
 assert_ok "the script leaves no __pycache__ in the plugin" -- \
   test ! -e "$REPO_ROOT/plugins/claude-harness/hooks/__pycache__"
 

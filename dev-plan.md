@@ -2342,6 +2342,10 @@ autopilot. Trois défauts :
 | Canal des réponses | Reprise de la session arrêtée avec les réponses en prompt, plutôt qu'une écriture dans le `Lots file` : la session a déjà le contexte des questions, et rien n'est commité avant la confirmation |
 | Étapes qui acceptent `--answer` | `start` et `dev` seulement : ce sont les sessions de `lot-start` ; `review` et `audit` gardent leur reprise à l'étape suivante |
 | `autopilot` tapé dans Claude Code | Documentation seule (README). Pas de skill ni de hook qui lance le script depuis une session : un run dure des heures et bloquerait la session |
+| Lot nommé (revue, 2026-10-22) | Argument positionnel `autopilot N` au lieu de `--lot N` : commandes courtes. Sans `N`, le candidat de `lot-start` ; `--resume` reprend le run en cours |
+| `printenv` sous autopilot (revue, 2026-10-22) | Corrigé dans ce lot : la session headless de `lot-review` s'est arrêtée à son Step 0, `printenv ANTHROPIC_BASE_URL` et `printenv HARNESS_AUTOPILOT` absents de la liste d'autorisations par processus |
+| Réponse `ok` avec questions (revue, 2026-10-22) | Enregistrée `blocked` : `--answer` s'applique |
+| Session répondue sans réponse (revue, 2026-10-22) | Timeout, Ctrl-C ou pas de réponse structurée après `--answer` : l'arrêt reste `blocked`, avec ses questions, pour renvoyer les réponses |
 
 À vérifier en début de lot (pas une question) : le hook `UserPromptSubmit`
 (`lot-confirm.sh`) se déclenche bien sur un prompt envoyé en `claude -p
