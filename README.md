@@ -235,12 +235,20 @@ nobody to answer that prompt, so the guard denies instead.
 
 `autopilot/autopilot.py` runs **one** lot of the current repository from
 `lot-start` to the merge, a fresh `claude -p` session per step, and stops at the
-first blocker (lot 27). Launch it from the root of the project, through the
-marketplace clone, which follows `main` like the plugin of the sessions it opens:
+first blocker (lot 27). Launch it **from a terminal**, from the root of the
+project, through the marketplace clone, which follows `main` like the plugin of
+the sessions it opens. Typed in the Claude Code prompt, `autopilot` is only a
+message to the model, not this command, and a run lasts hours: it belongs in a
+shell. An alias keeps it short:
 
 ```bash
-python3 ~/.claude/plugins/marketplaces/claude-harness/plugins/claude-harness/autopilot/autopilot.py --dry-run
-python3 ~/.claude/plugins/marketplaces/claude-harness/plugins/claude-harness/autopilot/autopilot.py
+alias autopilot='python3 ~/.claude/plugins/marketplaces/claude-harness/plugins/claude-harness/autopilot/autopilot.py'
+
+autopilot --dry-run                 # the step commands, no session
+autopilot                           # the next lot lot-start picks
+autopilot 17                        # lot 17, named to lot-start
+autopilot --resume                  # a stopped run, at its recorded step
+autopilot --resume --answer "..."   # the answers to a blocked lot-start or dev
 ```
 
 | Step | Model | Settings |
@@ -251,6 +259,16 @@ python3 ~/.claude/plugins/marketplaces/claude-harness/plugins/claude-harness/aut
 | `lot-review`, then `lot-audit` | Opus | `~/.claude/settings.claude.json` |
 | `lot-ship` | DeepSeek | `~/.claude/settings.deepseek.json` |
 
+- **`N`**: `lot-start` receives `/claude-harness:lot-start N`, and the run
+  stops if the lot it answers is not `N`. Refused with `--resume`, whose lot
+  comes from the state, and for a value that is not a lot ID.
+- **`--answer TEXT`**: only after a stop `blocked` at `lot-start` (Part A) or
+  during the development, and only with `--resume`. The script resumes the
+  stopped session itself, with `TEXT` after a fixed
+  `Owner answers to your questions:` line, then repeats the same checks and sends
+  `lot-start confirm N` itself. `TEXT` may not be a lot confirmation: the
+  confirmation never precedes the checks. A `blocked` `lot-review` or `lot-audit`
+  is unchanged: settle it, then `--resume` goes on with the next step.
 - **Profile precondition**: `~/.claude/settings.json` carries no
   `ANTHROPIC_BASE_URL` (run `claude-profile claude` first). `--settings` merges
   and cannot remove a variable, so the script refuses to start otherwise.
@@ -263,18 +281,25 @@ python3 ~/.claude/plugins/marketplaces/claude-harness/plugins/claude-harness/aut
   and `docs/memory.md`, even when the step ends `blocked`; the pull request
   `MERGED` and the lock removed after `lot-ship`.
 - **Permissions**: `--permission-mode acceptEdits` and a per-process allowlist
-  (`Validation command`, `gh pr`, `gh run`, `jq`, and `python3` on the plugin's
-  own scripts under `~/.claude/plugins/cache/claude-harness/`) on top of the
-  profile's; never `--dangerously-skip-permissions`. A refused command stops the
+  (`Validation command`, `gh pr`, `gh run`, `jq`, `printenv ANTHROPIC_BASE_URL`
+  and `printenv HARNESS_AUTOPILOT` for the `lot-review` and `lot-audit` guards,
+  and `python3` on the plugin's own scripts under
+  `~/.claude/plugins/cache/claude-harness/`) on top of the profile's; never `--dangerously-skip-permissions`. A refused command stops the
   step.
 - **Stop**: at the first `blocked`, `failed`, failed check or step over 30
-  minutes, the state goes to `.claude/autopilot-state.json` (kept out of git
-  through `.git/info/exclude`), `notify-send` is called and the script exits 1.
-  A frontend without `docs/audits/lot-0-integration.md` stops before `lot-ship`:
-  `integration-check` stays manual.
+  minutes, the state (reason, status, questions, step) goes to
+  `.claude/autopilot-state.json` (kept out of git through `.git/info/exclude`),
+  `notify-send` is called and the script exits 1. The last line and the
+  notification list the questions, and the `--resume --answer` command when it
+  applies: a session that lists questions is a `blocked` stop whatever its
+  status, and an answered session that stops before answering (timeout,
+  Ctrl-C) stays `blocked`, so the same answers can be sent again. A frontend without `docs/audits/lot-0-integration.md` stops before
+  `lot-ship`: `integration-check` stays manual.
 - **Resume**: settle the reason, then run the script again with `--resume`. It
   restarts at the recorded step in a new session, or, after a review or audit
-  finding that needed your decision, at the following step.
+  finding that needed your decision, at the following step. To answer the
+  questions of a `blocked` `lot-start` or development, use
+  `--resume --answer "..."` instead of settling them by hand.
 - **Log**: each session's `stream-json` output is in
   `~/.claude/autopilot/<project>/<date>-lot-N-<step>.jsonl`; the last line the
   script prints sums up the merge or the stop, with the findings fixed, ignored
