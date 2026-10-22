@@ -21,7 +21,7 @@
   merge, a `claude -p` session per step; `autopilot.py N` names the lot, `--resume
   --answer TEXT` answers a blocked `start`/`dev` in the stopped session;
   `tests/autopilot.test.sh` drives it with fake `claude`, `gh` and
-  `notify-send` (lots 27, 28).
+  `notify-send` (lots 27 to 29).
 - `templates/project/`: skeleton copied by `bootstrap-project`.
 - `.github/workflows/`: reusable workflows; `sync-projects.yml` pushes the
   synced files of `projects.json` to the 8 repos.
@@ -60,7 +60,9 @@
   confirmation. `--answer` is accepted only for a `blocked` recorded at
   `start` or `dev` (a failed check is not blocked); the confirmation stays
   the script's, after the same checks, and an `--answer` that is itself a
-  confirmation is refused (lot 28).
+  confirmation is refused (lot 28). The `lot-start confirm N` hand-off that
+  ends Part A is no question: `check_start` drops it, and a blocked answer
+  made only of confirmations counts as `ok` (lot 29).
 - The UserPromptSubmit hook (`lot-confirm.sh`) fires on `claude -p --resume`:
   the autopilot's confirmation wrote the lock in its own real run (lot 28).
 
@@ -91,8 +93,7 @@
 - `lot-test` section 2 has no `Stack = harness` branch, and sections 3.1 and
   3.2 have nothing to act on when `Coverage tool` is `none` (friction 22-24).
 - The autopilot's `--answer` path (`--json-schema` with `--resume`) is only
-  tested against the fake `claude`. The rest of the real CLI is now verified by
-  a real run: a `/claude-harness:<skill>` prompt in `-p`, the
-  `structured_output` field, `UserPromptSubmit` on `--resume`, and a
-  permission ask in `-p` is a deny: every command a step's skill runs must be
-  in `allowed_tools()` (lot 28: the `printenv` of `lot-review` Step 0).
+  tested against the fake `claude`; a real run verified a slash prompt in
+  `-p`, `structured_output`, `UserPromptSubmit` on `--resume`, and that a
+  permission ask in `-p` is a deny: every command a step runs must be in
+  `allowed_tools()` (lot 28: the `printenv` of `lot-review` Step 0).
