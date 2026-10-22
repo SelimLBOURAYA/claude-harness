@@ -61,8 +61,9 @@
   `start` or `dev` (a failed check is not blocked); the confirmation stays
   the script's, after the same checks, and an `--answer` that is itself a
   confirmation is refused (lot 28). The `lot-start confirm N` hand-off that
-  ends Part A is no question: `check_start` drops it, and a blocked answer
-  made only of confirmations counts as `ok` (lot 29). Stop questions:
+  ends Part A is no question: `check_start` drops a question whose
+  confirmations all name the answered lot (a choice between lots stays), and
+  a blocked answer made only of them counts as `ok` (lot 29). Stop questions:
   French, numbered one per line by `answer_hint`, never in the reason.
 - The UserPromptSubmit hook (`lot-confirm.sh`) fires on `claude -p --resume`:
   the autopilot's confirmation wrote the lock in its own real run (lot 28).
@@ -78,10 +79,10 @@
 - `shellcheck` is not installed locally: the workflows suite skips its shell
   lint, CI runs it.
 - `rtk` hides merge commits in `git log`: read history with `rtk proxy git log`.
-- `tests/run.sh` unsets `HARNESS_AUTOPILOT` and `ANTHROPIC_BASE_URL` (lot
-  29): inherited from an autopilot or deepseek session, they turned the gate
-  red and blocked every gate commit. A suite that tests them sets them itself;
-  a suite run alone (`bash tests/x.test.sh`) still inherits them.
+- `tests/run.sh` and `tests/lib.sh` unset `HARNESS_AUTOPILOT` and
+  `ANTHROPIC_BASE_URL` (lot 29): inherited from an autopilot or deepseek
+  session, they turned the gate red and blocked every gate commit. A suite
+  that tests them sets them itself, after sourcing `lib.sh`.
 - The lock guard sees `Edit`/`Write` only; a write through `Bash` bypasses it
   and is forbidden by `lot-start`.
 - Popping a stash onto the lots file after the status sync conflicts on the
