@@ -289,11 +289,14 @@ autopilot --resume --answer "..."   # the answers to a blocked lot-start or dev
 - **Stop**: at the first `blocked`, `failed`, failed check or step over 30
   minutes, the state (reason, status, questions, step) goes to
   `.claude/autopilot-state.json` (kept out of git through `.git/info/exclude`),
-  `notify-send` is called and the script exits 1. The last line and the
-  notification list the questions, and the `--resume --answer` command when it
-  applies: a session that lists questions is a `blocked` stop whatever its
-  status, and an answered session that stops before answering (timeout,
-  Ctrl-C) stays `blocked`, so the same answers can be sent again. A frontend without `docs/audits/lot-0-integration.md` stops before
+  `notify-send` is called and the script exits 1. The output and the
+  notification list the questions once, numbered one per line, then the
+  command to run: `--resume --answer` when it applies, `--resume` otherwise.
+  A session that lists questions is a `blocked` stop whatever its status, with
+  one exception: the `lot-start confirm N` hand-off for the answered lot, which
+  ends `lot-start`'s Part A, is dropped, and the script sends the confirmation
+  itself. An answered session that stops before answering (timeout, Ctrl-C)
+  stays `blocked`, so the same answers can be sent again. A frontend without `docs/audits/lot-0-integration.md` stops before
   `lot-ship`: `integration-check` stays manual.
 - **Resume**: settle the reason, then run the script again with `--resume`. It
   restarts at the recorded step in a new session, or, after a review or audit

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Exercises the autopilot (lots 27 and 28) against a fake `claude` first on PATH,
+# Exercises the autopilot (lots 27 to 29) against a fake `claude` first on PATH,
 # which returns prepared statuses and plays each step's git effects: no API call.
 # The fixture is a real repository with a bare origin, so sync-status.py and
 # every git check of the script run on real history.
@@ -15,7 +15,7 @@ trap 'rm -rf "$WORK"' EXIT
 # HARNESS_AUTOPILOT, the arguments), runs $SCEN/<step>.sh in the repository,
 # sleeps $SCEN/<step>.sleep seconds, and answers the first line of
 # $SCEN/<step>.status (`ok` by default; a line is consumed while others follow).
-# $SCEN/start.questions holds questions for the start step. `--resume <id>`
+# $SCEN/<step>.questions holds questions for any step. `--resume <id>`
 # keeps the session id, as a real resume does.
 FAKEBIN="$WORK/bin"
 mkdir -p "$FAKEBIN"
@@ -53,9 +53,7 @@ if [ -f "$SCEN/$step.status" ]; then
 fi
 [ -f "$SCEN/$step.silent" ] && exit 1
 questions='[]'
-if [ "$step" = start ] || [ "$step" = answer ]; then
-  [ -f "$SCEN/$step.questions" ] && questions=$(cat "$SCEN/$step.questions")
-fi
+[ -f "$SCEN/$step.questions" ] && questions=$(cat "$SCEN/$step.questions")
 lot=5
 [ -f "$SCEN/$step.lot" ] && lot=$(cat "$SCEN/$step.lot")
 echo "{\"type\":\"system\",\"subtype\":\"init\",\"session_id\":\"$session\"}"
@@ -184,7 +182,7 @@ echo '["Which lot?"]' > "$R.scen/start.questions"
 assert_eq 1 "$(pilot "$R")" "questions stop the run"
 assert_eq "start " "$(calls "$R")" "no confirmation when questions is not empty"
 assert_eq start "$(state "$R" resume)" "the stop resumes at lot-start"
-assert_contains "$(state "$R" reason)" "Which lot?" "the questions are in the reason"
+assert_contains "$(state "$R" questions)" "Which lot?" "the questions are in the state"
 assert_contains "$(cat "$R.scen/notify.log")" "stopped" "the stop is notified"
 assert_ok "the state file is ignored by git" -- git -C "$R" check-ignore -q .claude/autopilot-state.json
 
@@ -333,6 +331,39 @@ assert_eq 2 "$(pilot "$R")" "a stopped run refuses a fresh launch"
 assert_eq 0 "$(pilot "$R" --resume)" "--resume finishes the lot after the decision"
 assert_eq "audit ship " "$(calls "$R")" "lot-review is not run again"
 
+# --- the questions, readable in a terminal (lot 29) ------------------------
+R=$(fixture layout harness)
+echo blocked > "$R.scen/start.status"
+printf '%s' '["Which lot?", "Which branch?\n(a) feat/lot-5-x\n(b) feat/lot-5-y"]' \
+  > "$R.scen/start.questions"
+assert_eq 1 "$(pilot "$R")" "a blocked lot-start stops the run"
+assert_contains "$(cat "$R.out")" $'Questions:\n  1. Which lot?\n\n  2. Which branch?\n     (a) feat/lot-5-x\n     (b) feat/lot-5-y' \
+  "each question is numbered on its own line, its options indented below it"
+assert_eq 1 "$(grep -c 'Which lot?' "$R.out")" "each question is printed once"
+assert_eq 0 "$(state "$R" reason | grep -c 'Which')" "the questions are no longer copied into the reason"
+assert_contains "$(tail -1 "$R.out")" "--resume --answer" "the answer command closes the message"
+assert_contains "$(cat "$R.scen/notify.log")" "  2. Which branch?" "the notification has the same layout"
+
+R=$(fixture auditquestion harness)
+: > "$R.scen/audit.sh"
+echo blocked > "$R.scen/audit.status"
+echo '["The Validation command is red: how to proceed?"]' > "$R.scen/audit.questions"
+assert_eq 1 "$(pilot "$R")" "a blocked lot-audit without its committed report stops the run"
+assert_contains "$(state "$R" reason)" "lot-5.md is not committed" "the reason names the report"
+assert_contains "$(state "$R" questions)" "how to proceed?" "the audit's question survives the report check"
+assert_eq blocked "$(state "$R" status)" "the audit's status survives the report check"
+assert_eq audit "$(state "$R" resume)" "the report check resumes at the audit"
+assert_contains "$(cat "$R.out")" "  1. The Validation command is red: how to proceed?" \
+  "the audit's question is shown"
+assert_contains "$(tail -1 "$R.out")" "Settle them, then: autopilot.py --resume" \
+  "a gate stop is settled by the owner, then resumed"
+
+R=$(fixture auditokquestion harness)
+: > "$R.scen/audit.sh"
+echo '["Le rapport est-il à commiter ?"]' > "$R.scen/audit.questions"
+assert_eq 1 "$(pilot "$R")" "an ok lot-audit with questions and no committed report stops the run"
+assert_eq blocked "$(state "$R" status)" "questions make the report stop blocked whatever the status"
+
 # --- the merge, checked by the script -------------------------------------
 R=$(fixture notmerged harness)
 assert_eq 1 "$(FAKE_GH_STATE=OPEN pilot "$R")" "a pull request left open stops the run"
@@ -460,7 +491,7 @@ assert_contains "$(grep '^answer ' "$R.scen/calls.log")" "--resume S-start" \
 R=$(fixture answersync harness)
 echo blocked > "$R.scen/start.status"
 assert_eq 1 "$(pilot "$R")" "a blocked lot-start without questions stops the run"
-assert_contains "$(tail -1 "$R.out")" "Questions: none" \
+assert_contains "$(cat "$R.out")" "Questions: none" \
   "a blocked stop without questions says none"
 cat > "$R.scen/answer.sh" <<'EOF'
 sed -i 's/| 6 | `feat\/lot-6-y` | ⬜ |/| 6 | `feat\/lot-6-y` | ✅ |/' lots.md
@@ -495,7 +526,125 @@ echo '["Which branch?"]' > "$R.scen/answer.questions"
 assert_eq 1 "$(pilot "$R" --resume --answer "lot 5")" \
   "an answered session that still asks questions stops the run"
 assert_eq "answer " "$(calls "$R")" "no confirmation while questions remain after the answer"
-assert_contains "$(state "$R" reason)" "Which branch?" "the remaining questions are in the reason"
+assert_contains "$(state "$R" questions)" "Which branch?" "the remaining questions are in the state"
+
+# --- the confirmation hand-off is not a question (lot 29) -----------------
+R=$(fixture confirmation harness)
+echo blocked > "$R.scen/start.status"
+echo '["Lot candidat : 5 — confirmer avec `lot-start confirm 5`"]' > "$R.scen/start.questions"
+assert_eq 0 "$(pilot "$R")" "a confirmation hand-off is the normal end of lot-start"
+assert_eq "start dev test review audit ship " "$(calls "$R")" \
+  "the confirmation follows the hand-off"
+assert_contains "$(grep '^dev ' "$R.scen/calls.log")" "prompt=lot-start confirm 5" \
+  "the autopilot sends the confirmation itself"
+
+R=$(fixture confirmationanswer harness)
+echo blocked > "$R.scen/start.status"
+echo '["Which lot?"]' > "$R.scen/start.questions"
+assert_eq 1 "$(pilot "$R")" "a blocked lot-start stops the run"
+rm "$R.scen/start.questions"
+echo blocked > "$R.scen/answer.status"
+echo '["Lot candidat : 5 — confirmer avec `lot-start confirm 5`"]' > "$R.scen/answer.questions"
+: > "$R.scen/calls.log"
+assert_eq 0 "$(pilot "$R" --resume --answer "Lot 5")" \
+  "a confirmation hand-off on the answered session is no question either"
+assert_eq "answer dev test review audit ship " "$(calls "$R")" \
+  "the confirmation follows the answered hand-off"
+assert_contains "$(grep '^dev ' "$R.scen/calls.log")" "prompt=lot-start confirm 5" \
+  "the confirmation follows the answers"
+
+R=$(fixture confirmationother harness)
+echo blocked > "$R.scen/start.status"
+echo '["Which branch?", "Lot candidat : 5 — confirmer avec `lot-start confirm 5`"]' > "$R.scen/start.questions"
+assert_eq 1 "$(pilot "$R")" "another question still stops the run"
+assert_eq "start " "$(calls "$R")" "no confirmation while another question remains"
+assert_eq '["Which branch?"]' "$(jq -c '.questions' "$R/.claude/autopilot-state.json")" \
+  "only the other question is kept in the state"
+assert_contains "$(cat "$R.out")" "  1. Which branch?" "the other question is shown"
+
+R=$(fixture confirmationchoice harness)
+echo blocked > "$R.scen/start.status"
+printf '%s\n' '["Lot 5 ou 6 ?\n a) lot-start confirm 5\n b) lot-start confirm 6"]' > "$R.scen/start.questions"
+assert_eq 1 "$(pilot "$R")" "a choice between two confirmations is a real question"
+assert_eq "start " "$(calls "$R")" "no confirmation while the owner has not chosen the lot"
+assert_contains "$(state "$R" questions)" "Lot 5 ou 6" "the choice is kept in the state"
+
+R=$(fixture confirmationotherlot harness)
+echo blocked > "$R.scen/start.status"
+echo '["Lot candidat : 6 — confirmer avec `lot-start confirm 6`"]' > "$R.scen/start.questions"
+assert_eq 1 "$(pilot "$R")" "a hand-off naming another lot than the answered one stops the run"
+assert_eq "start " "$(calls "$R")" "no confirmation on a hand-off for another lot"
+
+R=$(fixture confirmationnone harness)
+echo blocked > "$R.scen/start.status"
+assert_eq 1 "$(pilot "$R")" "a blocked lot-start without questions still stops"
+assert_eq "start " "$(calls "$R")" "no confirmation without any question"
+
+R=$(fixture confirmationslash harness)
+echo blocked > "$R.scen/start.status"
+echo '["Lot 5 : /claude-harness:lot-start confirm 5"]' > "$R.scen/start.questions"
+assert_eq 0 "$(pilot "$R")" "the slash form of the hand-off is no question either"
+assert_contains "$(grep '^dev ' "$R.scen/calls.log")" "prompt=lot-start confirm 5" \
+  "the autopilot sends the confirmation itself after a dropped slash form"
+
+R=$(fixture confirmationbranch harness)
+echo blocked > "$R.scen/start.status"
+echo '["Lot candidat : 5 — confirmer avec `lot-start confirm 5`"]' > "$R.scen/start.questions"
+cat >> "$R.scen/start.sh" <<'EOF'
+git switch -q -c feat/lot-6-z
+EOF
+assert_eq 1 "$(pilot "$R")" "a dropped confirmation does not skip the branch check"
+assert_eq "start " "$(calls "$R")" "no confirmation on a branch outside the lot"
+assert_contains "$(state "$R" reason)" "is not feat/lot-5-" \
+  "the branch check still runs after the hand-off is dropped"
+
+R=$(fixture confirmationsync harness)
+echo blocked > "$R.scen/start.status"
+echo '["Lot candidat : 5 — confirmer avec `lot-start confirm 5`"]' > "$R.scen/start.questions"
+cat >> "$R.scen/start.sh" <<'EOF'
+sed -i 's/| 6 | `feat\/lot-6-y` | ⬜ |/| 6 | `feat\/lot-6-y` | ✅ |/' lots.md
+EOF
+assert_eq 1 "$(pilot "$R")" "a dropped confirmation does not skip sync-status.py"
+assert_eq "start " "$(calls "$R")" "no confirmation when sync-status.py rejects the hand-off"
+assert_contains "$(state "$R" reason)" "sync-status.py exited 3" \
+  "sync-status.py still runs after the hand-off is dropped"
+
+R=$(fixture confirmationdev harness)
+echo blocked > "$R.scen/dev.status"
+echo '["Lot candidat : 5 — confirmer avec `lot-start confirm 5`"]' > "$R.scen/dev.questions"
+assert_eq 1 "$(pilot "$R")" "the development still stops on a confirmation question"
+assert_eq "start dev " "$(calls "$R")" "no lot-test after a blocked development"
+assert_eq blocked "$(state "$R" status)" "the development stop stays blocked"
+assert_eq dev "$(state "$R" resume)" "the development stop resumes at the development"
+
+R=$(fixture confirmationok harness)
+echo '["Lot candidat : 5 — confirmer avec `lot-start confirm 5`"]' > "$R.scen/start.questions"
+assert_eq 0 "$(pilot "$R")" "an ok lot-start that lists the hand-off as a question goes on"
+assert_eq "start dev test review audit ship " "$(calls "$R")" \
+  "the confirmation follows an ok answer whose only question was the hand-off"
+
+R=$(fixture confirmationfailed harness)
+echo failed > "$R.scen/start.status"
+echo '["Lot candidat : 5 — confirmer avec `lot-start confirm 5`"]' > "$R.scen/start.questions"
+assert_eq 1 "$(pilot "$R")" "a failed lot-start stops the run even when its only question is the hand-off"
+assert_eq "start " "$(calls "$R")" "no confirmation after a failed lot-start"
+assert_eq failed "$(state "$R" status)" "only a blocked answer turns ok, a failed one stays failed"
+
+R=$(fixture confirmationanswerother harness)
+echo blocked > "$R.scen/start.status"
+echo '["Which lot?"]' > "$R.scen/start.questions"
+assert_eq 1 "$(pilot "$R")" "a blocked lot-start stops the run"
+rm "$R.scen/start.questions"
+echo blocked > "$R.scen/answer.status"
+echo '["Which branch?", "Lot candidat : 5 — confirmer avec `lot-start confirm 5`"]' \
+  > "$R.scen/answer.questions"
+: > "$R.scen/calls.log"
+assert_eq 1 "$(pilot "$R" --resume --answer "Lot 5")" \
+  "another question after the answer still stops the run"
+assert_eq "answer " "$(calls "$R")" "no confirmation while another question remains after the answer"
+assert_eq '["Which branch?"]' "$(jq -c '.questions' "$R/.claude/autopilot-state.json")" \
+  "only the other question is kept after the answer"
+assert_eq blocked "$(state "$R" status)" "the answered stop stays blocked"
 
 # --- --answer needs the stopped session in the state ----------------------
 R=$(fixture answersession harness)
@@ -551,12 +700,12 @@ assert_eq 2 "$(pilot "$R" --resume --answer "  lot-start confirm 5  ")" \
 assert_eq 2 "$(pilot "$R" --resume --answer "lot-start confirm 5.1")" \
   "--answer refuses a sub-lot confirmation"
 
-# --- the stop line carries the questions and the command ------------------
+# --- the stop message carries the questions and the command ---------------
 R=$(fixture stopline harness)
 echo blocked > "$R.scen/start.status"
 echo '["Which lot?"]' > "$R.scen/start.questions"
 assert_eq 1 "$(pilot "$R")"
-assert_contains "$(tail -1 "$R.out")" "Which lot?" "the last line lists the questions"
+assert_contains "$(cat "$R.out")" "  1. Which lot?" "the message lists the questions"
 assert_contains "$(tail -1 "$R.out")" "--resume --answer" "the last line gives the command"
 assert_contains "$(cat "$R.scen/notify.log")" "Which lot?" "the notification lists the questions"
 assert_contains "$(cat "$R.scen/notify.log")" "--resume --answer" "the notification gives the command"
@@ -577,6 +726,10 @@ assert_contains "$out" "Bash(printenv ANTHROPIC_BASE_URL)" \
 assert_contains "$out" "Bash(printenv HARNESS_AUTOPILOT)" \
   "the allowlist lets lot-review and lot-audit read HARNESS_AUTOPILOT"
 out=$(cd "$R" && PATH="$FAKEBIN:$PATH" HOME="$FAKEHOME" python3 "$PILOT" --dry-run 5)
+assert_contains "$out" 'The `lot-start confirm N` hand-off' \
+  "--dry-run shows the confirmation hand-off in the system prompt"
+assert_contains "$out" "one entry per question, in French, each option of a question on its own line" \
+  "--dry-run shows the questions' language and layout in the system prompt"
 assert_contains "$out" "/claude-harness:lot-start 5" "--dry-run N shows the named lot-start prompt"
 assert_eq "" "$(calls "$R")" "--dry-run N runs no session"
 assert_ok "the script leaves no __pycache__ in the plugin" -- \

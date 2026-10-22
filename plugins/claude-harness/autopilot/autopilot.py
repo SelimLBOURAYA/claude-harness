@@ -65,7 +65,7 @@ LOT_ID = re.compile(r"[0-9]+[a-z]?(\.[0-9]+)?")
 
 # The two forms lot-confirm.sh accepts as the whole prompt (lot 28): --answer
 # must never carry one, the confirmation only comes after the checks.
-CONFIRMATION = re.compile(r"(?:/claude-harness:)?lot-start confirm (?:%s)" % LOT_ID.pattern)
+CONFIRMATION = re.compile(r"(?:/claude-harness:)?lot-start confirm (?P<lot>%s)" % LOT_ID.pattern)
 ANSWER_PREFIX = "Owner answers to your questions:"
 
 FIX_PROMPT = (
@@ -99,10 +99,14 @@ SYSTEM_PROMPT = (
     "Autopilot run (HARNESS_AUTOPILOT=1): no human is present in this session. "
     "Any question a skill would ask the user ends the turn instead: answer with "
     "status `blocked` and the questions in `questions`, without deciding them "
-    "yourself. Answer `failed` with the reason when the step cannot complete "
+    "yourself: one entry per question, in French, each option of a question on "
+    "its own line. Answer `failed` with the reason when the step cannot complete "
     "(for lot-test: when an added test reveals a bug), and `ok` only when the "
-    "step's skill reached its end. `lot` is the lot ID. Never tell the user to "
-    "open a new session or to switch profile: the autopilot does it."
+    "step's skill reached its end. The `lot-start confirm N` hand-off that ends "
+    "lot-start's Part A is that normal end: answer `ok`, never put it in "
+    "`questions`, the autopilot sends the confirmation itself. `lot` is the lot "
+    "ID. Never tell the user to open a new session or to switch profile: the "
+    "autopilot does it."
 )
 SCHEMA = {
     "type": "object",
@@ -337,8 +341,6 @@ class Pilot:
             # Questions are a block whatever the status says: --answer must reach them.
             status = "blocked"
         reason = "%s: %s - %s" % (step, status, answer.get("reason", ""))
-        if questions:
-            reason += " | questions: " + "; ".join(questions)
         raise Stop(reason, blocked_resume if status == "blocked" and blocked_resume else step,
                    status=status, questions=questions)
 
@@ -359,8 +361,33 @@ class Pilot:
 
     # --- the steps -------------------------------------------------------
 
+    @staticmethod
+    def drop_confirmations(answer):
+        """The `lot-start confirm N` hand-off is Part A's end, not a question (lot 29).
+
+        A blocked answer whose every question was that hand-off is the normal
+        end of lot-start's Part A: it counts as `ok`, and the autopilot sends the
+        confirmation itself. Any other question stays, and the run stops before
+        the confirmation as before. A question whose confirmations name another
+        lot than the answered one (a choice between lots) is a real question.
+        """
+        lot = str(answer.get("lot", "")).lower()
+
+        def hand_off(question):
+            lots = {match.group("lot").lower() for match in CONFIRMATION.finditer(question)}
+            return lots == {lot}
+
+        questions = answer.get("questions") or []
+        kept = [question for question in questions if not hand_off(question)]
+        if len(kept) == len(questions):
+            return
+        answer["questions"] = kept
+        if answer.get("status") == "blocked" and not kept:
+            answer["status"] = "ok"
+
     def check_start(self, answer):
         """The checks of lot-start, whether it ran whole or answered (lot 28)."""
+        self.drop_confirmations(answer)
         self.expect_ok("start", answer)
         sync = subprocess.run(
             [sys.executable, SYNC_STATUS, self.root], capture_output=True, text=True
@@ -454,7 +481,12 @@ class Pilot:
             raise Stop("%s: a commit touches files outside the lot's diff: %s"
                        % (step, ", ".join(outside)), step)
         if answer.get("status") in ("ok", "blocked") and not committed(self.root, report):
-            raise Stop("%s: %s is not committed" % (step, report), step)
+            # The step's own questions often say why the report is not committed;
+            # questions are a block whatever the status says, as in expect_ok.
+            questions = answer.get("questions") or []
+            status = "blocked" if questions else answer.get("status")
+            raise Stop("%s: %s is not committed" % (step, report), step,
+                       status=status, questions=questions)
         # A finding that needs a decision: the owner settles it, then --resume
         # goes on with the following step.
         self.expect_ok(step, answer, blocked_resume=following)
@@ -517,12 +549,21 @@ def answerable(status, resume):
 
 
 def answer_hint(stop):
-    """The questions and the command that sends the answers (lot 28)."""
-    if not answerable(stop.status, stop.resume):
+    """The questions, numbered one per line, and the command that settles them
+    (lot 28, laid out for the terminal in lot 29)."""
+    answer = answerable(stop.status, stop.resume)
+    if not stop.questions and not answer:
         return ""
-    questions = "; ".join(stop.questions) if stop.questions else "none"
-    return (' Questions: %s. Answer with: autopilot.py --resume --answer '
-            '"<your answers>"' % questions)
+    lines = ["", "Questions:" if stop.questions else "Questions: none"]
+    for number, question in enumerate(stop.questions, 1):
+        prefix = "  %d. " % number
+        lines.append(prefix + question.strip().replace("\n", "\n" + " " * len(prefix)))
+        lines.append("")
+    if not stop.questions:
+        lines.append("")
+    lines.append('Answer with: autopilot.py --resume --answer "<your answers>"' if answer
+                 else "Settle them, then: autopilot.py --resume")
+    return "\n".join(lines)
 
 
 def notify(message):
