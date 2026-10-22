@@ -474,9 +474,12 @@ class Pilot:
             raise Stop("%s: a commit touches files outside the lot's diff: %s"
                        % (step, ", ".join(outside)), step)
         if answer.get("status") in ("ok", "blocked") and not committed(self.root, report):
-            # The step's own questions often say why the report is not committed.
+            # The step's own questions often say why the report is not committed;
+            # questions are a block whatever the status says, as in expect_ok.
+            questions = answer.get("questions") or []
+            status = "blocked" if questions else answer.get("status")
             raise Stop("%s: %s is not committed" % (step, report), step,
-                       status=answer.get("status"), questions=answer.get("questions"))
+                       status=status, questions=questions)
         # A finding that needs a decision: the owner settles it, then --resume
         # goes on with the following step.
         self.expect_ok(step, answer, blocked_resume=following)
@@ -544,12 +547,13 @@ def answer_hint(stop):
     answer = answerable(stop.status, stop.resume)
     if not stop.questions and not answer:
         return ""
-    lines = ["", "Questions:"]
+    lines = ["", "Questions:" if stop.questions else "Questions: none"]
     for number, question in enumerate(stop.questions, 1):
-        lines.append("  %d. %s" % (number, question.strip().replace("\n", "\n     ")))
+        prefix = "  %d. " % number
+        lines.append(prefix + question.strip().replace("\n", "\n" + " " * len(prefix)))
         lines.append("")
     if not stop.questions:
-        lines = ["", "Questions: none", ""]
+        lines.append("")
     lines.append('Answer with: autopilot.py --resume --answer "<your answers>"' if answer
                  else "Settle them, then: autopilot.py --resume")
     return "\n".join(lines)

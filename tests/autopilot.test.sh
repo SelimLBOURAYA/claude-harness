@@ -358,6 +358,12 @@ assert_contains "$(cat "$R.out")" "  1. The Validation command is red: how to pr
 assert_contains "$(tail -1 "$R.out")" "Settle them, then: autopilot.py --resume" \
   "a gate stop is settled by the owner, then resumed"
 
+R=$(fixture auditokquestion harness)
+: > "$R.scen/audit.sh"
+echo '["Le rapport est-il à commiter ?"]' > "$R.scen/audit.questions"
+assert_eq 1 "$(pilot "$R")" "an ok lot-audit with questions and no committed report stops the run"
+assert_eq blocked "$(state "$R" status)" "questions make the report stop blocked whatever the status"
+
 # --- the merge, checked by the script -------------------------------------
 R=$(fixture notmerged harness)
 assert_eq 1 "$(FAKE_GH_STATE=OPEN pilot "$R")" "a pull request left open stops the run"
