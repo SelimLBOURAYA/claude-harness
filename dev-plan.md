@@ -2354,6 +2354,18 @@ autopilot. Trois défauts :
 pas. Si le hook ne se déclenche pas, l'autopilot ne peut confirmer aucun lot :
 arrêt et question à l'utilisateur avant tout code.
 
+### Amendement (2026-10-22, après le premier run autopilot du lot)
+
+Le run du lot 29 s'est arrêté à `audit` sans PR. La session d'audit a écrit
+son rapport mais ne l'a pas commité : `./tests/run.sh` y était rouge, la
+suite `git-guard` héritant de `HARNESS_AUTOPILOT=1` (et les étapes deepseek
+héritent d'`ANTHROPIC_BASE_URL`, que la suite `autopilot` refuse). La
+question que l'audit posait à ce sujet a été perdue : le contrôle « rapport
+non commité » levait l'arrêt sans elle. Enfin les questions, jointes par
+`; ` sur une seule ligne et parfois en anglais, étaient illisibles dans le
+terminal. Le propriétaire a choisi de tout intégrer au lot 29 (livrables 4
+à 6) ; le gate du lot repasse depuis `lot-test`.
+
 ### Critères de validation
 
 - `./tests/run.sh` vert, nouveaux cas de `tests/autopilot.test.sh` inclus.
@@ -2407,6 +2419,22 @@ raison une confirmation tapée par l'utilisateur.
    - `blocked` avec une confirmation et une autre question : arrêt à
      `start`, pas de confirmation, l'autre question seule dans l'état ;
    - `blocked` sans aucune question : arrêt inchangé.
+4. **Questions lisibles et en français** (ajout du 2026-10-22, voir
+   « Amendement ») :
+   - `answer_hint` : chaque question numérotée sur sa ligne, ses options
+     indentées dessous, une ligne vide entre deux questions, puis la commande
+     (`--resume --answer`, ou `--resume` pour un arrêt de gate) ; les questions
+     ne sont plus recopiées dans la raison, elles ne s'affichent qu'une fois ;
+   - `SYSTEM_PROMPT` : une entrée par question, en français, chaque option sur
+     sa ligne ;
+   - `lot-start` Step A5 : questions en français, numérotées, une ligne vide
+     entre deux, options indentées ; les arrêts de la Step A3 et la question
+     de la Step B2 suivent la même mise en page.
+5. **Arrêt de gate sans rapport commité** : `gate_step` garde le statut et les
+   questions de la session dans l'arrêt « rapport non commité ».
+6. **`tests/run.sh`** retire `HARNESS_AUTOPILOT` et `ANTHROPIC_BASE_URL` de
+   l'environnement des suites, qui les posent elles-mêmes là où elles les
+   testent.
 
 ### Arbitrages (2026-10-22, à la rédaction)
 
@@ -2414,12 +2442,14 @@ raison une confirmation tapée par l'utilisateur.
 |---|---|
 | Consigne seule ou filet | Les deux : la consigne évite le tour perdu, le filet tient quel que soit le modèle |
 | Reconnaître une question de confirmation | Le motif `CONFIRMATION` présent dans le texte de la question. Une question qui mêlerait une vraie ambiguïté et la confirmation serait retirée : risque accepté, la partie A pose ses ambiguïtés en Step A5, avant la passation |
-| `lot-start` `SKILL.md` | Inchangé : la consigne du prompt système suffit, et la skill reste celle de l'usage manuel |
+| `lot-start` `SKILL.md` | Inchangé pour la passation : la consigne du prompt système suffit. Modifié par l'amendement pour la mise en page et la langue des questions |
 
 ### Critères de validation
 
 - `./tests/run.sh` vert, nouveaux cas de `tests/autopilot.test.sh` inclus.
 - `--dry-run` affiche le prompt système avec la nouvelle phrase.
+- `HARNESS_AUTOPILOT=1 ANTHROPIC_BASE_URL=... ./tests/run.sh` vert.
+- Un arrêt montre ses questions numérotées, une par ligne, une seule fois.
 
 ### Hors périmètre
 
