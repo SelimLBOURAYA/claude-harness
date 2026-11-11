@@ -1,7 +1,7 @@
 ---
 name: lot-start
 description: >-
-  Starts a lot: resolves the repository, re-reads the project references,
+  Starts a lot: updates the repository's plugin, resolves the repository, re-reads the project references,
   synchronises the lots file status table with develop, computes the candidate
   lot, asks every ambiguity in one batch and creates the lot branch, then waits
   for the user to type `lot-start confirm N`; closes the development by
@@ -34,6 +34,27 @@ confirmed (`lot-start confirm N` in the prompt, or this skill invoked with
 your own once the code is complete).
 
 ## Part A — Before the confirmation
+
+### Step A0 — Update the plugin of the repository
+
+The session runs the installed copy of the plugin: update the repository's own
+installation before reading anything (ASK-2 pre-authorises the command).
+
+```bash
+LOT_REPO=$(git rev-parse --show-toplevel)
+jq -e '.enabledPlugins["claude-harness@claude-harness"] == true' "$LOT_REPO/.claude/settings.json"
+(cd "$LOT_REPO" && claude plugin update claude-harness@claude-harness --scope project --json)
+```
+
+Run the update only when `jq` prints `true`: in a repository that does not
+enable the plugin in `.claude/settings.json`, the CLI updates the installation
+of **another** project instead of failing. Read the JSON line:
+
+| Result | What you do |
+|---|---|
+| `updateOutcome` `up_to_date` | Go on with Step A1 |
+| `oldVersion` ≠ `newVersion` | **Stop**: this session still runs the old copy. Tell the user the plugin went from `oldVersion` to `newVersion`, to reopen the session and run `lot-start` again |
+| The command fails | Report its message and go on: the `SessionStart` freshness warning stays the guard (PLUG-1) |
 
 ### Step A1 — Resolve the repository
 

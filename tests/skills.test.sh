@@ -122,6 +122,16 @@ START_SKILL="$SKILLS/lot-start/SKILL.md"
 a2=$(sed -n '/^### Step A2/,/^### Step A3/p' "$START_SKILL")
 assert_ok "lot-start reads the memory in step A2, before the candidate section" -- \
   test "$(grep -n 'docs/memory.md' <<< "$a2" | head -1 | cut -d: -f1)" -lt "$(grep -n 'candidate' <<< "$a2" | head -1 | cut -d: -f1)"
+# Lot 30: the plugin of the repository is updated first, and only where the
+# repository enables it (elsewhere the CLI updates another project).
+a0=$(sed -n '/^### Step A0/,/^### Step A1/p' "$START_SKILL")
+assert_ok "lot-start step A0 comes before step A1" -- \
+  test "$(grep -n '^### Step A0' "$START_SKILL" | cut -d: -f1)" -lt "$(grep -n '^### Step A1' "$START_SKILL" | cut -d: -f1)"
+assert_contains "$a0" "claude plugin update claude-harness@claude-harness --scope project --json" \
+  "lot-start step A0 updates the plugin at project scope"
+assert_contains "$a0" '.enabledPlugins["claude-harness@claude-harness"] == true' \
+  "lot-start step A0 updates only a repository that enables the plugin"
+assert_contains "$a0" "**Stop**" "lot-start step A0 stops when the version changed"
 assert_contains "$(cat "$START_SKILL")" "Unchanged → no commit" "lot-start skips the memory commit when the file is unchanged"
 assert_contains "$(cat "$START_SKILL")" "never an empty one" "lot-start never makes an empty memory commit"
 assert_ok "the skeleton CLAUDE.md and AGENTS.md are byte-identical" -- \
