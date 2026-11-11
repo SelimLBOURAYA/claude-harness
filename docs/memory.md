@@ -83,8 +83,8 @@
   that tests them sets them itself, after sourcing `lib.sh`.
 - `claude plugin update ... --scope project` in a repo with no project-scope
   install updates another project's install, exit 0: `lot-start` Step A0
-  first checks `enabledPlugins` (lot 30). Under the autopilot the command is
-  not in `allowed_tools()`, so Step A0 fails there and goes on.
+  first checks `enabledPlugins` (lot 30). It runs the command verbatim, no
+  `cd`: `allowed_tools()` allows that exact string (`PLUGIN_UPDATE`).
 
 ## Open questions
 
