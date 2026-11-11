@@ -95,7 +95,8 @@ other case is in `stops`, and the script exits 3:
 | `merge-without-lot` | A lot-shaped branch was merged but no row maps to it | Ask which row it belongs to |
 | `scope-already-merged` | The candidate is ⬜ but develop already carries commits scoped to it | Ask whether it is done, partly done, or mislabelled |
 
-**Any stop ends the turn** with the questions, in one batch (LOT-2): no branch,
+**Any stop ends the turn** with the questions, in one batch laid out as in
+Step A5 (LOT-2): no branch,
 no lot picked, no table edit to make the stop go away. Once the user has
 answered, record the answer in the lots file (the rows the merge completed, and a
 note citing the merge or commit SHA in backticks, e.g. merge `abc1234`) and commit
@@ -123,6 +124,13 @@ Read the candidate's section of the `Lots file`, and nothing else of it.
 Restate the lot's acceptance criteria, then ask every ambiguous point in one
 batch, the lot's own "points to settle" included, or write « no ambiguity »
 (LOT-4).
+
+Ask the questions in French, whatever the language of the lots file or of the
+session. Lay the batch out for a terminal: each question numbered (`1.`, `2.`, …) on
+its own line, a blank line between two questions, and each option of a
+question on its own indented line (`a)`, `b)`, …), the recommended one first.
+Never two questions in one paragraph. The stops of Step A3 and the question of
+Step B2 take the same layout.
 
 ### Step A6 — Create the branch, then hand the confirmation to the user
 

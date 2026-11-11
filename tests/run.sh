@@ -7,6 +7,11 @@ set -uo pipefail
 cd "$(dirname "$0")/.." || exit 2
 root=$(pwd)
 
+# An autopilot session sets HARNESS_AUTOPILOT=1, which turns the git guard's
+# `ask` into `deny`, and a deepseek one ANTHROPIC_BASE_URL, which the autopilot
+# refuses: the suites set them themselves where they test them (lot 29).
+unset HARNESS_AUTOPILOT ANTHROPIC_BASE_URL
+
 red=$'\033[31m'; green=$'\033[32m'; dim=$'\033[2m'; off=$'\033[0m'
 [ -t 1 ] || { red=""; green=""; dim=""; off=""; }
 

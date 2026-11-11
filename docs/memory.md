@@ -21,7 +21,7 @@
   merge, a `claude -p` session per step; `autopilot.py N` names the lot, `--resume
   --answer TEXT` answers a blocked `start`/`dev` in the stopped session;
   `tests/autopilot.test.sh` drives it with fake `claude`, `gh` and
-  `notify-send` (lots 27, 28).
+  `notify-send` (lots 27 to 29).
 - `templates/project/`: skeleton copied by `bootstrap-project`.
 - `.github/workflows/`: reusable workflows; `sync-projects.yml` pushes the
   synced files of `projects.json` to the 8 repos.
@@ -60,7 +60,11 @@
   confirmation. `--answer` is accepted only for a `blocked` recorded at
   `start` or `dev` (a failed check is not blocked); the confirmation stays
   the script's, after the same checks, and an `--answer` that is itself a
-  confirmation is refused (lot 28).
+  confirmation is refused (lot 28). The `lot-start confirm N` hand-off that
+  ends Part A is no question: `check_start` drops a question whose
+  confirmations all name the answered lot (a choice between lots stays), and
+  a blocked answer made only of them counts as `ok` (lot 29). Stop questions:
+  French, numbered one per line by `answer_hint`, never in the reason.
 - The UserPromptSubmit hook (`lot-confirm.sh`) fires on `claude -p --resume`:
   the autopilot's confirmation wrote the lock in its own real run (lot 28).
 
@@ -75,12 +79,10 @@
 - `shellcheck` is not installed locally: the workflows suite skips its shell
   lint, CI runs it.
 - `rtk` hides merge commits in `git log`: read history with `rtk proxy git log`.
-- `./tests/run.sh` is red **inside** an autopilot/deepseek session, by design:
-  the `autopilot` suite refuses a set `ANTHROPIC_BASE_URL`, and `git-guard`
-  expects `ask` where `HARNESS_AUTOPILOT=1` denies. Run it as `rtk proxy env -u
-  HARNESS_AUTOPILOT -u ANTHROPIC_BASE_URL ./tests/run.sh` (the profile's
-  allowlist matches no bare `env`; `rtk proxy` does). CI and the script's own
-  `validation_green` are unaffected.
+- `tests/run.sh` and `tests/lib.sh` unset `HARNESS_AUTOPILOT` and
+  `ANTHROPIC_BASE_URL` (lot 29): inherited from an autopilot or deepseek
+  session, they turned the gate red and blocked every gate commit. A suite
+  that tests them sets them itself, after sourcing `lib.sh`.
 - The lock guard sees `Edit`/`Write` only; a write through `Bash` bypasses it
   and is forbidden by `lot-start`.
 - Popping a stash onto the lots file after the status sync conflicts on the
@@ -91,8 +93,7 @@
 - `lot-test` section 2 has no `Stack = harness` branch, and sections 3.1 and
   3.2 have nothing to act on when `Coverage tool` is `none` (friction 22-24).
 - The autopilot's `--answer` path (`--json-schema` with `--resume`) is only
-  tested against the fake `claude`. The rest of the real CLI is now verified by
-  a real run: a `/claude-harness:<skill>` prompt in `-p`, the
-  `structured_output` field, `UserPromptSubmit` on `--resume`, and a
-  permission ask in `-p` is a deny: every command a step's skill runs must be
-  in `allowed_tools()` (lot 28: the `printenv` of `lot-review` Step 0).
+  tested against the fake `claude`; a real run verified a slash prompt in
+  `-p`, `structured_output`, `UserPromptSubmit` on `--resume`, and that a
+  permission ask in `-p` is a deny: every command a step runs must be in
+  `allowed_tools()` (lot 28: the `printenv` of `lot-review` Step 0).
