@@ -140,6 +140,8 @@ assert_contains "$(grep -F 'The command fails' <<< "$a0")" "go on" \
   "lot-start step A0 goes on when the update fails"
 assert_eq "" "$(grep -E -- '--scope (user|local)' <<< "$a0" || true)" \
   "lot-start step A0 updates the project scope only"
+assert_ok "lot-start step A0 runs the update verbatim, the autopilot's allowlist entry" -- \
+  grep -qx 'claude plugin update claude-harness@claude-harness --scope project --json' <<< "$a0"
 assert_contains "$(cat "$START_SKILL")" "Unchanged → no commit" "lot-start skips the memory commit when the file is unchanged"
 assert_contains "$(cat "$START_SKILL")" "never an empty one" "lot-start never makes an empty memory commit"
 assert_ok "the skeleton CLAUDE.md and AGENTS.md are byte-identical" -- \

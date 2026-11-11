@@ -43,10 +43,12 @@ installation before reading anything (ASK-2 pre-authorises the command).
 ```bash
 LOT_REPO=$(git rev-parse --show-toplevel)
 jq -e '.enabledPlugins["claude-harness@claude-harness"] == true' "$LOT_REPO/.claude/settings.json"
-(cd "$LOT_REPO" && claude plugin update claude-harness@claude-harness --scope project --json)
+claude plugin update claude-harness@claude-harness --scope project --json
 ```
 
-Run the update only when `jq` prints `true`: in a repository that does not
+Run the update from `$LOT_REPO`, the session's directory, verbatim: no `cd`,
+no subshell, so that it matches the autopilot's allowlist entry. Run it only
+when `jq` prints `true`: in a repository that does not
 enable the plugin in `.claude/settings.json`, the CLI updates the installation
 of **another** project instead of failing. Read the JSON line:
 
