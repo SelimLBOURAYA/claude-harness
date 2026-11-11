@@ -35,7 +35,7 @@
   (harness-invariants compares against `main`). Lot 24. `bootstrap-project`
   still copies `templates/project/` from the working tree.
 - Freeze since lot 24: a change needs a broken CI, a security flaw or a real
-  incident; lots 26 and 27 are user-decided exceptions.
+  incident; lots 26, 27 and 30 are user-decided exceptions.
 - Skills and docs cite a rule by its ID, never restate it; what a rule says is
   reviewed, not grepped (lot 24).
 - `CONVENTIONS.md` stays within 15000 bytes, English, no dated story
@@ -76,17 +76,15 @@
   carded rule before lengthening one. MEM-1 is off the card for this reason.
 - The session runs the **installed** plugin copy, not the branch: a skill fixed
   on the branch still behaves the old way until promotion and update.
-- `shellcheck` is not installed locally: the workflows suite skips its shell
-  lint, CI runs it.
-- `rtk` hides merge commits in `git log`: read history with `rtk proxy git log`.
+- No local `shellcheck`: the workflows suite skips its lint, CI runs it.
 - `tests/run.sh` and `tests/lib.sh` unset `HARNESS_AUTOPILOT` and
   `ANTHROPIC_BASE_URL` (lot 29): inherited from an autopilot or deepseek
   session, they turned the gate red and blocked every gate commit. A suite
   that tests them sets them itself, after sourcing `lib.sh`.
-- The lock guard sees `Edit`/`Write` only; a write through `Bash` bypasses it
-  and is forbidden by `lot-start`.
-- Popping a stash onto the lots file after the status sync conflicts on the
-  table rows: resolve by hand, keep both.
+- `claude plugin update --scope project` with no project install at this
+  path updates another project's, exit 0: Step A0 of `lot-start` checks
+  `installed_plugins.json`, not `enabledPlugins` (lot 30). Run verbatim:
+  `allowed_tools()` allows that exact string (`PLUGIN_UPDATE`).
 
 ## Open questions
 

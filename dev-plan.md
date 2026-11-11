@@ -56,6 +56,7 @@
 | 27 | `feat/lot-27-autopilot` | A – Harness | Autopilot : enchaînement des étapes d'un lot, une session neuve et un modèle par étape, jusqu'au merge, arrêt et notification au premier blocage | claude-harness, les 8 repos (via `main` et la PR de synchro) | ✅ |
 | 28 | `feat/lot-28-autopilot-lot-answers` | A – Harness | Autopilot : lot nommé par `--lot N`, réponses aux questions de `lot-start` par `--resume --answer`, lancement depuis un terminal | claude-harness, les 8 repos (via `main`) | ✅ |
 | 29 | `feat/lot-29-autopilot-confirm-handoff` | A – Harness | Autopilot : la passation `lot-start confirm N` de `lot-start` n'est plus prise pour une question, l'autopilot envoie la confirmation | claude-harness, les 8 repos (via `main`) | ✅ |
+| 30 | `feat/lot-30-plugin-update-before-lot` | A – Harness | `lot-start` met à jour le plugin du repo (`claude plugin update … --scope project`) avant tout lot, et arrête la session quand la version a changé | claude-harness, les 8 repos (via `main`) | ✅ |
 
 Légende des statuts *(P6-D10)* : ⬜ à faire · 🔄 en cours (livré sur la branche, PR non
 mergée) · ✅ mergé sur `develop` · ⏸️ planifié mais dormant · ❄️ gelé.
@@ -2456,6 +2457,79 @@ raison une confirmation tapée par l'utilisateur.
 
 - Réparer à la main l'état arrêté de kreadevis-backend : après la promotion,
   `autopilot --resume --answer "..."` le reprend.
+
+---
+
+## LOT 30 — `lot-start` : plugin à jour avant le lot ✅
+
+Branche `feat/lot-30-plugin-update-before-lot`, depuis `develop`. Repo touché :
+`claude-harness`. Les 8 repos en héritent à la promotion `develop` → `main`.
+
+### Origine
+
+Demande de l'utilisateur du 2026-11-11 (gel levé par sa demande explicite).
+Aujourd'hui la fraîcheur du plugin n'est contrôlée qu'a posteriori : l'alerte
+du hook `SessionStart` (lot 24), puis PLUG-1, que l'agent applique à la main.
+Plusieurs repos tournaient encore sur une version ancienne (elya-frontend
+2.0.1, summerize-youtube 2.2.0, kreadevis-backend 2.3.0 pour 2.5.0 sur `main`).
+
+Constat de cadrage : `claude plugin update claude-harness@claude-harness
+--scope project` lancé dans un repo **sans** installation de portée projet ne
+s'arrête pas en erreur, il met à jour l'installation d'un autre projet
+(essai du 2026-11-11 depuis `claude-harness` : kreadevis-frontend mis à jour
+2.2.0 → 2.5.0).
+
+### Livrables
+
+1. **`lot-start`, nouvelle Step A0**, avant la résolution des références :
+   dans `$LOT_REPO`, si `installed_plugins.json` porte une installation de
+   portée projet pour ce chemin (revue : `enabledPlugins` ne suffit pas,
+   meal-planner-frontend l'active sans installation propre), lancer
+   `cd "$LOT_REPO" && claude plugin update claude-harness@claude-harness --scope project --json`
+   (pré-autorisé par ASK-2). Sinon, ne rien lancer.
+   - `updateOutcome` `up_to_date` → continuer ;
+   - version changée (`oldVersion` ≠ `newVersion`) → **arrêt** : la session
+     tourne encore sur l'ancienne copie ; dire à l'utilisateur de rouvrir la
+     session et de relancer `lot-start` ;
+   - échec de la commande → rapporter le message et continuer : l'alerte du
+     `SessionStart` reste la garde.
+2. **Test** `tests/skills.test.sh` : la Step A0 existe, précède la Step A1,
+   porte la commande `--scope project --json` et la condition sur
+   l'installation de portée projet.
+3. **Mémoire** : le piège de la portée projet dans `docs/memory.md`.
+
+### Amendement (2026-11-11, décision de l'utilisateur)
+
+Sous autopilot, une session headless refuse toute commande absente de
+`allowed_tools()` : la Step A0 y échouait et le plugin n'était jamais mis à
+jour. Ajouts au périmètre :
+
+4. **`allowed_tools()`** de `autopilot.py` autorise
+   `Bash(claude plugin update claude-harness@claude-harness --scope project --json)`,
+   commande exacte, sans joker.
+5. **Step A0** lance la commande telle quelle depuis la racine du repo (le
+   répertoire de la session), sans `cd` ni sous-shell, pour qu'elle corresponde
+   à l'autorisation.
+6. **Test** `tests/autopilot.test.sh` : `--dry-run` affiche cette
+   autorisation, et aucune autre forme de `claude plugin`.
+
+### Arbitrages (2026-11-11, à la rédaction)
+
+| Sujet | Décision |
+|---|---|
+| Portée | `project` seule, celle que demande l'utilisateur ; la portée `user` reste couverte par PLUG-1 |
+| Repo sans installation projet | Pas d'appel : la CLI mettrait à jour un autre projet |
+| Code ou consigne | Consigne dans `SKILL.md`, sans script : la commande est une ligne et la CLI rend déjà un JSON |
+
+### Critères de validation
+
+- `./tests/run.sh` vert, nouveaux cas de `tests/skills.test.sh` inclus.
+- Version du plugin bumpée (job `plugin-version`).
+
+### Hors périmètre
+
+- Mise à jour automatique dans le hook `SessionStart` (réseau au démarrage).
+- Portée `user` et `local`.
 
 ---
 
