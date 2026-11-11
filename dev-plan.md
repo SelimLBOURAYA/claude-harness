@@ -2482,8 +2482,9 @@ s'arrête pas en erreur, il met à jour l'installation d'un autre projet
 ### Livrables
 
 1. **`lot-start`, nouvelle Step A0**, avant la résolution des références :
-   dans `$LOT_REPO`, si `.claude/settings.json` active
-   `claude-harness@claude-harness` (`enabledPlugins`), lancer
+   dans `$LOT_REPO`, si `installed_plugins.json` porte une installation de
+   portée projet pour ce chemin (revue : `enabledPlugins` ne suffit pas,
+   meal-planner-frontend l'active sans installation propre), lancer
    `cd "$LOT_REPO" && claude plugin update claude-harness@claude-harness --scope project --json`
    (pré-autorisé par ASK-2). Sinon, ne rien lancer.
    - `updateOutcome` `up_to_date` → continuer ;
@@ -2494,7 +2495,7 @@ s'arrête pas en erreur, il met à jour l'installation d'un autre projet
      `SessionStart` reste la garde.
 2. **Test** `tests/skills.test.sh` : la Step A0 existe, précède la Step A1,
    porte la commande `--scope project --json` et la condition sur
-   `enabledPlugins`.
+   l'installation de portée projet.
 3. **Mémoire** : le piège de la portée projet dans `docs/memory.md`.
 
 ### Amendement (2026-11-11, décision de l'utilisateur)
