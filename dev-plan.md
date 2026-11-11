@@ -57,6 +57,7 @@
 | 28 | `feat/lot-28-autopilot-lot-answers` | A – Harness | Autopilot : lot nommé par `--lot N`, réponses aux questions de `lot-start` par `--resume --answer`, lancement depuis un terminal | claude-harness, les 8 repos (via `main`) | ✅ |
 | 29 | `feat/lot-29-autopilot-confirm-handoff` | A – Harness | Autopilot : la passation `lot-start confirm N` de `lot-start` n'est plus prise pour une question, l'autopilot envoie la confirmation | claude-harness, les 8 repos (via `main`) | ✅ |
 | 30 | `feat/lot-30-plugin-update-before-lot` | A – Harness | `lot-start` met à jour le plugin du repo (`claude plugin update … --scope project`) avant tout lot, et arrête la session quand la version a changé | claude-harness, les 8 repos (via `main`) | ✅ |
+| 31 | `feat/lot-31-guard-hardening` | A – Harness (optionnel) | Durcissement des gardes : formes shell que `git-guard.py` laisse passer en silence, signal de profil lu sur l'hôte de `ANTHROPIC_BASE_URL`, contrôle des Critical ouverts de `lot-deliverables.yml` | claude-harness, les 8 repos (via `main`) | ⏸️ |
 
 Légende des statuts *(P6-D10)* : ⬜ à faire · 🔄 en cours (livré sur la branche, PR non
 mergée) · ✅ mergé sur `develop` · ⏸️ planifié mais dormant · ❄️ gelé.
@@ -2530,6 +2531,135 @@ jour. Ajouts au périmètre :
 
 - Mise à jour automatique dans le hook `SessionStart` (réseau au démarrage).
 - Portée `user` et `local`.
+
+---
+
+## LOT 31 — Durcissement des gardes (optionnel) ⏸️
+
+Branche `feat/lot-31-guard-hardening`, depuis `develop`. Repo touché :
+`claude-harness`. Les 8 repos en héritent à la promotion `develop` → `main`.
+
+Lot **optionnel** : il reste ⏸️, donc ignoré par `lot-start`, tant que
+l'utilisateur ne le passe pas en ⬜. Rien n'est décidé par cette section : elle
+consigne des observations et un périmètre possible.
+
+### Origine
+
+Évaluation du harnais en lecture seule, session du 2026-11-11, sur la branche
+du lot 30 avant son bump (plugin 2.5.0). `./tests/run.sh` était vert, 16 suites
+sur 16.
+Vis-à-vis du gel, les constats 1 à 3 relèvent du cas (a), faille de sécurité ;
+c'est à l'utilisateur d'en juger.
+
+**Constat 1 : `git-guard.py` laisse passer en silence des formes courantes.**
+Décisions obtenues en soumettant la commande au hook, sans l'exécuter :
+
+| Commande | Décision |
+|---|---|
+| `git push origin main` | deny |
+| `if true; then git push origin main; fi` | silence |
+| `for i in 1; do git push origin main; done` | silence |
+| `(git push origin main)`, `{ git push origin main; }` | silence |
+| `! git push origin main` | silence |
+| `x=$(git push origin main)`, `` echo `git push origin main` `` | silence |
+| `eval "git push origin main"`, `g=git; $g push origin main` | silence |
+| `git push --mirror`, `git push --all origin`, `git push origin --tags --prune` | silence |
+| `gh api -X PUT repos/o/r/pulls/1/merge`, `gh pr edit 12 --base main` | silence |
+
+Un silence renvoie au flux normal des permissions. Les trois profils
+(`settings.json`, `settings.claude.json`, `settings.deepseek.json`) autorisent
+`Bash(git *)` et `Bash(rtk *)` sans aucune entrée `deny` : la commande part
+sans invite. Aucun dépôt n'a de protection de branche (GIT-5), donc rien ne
+rattrape un push sur `main` côté serveur. L'en-tête du hook annonce pourtant
+« Anything it cannot parse produces "ask", never a silent pass ». Cause : un
+segment n'est jugé que si son premier mot, une fois les préfixes de
+`COMMAND_WRAPPERS` retirés, est `git` ou `gh` ; un mot-clé du shell (`then`,
+`do`, `(`, `{`, `!`) ou une substitution le masque.
+
+**Constat 2 : le signal de profil se trompe.** `session-context.sh:82`, la
+Step 0 de `lot-review` et le refus de démarrage de `autopilot.py` testent
+`ANTHROPIC_BASE_URL` non vide. Dans la session d'évaluation (application
+desktop, modèle Claude natif), la variable valait `https://api.anthropic.com`
+alors qu'aucun fichier de settings ne la pose : la carte deepseek a été
+injectée, et `lot-review` aurait refusé de tourner.
+
+**Constat 3 : le verrou de lot s'écrit par Bash.** `lot-lock-guard.py` ne voit
+que `Edit`, `Write`, `MultiEdit` et `NotebookEdit`. `Bash(cp *)`, `Bash(mv *)`
+et `rtk proxy <cmd>` sont autorisés et peuvent écrire `.claude/current-lot`. La
+limite est documentée pour les écritures de code, mais la phrase « a lock is a
+real confirmation » de l'en-tête est fausse.
+
+**Constat 4 : le contrôle des Critical ouverts est textuel.**
+`lot-deliverables.yml:93` écarte toute ligne Critical qui contient l'un des mots
+`resolved`, `fixed`, `closed`, `accepted`, `none`, `n/a`, où qu'il soit : une
+ligne « Critical … not fixed » passe.
+
+**Constat 5, mineur.** `harness-invariants.yml` interpole `inputs.lots_file`
+directement dans deux blocs `run:` (étapes « The lots file opens with a status
+table » et « The lots file carries no calendar commitment »), quand le reste
+des workflows passe par `env:`.
+
+**Constat 6, hors code.** Les rapports des lots 24 à 29 montrent que les
+constats trouvés sont traités : 48 corrigés en revue, 11 rejetés, tous Low ou
+Minor et motivés, aucun Critical ouvert. Ils ne mesurent pas ce que la revue
+n'a pas vu : `lot-review` porte sur le diff du lot, et les constats 1 et 2 ont
+traversé les revues et audits des lots 19, 24 et 25.
+
+### Livrables
+
+1. **`git-guard.py`, formes non reconnues.** Les mots-clés et groupements du
+   shell en tête de segment (`if`, `then`, `elif`, `else`, `do`, `while`,
+   `until`, `!`, `(`, `{`) sont retirés comme un préfixe, et le reste du
+   segment est jugé. Le contenu d'une substitution `$(…)` ou entre accents
+   graves, et l'argument d'`eval`, sont jugés comme une commande. Quand `git`
+   ou `gh` figure dans une partie que la garde ne sait pas résoudre (nom de
+   commande issu d'une variable), la réponse est `ask`.
+2. **`git-guard.py`, pushs larges.** `git push --mirror`, `--all` et `--prune`
+   sont refusés : ils poussent `main` ou suppriment des branches distantes.
+3. **`git-guard.py`, `gh`.** `gh pr edit --base` suit la règle de
+   `gh pr create` ; un `gh api` en écriture (`-X`/`--method` autre que `GET`)
+   sur `pulls/*/merge` ou `git/refs` est refusé.
+4. **Signal de profil.** Une seule définition, dans `lotfile.py` : le profil
+   est `deepseek` quand l'hôte de `ANTHROPIC_BASE_URL` n'est pas
+   `api.anthropic.com`. `session-context.sh`, la Step 0 de `lot-review` et
+   `autopilot.py` la lisent.
+5. **`lot-lock-guard.py` et `README.md`.** L'en-tête et la documentation
+   disent ce que le verrou garantit réellement : une confirmation contre les
+   outils d'écriture, pas contre Bash.
+6. **`lot-deliverables.yml`.** La résolution d'une ligne Critical se lit dans
+   sa dernière cellule (Action), sur les formes que `lot-audit` écrit
+   (`fixed in <sha>`, `owner decision: …`) ; `open: …` reste bloquant.
+7. **`harness-invariants.yml`.** `inputs.lots_file` passe par `env:` dans les
+   deux étapes.
+8. **Tests.** `tests/git-guard.test.sh` : un cas par ligne du tableau du
+   constat 1. `tests/session-context.test.sh` : pas de carte avec
+   `https://api.anthropic.com`, carte avec l'hôte deepseek.
+   `tests/workflows.test.sh` : « Critical … not fixed » bloque.
+
+### Arbitrages à trancher avant le lot
+
+| Sujet | Question |
+|---|---|
+| Substitutions et `eval` | La revue du lot 25 (constat 5) les a rejetés, décision de l'utilisateur : « the guard is not a sandbox ». Le livrable 1 rouvre cette décision ; à confirmer ou à restreindre aux mots-clés du shell |
+| Verrou et Bash | Documentation seule (livrable 5), ou refus dans `git-guard.py` de toute commande Bash qui nomme `.claude/current-lot`, hors le `rm` de `lot-ship` |
+| `gh api` | Refus, ou `ask` (qui devient un refus sous autopilot) |
+
+### Critères de validation
+
+- `./tests/run.sh` vert, nouveaux cas inclus.
+- Chaque ligne « silence » du tableau du constat 1 répond `deny` ou `ask`.
+- Version du plugin bumpée (job `plugin-version`).
+
+### Hors périmètre
+
+- Les `permissions` des settings de l'utilisateur (`~/.claude/settings*.json`) :
+  ajouter des `deny` (`git push* main`, `--force`) et resserrer `Bash(rtk *)`,
+  `Bash(docker *)`, `Bash(cp *)`, `Bash(mv *)` reste à sa main.
+- La protection de branche de `main` sur GitHub.
+- `git clean -fdx`, `git checkout -- .`, `git restore .`, `git branch -D` :
+  destructeurs en local seulement, non gardés aujourd'hui.
+- Le constat 6 : aucun changement de skill ; la lecture du diff à la promotion
+  `develop` → `main` reste le contrôle humain.
 
 ---
 
