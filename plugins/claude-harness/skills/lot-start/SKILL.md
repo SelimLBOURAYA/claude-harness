@@ -1,9 +1,9 @@
 ---
 name: lot-start
 description: >-
-  Starts a lot: resolves the repository, re-reads the project references,
-  synchronises the lots file status table with develop, computes the candidate
-  lot, asks every ambiguity in one batch and creates the lot branch, then waits
+  Starts a lot: updates the repository's plugin, resolves the repository,
+  re-reads the project references, synchronises the lots file status table
+  with develop, computes the candidate lot, asks every ambiguity in one batch and creates the lot branch, then waits
   for the user to type `lot-start confirm N`; closes the development by
   amending the project memory docs/memory.md. Use before any lot development,
   when the user says "develop the next lot" or names a lot, after the user
@@ -34,6 +34,31 @@ confirmed (`lot-start confirm N` in the prompt, or this skill invoked with
 your own once the code is complete).
 
 ## Part A — Before the confirmation
+
+### Step A0 — Update the plugin of the repository
+
+The session runs the installed copy of the plugin: update the repository's own
+installation before reading anything (ASK-2 pre-authorises the command).
+
+```bash
+LOT_REPO=$(git rev-parse --show-toplevel)
+jq -e --arg p "$LOT_REPO" 'any(.plugins["claude-harness@claude-harness"][]?; .scope == "project" and .projectPath == $p)' "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/plugins/installed_plugins.json"
+claude plugin update claude-harness@claude-harness --scope project --json
+```
+
+Run the update only when `jq` prints `true`, that is when the repository has a
+project-scope installation of its own: elsewhere the CLI updates the
+installation of **another** project instead of failing, even in a repository
+whose `.claude/settings.json` enables the plugin. Run it from `$LOT_REPO` (the
+session opens there; `cd` to it first otherwise), verbatim and alone: no
+subshell, no `&&`, so that it matches the autopilot's allowlist entry. Read the
+JSON line:
+
+| Result | What you do |
+|---|---|
+| `updateOutcome` `up_to_date` | Go on with Step A1 |
+| `oldVersion` ≠ `newVersion` | **Stop**: this session still runs the old copy. Tell the user the plugin went from `oldVersion` to `newVersion`, to reopen the session and run `lot-start` again; under the autopilot, end `blocked`, the reason saying to rerun the autopilot |
+| The command fails | Report its message and go on: the `SessionStart` freshness warning stays the guard (PLUG-1) |
 
 ### Step A1 — Resolve the repository
 

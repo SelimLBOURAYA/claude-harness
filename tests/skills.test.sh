@@ -122,6 +122,31 @@ START_SKILL="$SKILLS/lot-start/SKILL.md"
 a2=$(sed -n '/^### Step A2/,/^### Step A3/p' "$START_SKILL")
 assert_ok "lot-start reads the memory in step A2, before the candidate section" -- \
   test "$(grep -n 'docs/memory.md' <<< "$a2" | head -1 | cut -d: -f1)" -lt "$(grep -n 'candidate' <<< "$a2" | head -1 | cut -d: -f1)"
+# Lot 30: the plugin of the repository is updated first, and only where the
+# repository has its own project-scope install (elsewhere the CLI updates
+# another project).
+a0=$(sed -n '/^### Step A0/,/^### Step A1/p' "$START_SKILL")
+assert_ok "lot-start step A0 comes before step A1" -- \
+  test "$(grep -n '^### Step A0' "$START_SKILL" | cut -d: -f1)" -lt "$(grep -n '^### Step A1' "$START_SKILL" | cut -d: -f1)"
+assert_contains "$a0" "claude plugin update claude-harness@claude-harness --scope project --json" \
+  "lot-start step A0 updates the plugin at project scope"
+assert_contains "$a0" '.scope == "project" and .projectPath == $p' \
+  "lot-start step A0 updates only a repository with its own project-scope install"
+assert_contains "$a0" "plugins/installed_plugins.json" \
+  "lot-start step A0 reads the install records, not the repository settings"
+assert_contains "$(grep -F '**Stop**' <<< "$a0")" "rerun the autopilot" \
+  "lot-start step A0 tells the autopilot to stop blocked after an update"
+assert_contains "$a0" "**Stop**" "lot-start step A0 stops when the version changed"
+assert_contains "$(grep -F '**Stop**' <<< "$a0")" "reopen the session" \
+  "lot-start step A0 tells the user to reopen the session after an update"
+assert_contains "$(grep -F 'up_to_date' <<< "$a0")" "Go on" \
+  "lot-start step A0 goes on when the plugin is up to date"
+assert_contains "$(grep -F 'The command fails' <<< "$a0")" "go on" \
+  "lot-start step A0 goes on when the update fails"
+assert_eq "" "$(grep -E -- '--scope (user|local)' <<< "$a0" || true)" \
+  "lot-start step A0 updates the project scope only"
+assert_ok "lot-start step A0 runs the update verbatim, the autopilot's allowlist entry" -- \
+  grep -qx 'claude plugin update claude-harness@claude-harness --scope project --json' <<< "$a0"
 assert_contains "$(cat "$START_SKILL")" "Unchanged → no commit" "lot-start skips the memory commit when the file is unchanged"
 assert_contains "$(cat "$START_SKILL")" "never an empty one" "lot-start never makes an empty memory commit"
 assert_ok "the skeleton CLAUDE.md and AGENTS.md are byte-identical" -- \

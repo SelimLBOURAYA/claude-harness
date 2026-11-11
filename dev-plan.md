@@ -56,7 +56,7 @@
 | 27 | `feat/lot-27-autopilot` | A – Harness | Autopilot : enchaînement des étapes d'un lot, une session neuve et un modèle par étape, jusqu'au merge, arrêt et notification au premier blocage | claude-harness, les 8 repos (via `main` et la PR de synchro) | ✅ |
 | 28 | `feat/lot-28-autopilot-lot-answers` | A – Harness | Autopilot : lot nommé par `--lot N`, réponses aux questions de `lot-start` par `--resume --answer`, lancement depuis un terminal | claude-harness, les 8 repos (via `main`) | ✅ |
 | 29 | `feat/lot-29-autopilot-confirm-handoff` | A – Harness | Autopilot : la passation `lot-start confirm N` de `lot-start` n'est plus prise pour une question, l'autopilot envoie la confirmation | claude-harness, les 8 repos (via `main`) | ✅ |
-| 30 | `feat/lot-30-plugin-update-before-lot` | A – Harness | `lot-start` met à jour le plugin du repo (`claude plugin update … --scope project`) avant tout lot, et arrête la session quand la version a changé | claude-harness, les 8 repos (via `main`) | ⬜ |
+| 30 | `feat/lot-30-plugin-update-before-lot` | A – Harness | `lot-start` met à jour le plugin du repo (`claude plugin update … --scope project`) avant tout lot, et arrête la session quand la version a changé | claude-harness, les 8 repos (via `main`) | ✅ |
 
 Légende des statuts *(P6-D10)* : ⬜ à faire · 🔄 en cours (livré sur la branche, PR non
 mergée) · ✅ mergé sur `develop` · ⏸️ planifié mais dormant · ❄️ gelé.
@@ -2460,7 +2460,7 @@ raison une confirmation tapée par l'utilisateur.
 
 ---
 
-## LOT 30 — `lot-start` : plugin à jour avant le lot ⬜
+## LOT 30 — `lot-start` : plugin à jour avant le lot ✅
 
 Branche `feat/lot-30-plugin-update-before-lot`, depuis `develop`. Repo touché :
 `claude-harness`. Les 8 repos en héritent à la promotion `develop` → `main`.
@@ -2482,8 +2482,9 @@ s'arrête pas en erreur, il met à jour l'installation d'un autre projet
 ### Livrables
 
 1. **`lot-start`, nouvelle Step A0**, avant la résolution des références :
-   dans `$LOT_REPO`, si `.claude/settings.json` active
-   `claude-harness@claude-harness` (`enabledPlugins`), lancer
+   dans `$LOT_REPO`, si `installed_plugins.json` porte une installation de
+   portée projet pour ce chemin (revue : `enabledPlugins` ne suffit pas,
+   meal-planner-frontend l'active sans installation propre), lancer
    `cd "$LOT_REPO" && claude plugin update claude-harness@claude-harness --scope project --json`
    (pré-autorisé par ASK-2). Sinon, ne rien lancer.
    - `updateOutcome` `up_to_date` → continuer ;
@@ -2494,8 +2495,23 @@ s'arrête pas en erreur, il met à jour l'installation d'un autre projet
      `SessionStart` reste la garde.
 2. **Test** `tests/skills.test.sh` : la Step A0 existe, précède la Step A1,
    porte la commande `--scope project --json` et la condition sur
-   `enabledPlugins`.
+   l'installation de portée projet.
 3. **Mémoire** : le piège de la portée projet dans `docs/memory.md`.
+
+### Amendement (2026-11-11, décision de l'utilisateur)
+
+Sous autopilot, une session headless refuse toute commande absente de
+`allowed_tools()` : la Step A0 y échouait et le plugin n'était jamais mis à
+jour. Ajouts au périmètre :
+
+4. **`allowed_tools()`** de `autopilot.py` autorise
+   `Bash(claude plugin update claude-harness@claude-harness --scope project --json)`,
+   commande exacte, sans joker.
+5. **Step A0** lance la commande telle quelle depuis la racine du repo (le
+   répertoire de la session), sans `cd` ni sous-shell, pour qu'elle corresponde
+   à l'autorisation.
+6. **Test** `tests/autopilot.test.sh` : `--dry-run` affiche cette
+   autorisation, et aucune autre forme de `claude plugin`.
 
 ### Arbitrages (2026-11-11, à la rédaction)
 

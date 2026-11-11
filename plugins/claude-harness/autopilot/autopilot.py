@@ -40,6 +40,8 @@ import lotfile  # noqa: E402
 
 SYNC_STATUS = os.path.join(HERE, "..", "skills", "lot-start", "sync-status.py")
 STATE_PATH = os.path.join(".claude", "autopilot-state.json")
+# lot-start Step A0, run verbatim so that the allowlist entry matches it.
+PLUGIN_UPDATE = "claude plugin update claude-harness@claude-harness --scope project --json"
 
 # A ceiling against a session that never ends (a loop on a red test, a stuck
 # CI), not a target. The environment override exists for the tests only.
@@ -217,11 +219,13 @@ def allowed_tools(params, home):
 
     python3 is limited to the plugin's own scripts: `python3 -c` would run any
     git command out of the git guard's sight. The two printenv are the profile
-    guard and the Autopilot section of lot-review and lot-audit: a headless
+    guard and the Autopilot section of lot-review and lot-audit; the plugin
+    update is Step A0 of lot-start, exact command, no wildcard: a headless
     session denies what it cannot ask.
     """
     plugin = os.path.join(home, ".claude", "plugins", "cache", "claude-harness")
     tools = ["Bash(printenv ANTHROPIC_BASE_URL)", "Bash(printenv HARNESS_AUTOPILOT)",
+             "Bash(%s)" % PLUGIN_UPDATE,
              "Bash(gh pr *)", "Bash(gh run *)", "Bash(python3 %s/*)" % plugin, "Bash(jq *)"]
     validation = validation_command(params)
     if validation:

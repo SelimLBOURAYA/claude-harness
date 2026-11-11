@@ -725,6 +725,11 @@ assert_contains "$out" "Bash(printenv ANTHROPIC_BASE_URL)" \
   "the allowlist lets lot-review run its profile guard"
 assert_contains "$out" "Bash(printenv HARNESS_AUTOPILOT)" \
   "the allowlist lets lot-review and lot-audit read HARNESS_AUTOPILOT"
+# Lot 30: lot-start Step A0 updates the plugin, exact command, no wildcard.
+assert_contains "$out" "Bash(claude plugin update claude-harness@claude-harness --scope project --json)" \
+  "the allowlist lets lot-start update the plugin at project scope"
+assert_eq 1 "$(grep -o 'Bash(claude [^)]*)' <<< "$out" | sort -u | wc -l | tr -d ' ')" \
+  "the allowlist names no other claude command"
 out=$(cd "$R" && PATH="$FAKEBIN:$PATH" HOME="$FAKEHOME" python3 "$PILOT" --dry-run 5)
 assert_contains "$out" 'The `lot-start confirm N` hand-off' \
   "--dry-run shows the confirmation hand-off in the system prompt"
