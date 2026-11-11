@@ -226,6 +226,12 @@ assert_eq pass "$(merge "$GREEN" "rtk $CMD")" "the same through rtk"
 assert_eq deny "$(merge "$(with '.baseRefName="main"')" "$CMD")" "a PR into main: denied"
 assert_eq deny "$(merge "$(with '.headRefName="chore/tidy"')" "$CMD")" "a head that is not a lot branch: denied"
 assert_eq deny "$(merge "$(with '.statusCheckRollup[0].conclusion="FAILURE"')" "$CMD")" "a failed check: denied"
+DEP='.headRefName="dependabot/maven/develop/x-1.2" | .author={"login":"app/dependabot","is_bot":true}'
+assert_eq pass "$(merge "$(with "$DEP")" "$CMD")" "a green Dependabot PR into develop: left to the normal flow"
+assert_eq deny "$(merge "$(with "$DEP | .author.login=\"someone\"")" "$CMD")" "a dependabot/ branch not authored by the bot: denied"
+assert_eq deny "$(merge "$(with '.headRefName="dependabot/maven/develop/x-1.2"')" "$CMD")" "a dependabot/ branch with no author: denied"
+assert_eq deny "$(merge "$(with "$DEP | .baseRefName=\"main\"")" "$CMD")" "a Dependabot PR into main: denied"
+assert_eq deny "$(merge "$(with "$DEP | .statusCheckRollup[0].conclusion=\"FAILURE\"")" "$CMD")" "a Dependabot PR with a failed check: denied"
 assert_contains "$(merge_reason "$(with '.statusCheckRollup[0].conclusion="FAILURE"')" "$CMD")" "(ci)" \
   "the denial names the check"
 assert_eq deny "$(merge "$(with '.statusCheckRollup[0].status="IN_PROGRESS" | .statusCheckRollup[0].conclusion=""')" "$CMD")" \
@@ -256,7 +262,7 @@ assert_eq pass "$(merge "$GREEN" "GH_REPO=owner/other gh pr view 12")" "GH_REPO 
 # The pull request the guard reads is the one being merged.
 LOG="$WORK/gh.log"
 FAKE_GH_LOG="$LOG" merge "$GREEN" "gh pr merge 12 --merge --subject 'a b' -R owner/repo" > /dev/null
-assert_contains "$(cat "$LOG")" "pr view 12 --repo owner/repo --json baseRefName,headRefName,statusCheckRollup" \
+assert_contains "$(cat "$LOG")" "pr view 12 --repo owner/repo --json baseRefName,headRefName,author,statusCheckRollup" \
   "the guard reads the named pull request, in the named repository"
 : > "$LOG"
 FAKE_GH_LOG="$LOG" merge "$GREEN" "gh pr merge 12 --merge -Rowner/repo" > /dev/null

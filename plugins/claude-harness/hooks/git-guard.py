@@ -29,6 +29,10 @@ DEFAULT_REMOTES = ("origin", "upstream")
 # every check is green. The guard reads the pull request itself and denies any
 # merge it cannot vouch for.
 LOT_HEAD = re.compile(r"^feat/lot-")
+# Dependabot version bumps are merged on the same terms (develop, every check
+# green). The branch name alone proves nothing, so the author must be the bot.
+DEPENDABOT_HEAD = re.compile(r"^dependabot/")
+DEPENDABOT_AUTHORS = {"app/dependabot", "dependabot[bot]", "dependabot"}
 GREEN_CONCLUSIONS = {"SUCCESS", "NEUTRAL", "SKIPPED"}
 MERGE_VALUE_OPTIONS = {
     "--subject", "-t", "--body", "-b", "--body-file", "-F",
@@ -651,7 +655,7 @@ def pull_request_state(selector, repo, cwd):
         command.append(selector)
     if repo:
         command += ["--repo", repo]
-    command += ["--json", "baseRefName,headRefName,statusCheckRollup"]
+    command += ["--json", "baseRefName,headRefName,author,statusCheckRollup"]
     try:
         result = subprocess.run(
             command,
@@ -718,10 +722,14 @@ def guard_merge(args, cwd, retargets):
             "merged by the agent. The promotion develop -> main is done by the user "
             "(CONVENTIONS.md section 7)." % (base, REQUIRED_PR_BASE)
         )
-    if not LOT_HEAD.match(head):
+    author = state.get("author")
+    author = (author.get("login") if isinstance(author, dict) else "") or ""
+    is_dependabot = bool(DEPENDABOT_HEAD.match(head)) and author in DEPENDABOT_AUTHORS
+    if not LOT_HEAD.match(head) and not is_dependabot:
         deny(
-            "The head of this pull request is `%s`, not a `feat/lot-*` branch: only "
-            "lot-ship merges, and only a lot pull request." % head
+            "The head of this pull request is `%s`, not a `feat/lot-*` branch nor a "
+            "Dependabot pull request authored by the bot: only lot-ship merges a lot "
+            "pull request, and Dependabot bumps with every check green." % head
         )
     checks = [check for check in state.get("statusCheckRollup") or [] if isinstance(check, dict)]
     if not checks:
