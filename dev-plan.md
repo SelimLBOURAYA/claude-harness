@@ -2497,6 +2497,21 @@ s'arrête pas en erreur, il met à jour l'installation d'un autre projet
    `enabledPlugins`.
 3. **Mémoire** : le piège de la portée projet dans `docs/memory.md`.
 
+### Amendement (2026-11-11, décision de l'utilisateur)
+
+Sous autopilot, une session headless refuse toute commande absente de
+`allowed_tools()` : la Step A0 y échouait et le plugin n'était jamais mis à
+jour. Ajouts au périmètre :
+
+4. **`allowed_tools()`** de `autopilot.py` autorise
+   `Bash(claude plugin update claude-harness@claude-harness --scope project --json)`,
+   commande exacte, sans joker.
+5. **Step A0** lance la commande telle quelle depuis la racine du repo (le
+   répertoire de la session), sans `cd` ni sous-shell, pour qu'elle corresponde
+   à l'autorisation.
+6. **Test** `tests/autopilot.test.sh` : `--dry-run` affiche cette
+   autorisation, et aucune autre forme de `claude plugin`.
+
 ### Arbitrages (2026-11-11, à la rédaction)
 
 | Sujet | Décision |
