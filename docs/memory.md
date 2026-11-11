@@ -81,10 +81,10 @@
   `ANTHROPIC_BASE_URL` (lot 29): inherited from an autopilot or deepseek
   session, they turned the gate red and blocked every gate commit. A suite
   that tests them sets them itself, after sourcing `lib.sh`.
-- `claude plugin update ... --scope project` in a repo with no project-scope
-  install updates another project's install, exit 0: `lot-start` Step A0
-  first checks `enabledPlugins` (lot 30). It runs the command verbatim, no
-  `cd`: `allowed_tools()` allows that exact string (`PLUGIN_UPDATE`).
+- `claude plugin update --scope project` with no project install at this
+  path updates another project's, exit 0: Step A0 of `lot-start` checks
+  `installed_plugins.json`, not `enabledPlugins` (lot 30). Run verbatim:
+  `allowed_tools()` allows that exact string (`PLUGIN_UPDATE`).
 
 ## Open questions
 
