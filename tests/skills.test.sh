@@ -132,6 +132,14 @@ assert_contains "$a0" "claude plugin update claude-harness@claude-harness --scop
 assert_contains "$a0" '.enabledPlugins["claude-harness@claude-harness"] == true' \
   "lot-start step A0 updates only a repository that enables the plugin"
 assert_contains "$a0" "**Stop**" "lot-start step A0 stops when the version changed"
+assert_contains "$(grep -F '**Stop**' <<< "$a0")" "reopen the session" \
+  "lot-start step A0 tells the user to reopen the session after an update"
+assert_contains "$(grep -F 'up_to_date' <<< "$a0")" "Go on" \
+  "lot-start step A0 goes on when the plugin is up to date"
+assert_contains "$(grep -F 'The command fails' <<< "$a0")" "go on" \
+  "lot-start step A0 goes on when the update fails"
+assert_eq "" "$(grep -E -- '--scope (user|local)' <<< "$a0" || true)" \
+  "lot-start step A0 updates the project scope only"
 assert_contains "$(cat "$START_SKILL")" "Unchanged → no commit" "lot-start skips the memory commit when the file is unchanged"
 assert_contains "$(cat "$START_SKILL")" "never an empty one" "lot-start never makes an empty memory commit"
 assert_ok "the skeleton CLAUDE.md and AGENTS.md are byte-identical" -- \
