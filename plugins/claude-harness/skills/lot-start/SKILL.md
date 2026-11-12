@@ -203,7 +203,8 @@ git -C "$LOT_REPO" status --short
 
 Report in three lines: lot confirmed, what the sync changed (or « table already
 up to date »), the first development step. Then start that step in the same
-turn. Development follows LOT-5, GATE-1 to GATE-3, and ends with Step B3.
+turn. Development follows LOT-5, GATE-1 to GATE-3 and CODE-6 (the smallest
+complete change, the `ponytail` skill), and ends with Step B3.
 
 The one exception is a question the confirmation did not settle: ask it, and
 stop.

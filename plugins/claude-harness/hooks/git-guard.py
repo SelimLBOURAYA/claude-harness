@@ -8,7 +8,14 @@ Reads the hook payload on stdin and answers with a permission decision:
   (silence) - nothing recognised, the normal permission flow applies
 
 The guard never answers "allow": it must not widen permissions, only narrow them.
-Anything it cannot parse produces "ask", never a silent pass.
+A command it cannot parse produces "ask", never a silent pass.
+
+What it sees through: wrappers (`rtk`, `sudo`, `env`, ...), `bash -c`, a heredoc
+a shell reads, and the shell keywords and groupings that open a command (`if`,
+`then`, `do`, `!`, `(`, `{`, ...). What it does not analyse, by decision (lots 25
+and 33): backticks, `eval`, and a command name held in a variable. The guard is
+not a sandbox; the permission deny list of `.claude/settings.json` is the second
+layer, and Claude Code applies it inside substitutions too.
 
 Standard library only: the hook runs in IDE sessions whose PATH has no project
 virtualenv (V6).
@@ -49,6 +56,19 @@ GH_TARGET_ASSIGNMENT = re.compile(r"^(GH_REPO|GH_HOST)=")
 
 # Options that make a push rewrite or delete remote history.
 FORCE_FLAGS = {"--force", "-f", "--force-with-lease", "--force-if-includes"}
+# Options that push every branch, main included, or delete the remote branches
+# missing locally (lot 33). `--branches` is `--all` under its newer name.
+BROAD_PUSH_FLAGS = {"--mirror", "--all", "--branches", "--prune"}
+
+# `gh api` requests that merge a pull request or move a branch (lot 33), and the
+# options it reads: gh sends a POST as soon as a field or an input is given.
+GH_API_WRITE_TARGET = re.compile(r"(^|/)(pulls/[^/]+/merge|git/refs|merges)(/|$|\?)")
+GH_API_VALUE_OPTIONS = {
+    "-X", "--method", "-H", "--header", "-f", "--raw-field", "-F", "--field",
+    "--input", "-q", "--jq", "-t", "--template", "--hostname", "--cache",
+    "-p", "--preview",
+}
+GH_API_BODY_OPTIONS = {"-f", "--raw-field", "-F", "--field", "--input"}
 
 # A token we cannot resolve statically: shell expansion, substitution, glob.
 UNRESOLVED = re.compile(r"[$`*?]|\$\(")
@@ -69,6 +89,11 @@ WRAPPER_NUMERIC = re.compile(r"^\d+[smhd]?$")
 # Shells: `<shell> -c "..."` and a heredoc a shell reads are code, inspected
 # like a bare command.
 SHELLS = ("bash", "sh", "zsh")
+# Shell keywords and groupings that open a command without being one (lot 33):
+# `then git push ...` and `( git push ... )` are judged like the bare push. The
+# closing `)` and `}` are dropped too, or `(git push)` would read `)` as a refspec.
+SHELL_KEYWORDS = {"if", "then", "elif", "else", "do", "while", "until", "!", "(", "{"}
+SHELL_CLOSERS = {")", "}"}
 
 # This guard owns destructive commands and the branching model, and nothing else.
 # Gate deliverables (audit reports, review reports, unresolved Critical rows) are
@@ -355,10 +380,15 @@ def strip_wrappers(segment):
     """Drop `rtk`, `sudo`, `env`, ... so a wrapped command is judged like a bare one.
 
     Also drops the wrapper's own options and the one bare numeric argument
-    `timeout`/`nice` take, then any environment assignments it introduced.
+    `timeout`/`nice` take, then any environment assignments it introduced, and
+    the shell keywords and groupings around the command.
     """
     segment = strip_assignments(segment)
+    while segment and segment[-1] in SHELL_CLOSERS:
+        segment = segment[:-1]
     for _ in range(5):  # pathological nesting must not loop forever
+        while segment and segment[0] in SHELL_KEYWORDS:
+            segment = strip_assignments(segment[1:])
         if not segment or os.path.basename(segment[0]) not in COMMAND_WRAPPERS:
             break
         rest = segment[1:]
@@ -503,6 +533,13 @@ def guard_push(args, cwd):
             "Force push rewrites published history. Forbidden by CONVENTIONS.md "
             "section 4; ask the user before any history rewrite."
         )
+    broad = sorted(flags & BROAD_PUSH_FLAGS)
+    if broad:
+        deny(
+            "`git push %s` pushes every branch, main included, or deletes the remote "
+            "branches missing locally: push the lot branch by name (CONVENTIONS.md "
+            "sections 4 and 7)." % " ".join(broad)
+        )
     # Only the long form here: on push, `-n` is --dry-run, not --no-verify.
     if "--no-verify" in flags:
         deny("--no-verify skips the hooks; forbidden by CONVENTIONS.md section 7.")
@@ -594,6 +631,9 @@ def option_value(args, *names):
         for name in names:
             if token.startswith(name + "="):
                 return token.split("=", 1)[1]
+            # `-Bmain`: a short option takes its value attached, as gh reads it.
+            if len(name) == 2 and token.startswith(name) and len(token) > 2:
+                return token[2:]
     return None
 
 
@@ -770,13 +810,65 @@ def pr_action(args):
     return None, None
 
 
+def api_request(args):
+    """(method, endpoint) of `gh api` arguments, the method upper-cased.
+
+    gh sends a GET unless `-X`/`--method` says otherwise, and a POST as soon as
+    a field (`-f`, `-F`) or an input file is given without one.
+    """
+    method, endpoint, body = None, None, False
+    index = 0
+    while index < len(args):
+        token = args[index]
+        name, attached, value = token.partition("=")
+        if token.startswith("--") and attached:
+            if name == "--method":
+                method = value
+            body = body or name in GH_API_BODY_OPTIONS
+        elif token in GH_API_VALUE_OPTIONS:
+            if token in ("-X", "--method") and index + 1 < len(args):
+                method = args[index + 1]
+            body = body or token in GH_API_BODY_OPTIONS
+            index += 1
+        elif token.startswith("-X") and len(token) > 2:
+            method = token[2:]
+        elif token[:2] in ("-f", "-F") and len(token) > 2:
+            body = True
+        elif not token.startswith("-") and endpoint is None:
+            endpoint = token
+        index += 1
+    return (method or ("POST" if body else "GET")).upper(), endpoint
+
+
 def guard_gh(segment, cwd, retargets):
+    if segment[1:2] == ["api"]:
+        method, endpoint = api_request(segment[2:])
+        if method != "GET" and (GH_API_WRITE_TARGET.search(endpoint or "")
+                                or UNRESOLVED.search(endpoint or "")):
+            ask(
+                "`gh api` %s on `%s` merges a pull request or a branch, moves a branch, "
+                "or names an endpoint the guard cannot resolve, outside "
+                "lot-ship and the guard's checks; confirm it manually (CONVENTIONS.md "
+                "section 7)." % (method, endpoint)
+            )
+        return
+
     action, rest = pr_action(segment[1:])
     if action is None:
         return
 
     if action == "merge":
         guard_merge(rest, cwd, retargets)
+        return
+
+    if action == "edit":
+        base = option_value(rest, "--base", "-B")
+        if base is not None and base != REQUIRED_PR_BASE:
+            deny(
+                "PRs target `%s`, not `%s`: `gh pr edit --base` follows the rule of "
+                "`gh pr create`. The promotion develop -> main is done by the user "
+                "(CONVENTIONS.md section 7)." % (REQUIRED_PR_BASE, base)
+            )
         return
 
     if action != "create":

@@ -78,6 +78,7 @@ Claude Code session with the plugin enabled they are announced as
 | `integration-check` | before any front PR | Manual front ↔ real backend smoke, writes `docs/audits/lot-0-integration.md` |
 | `dep-update` | dependency refresh | Patch/minor applied, major proposed |
 | `i-have-adhd` | user invokes it | Focus aid, never model-invoked |
+| `ponytail` | before the first write of a development; its text is injected into every session | The smallest complete change (CODE-6) |
 
 **Gate, mandatory in order**: `lot-test → lot-review → lot-audit → lot-ship`,
 opened by `lot-start` before any development.

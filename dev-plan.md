@@ -57,8 +57,8 @@
 | 28 | `feat/lot-28-autopilot-lot-answers` | A – Harness | Autopilot : lot nommé par `--lot N`, réponses aux questions de `lot-start` par `--resume --answer`, lancement depuis un terminal | claude-harness, les 8 repos (via `main`) | ✅ |
 | 29 | `feat/lot-29-autopilot-confirm-handoff` | A – Harness | Autopilot : la passation `lot-start confirm N` de `lot-start` n'est plus prise pour une question, l'autopilot envoie la confirmation | claude-harness, les 8 repos (via `main`) | ✅ |
 | 30 | `feat/lot-30-plugin-update-before-lot` | A – Harness | `lot-start` met à jour le plugin du repo (`claude plugin update … --scope project`) avant tout lot, et arrête la session quand la version a changé | claude-harness, les 8 repos (via `main`) | ✅ |
-| 31 | `feat/lot-31-guard-hardening` | A – Harness (optionnel) | Durcissement des gardes : formes shell que `git-guard.py` laisse passer en silence, signal de profil lu sur l'hôte de `ANTHROPIC_BASE_URL`, contrôle des Critical ouverts de `lot-deliverables.yml` | claude-harness, les 8 repos (via `main`) | ⏸️ |
 | 32 | `feat/lot-32-autopilot-integration` | A – Harness | Autopilot : étape `integration` qui lance la commande `Integration command` du frontend contre le vrai backend et fait rédiger le rapport, contrôle de fraîcheur du rapport avant `ship` | claude-harness, les 8 repos (via `main`) | ⬜ |
+| 33 | `feat/lot-33-ponytail-guards` | A – Harness | Skill `ponytail` (le plus petit changement complet) avec son renvoi `CODE-6` dans `CONVENTIONS.md` ; durcissement des gardes repris du lot 31 : formes shell que `git-guard.py` laisse passer, refus de permissions, signal de profil, contrôle des Critical ouverts | claude-harness, les 8 repos (via `main` et la PR de synchro) | ✅ |
 
 Légende des statuts *(P6-D10)* : ⬜ à faire · 🔄 en cours (livré sur la branche, PR non
 mergée) · ✅ mergé sur `develop` · ⏸️ planifié mais dormant · ❄️ gelé.
@@ -2535,22 +2535,95 @@ jour. Ajouts au périmètre :
 
 ---
 
-## LOT 31 — Durcissement des gardes (optionnel) ⏸️
+## LOT 33 — Skill `ponytail` et durcissement des gardes ✅
 
-Branche `feat/lot-31-guard-hardening`, depuis `develop`. Repo touché :
-`claude-harness`. Les 8 repos en héritent à la promotion `develop` → `main`.
+Branche `feat/lot-33-ponytail-guards`, depuis `develop`. Repo touché :
+`claude-harness`. Les 8 repos en héritent à la promotion `develop` → `main` et
+par la PR de synchro de `CONVENTIONS.md`.
 
-Lot **optionnel** : il reste ⏸️, donc ignoré par `lot-start`, tant que
-l'utilisateur ne le passe pas en ⬜. Rien n'est décidé par cette section : elle
-consigne des observations et un périmètre possible.
+Demande de l'utilisateur du 2026-11-12 (gel levé par sa demande explicite). Sur
+sa décision, ce lot réunit deux sujets : le skill `ponytail` (partie A) et le
+durcissement des gardes (partie B). La partie B reprend le lot 31, planifié
+comme optionnel le 2026-11-11 et retiré du tableau, et l'étend aux permissions.
 
-### Origine
+### Partie A : origine
+
+`ponytail` (<https://github.com/DietrichGebert/ponytail>, version 5.3.3,
+licence MIT, Copyright (c) 2026 DietrichGebert) est un jeu de règles de code,
+« lazy senior dev mode » : résoudre tout le problème avec le moins de code
+nouveau. Lus le 2026-11-12 : son `AGENTS.md` (2721 octets) et son
+`.openclaw/skills/ponytail/SKILL.md`. Le dépôt livre aussi cinq skills annexes,
+des hooks, un registre CSV par tâche et un webhook optionnel.
+
+Le harnais porte déjà la même intention côté périmètre (LOT-5) ; il ne dit rien
+de la taille de la solution à l'intérieur du périmètre. C'est ce que le skill
+ajoute, pour toute étape qui peut écrire du code : le développement, la
+correction de l'autopilot, `lot-test`, `lot-review` et `lot-audit`.
+
+Adaptation des règles de `ponytail` aux conventions :
+
+| Règle de `ponytail` | Sort dans le harnais |
+|---|---|
+| Lister avant d'écrire tout ce que le changement atteint : appelants, tests, fixtures, config, exports | Reprise |
+| Échelle des six options : faut-il que ça existe, déjà dans le code, bibliothèque standard, dépendance installée, une ligne lisible, sinon le minimum | Reprise |
+| Aucune abstraction, option, config ou code « pour plus tard » non demandé ; garder la structure du code existant | Reprise ; API-1, API-2 et CODE-2 restent imposés, ce sont la structure existante |
+| Ne jamais ajouter une dépendance pour quelques lignes | Reprise ; ASK-1 reste la règle pour toute dépendance |
+| Correction de bug : chercher tous les appelants, corriger la cause une fois dans le code partagé | Reprise |
+| Le code déplacé garde sa gestion d'erreur et sa validation | Reprise |
+| Commentaire `shortcut: <limite>, <quand y revenir>` sur un raccourci | Reprise |
+| Ne jamais couper : validation aux frontières de confiance, gestion d'erreur contre la perte de données, sécurité, accessibilité | Reprise |
+| Un petit test pour toute logique non triviale, aucun pour un changement trivial | Remplacée par GATE-3, plus stricte |
+| Une demande vague reçoit la plus petite version | Remplacée par LOT-4 dans un lot : une ambiguïté se demande |
+| Finir la réponse par ce qui a été sauté et les risques | Remplacée par OUT-0 : dit tôt, jamais coupé |
+| Niveaux `lite`, `full`, `ultra`, mode actif jusqu'à « stop ponytail » | Non repris : un seul niveau, celui de `full` |
+| `ponytail-audit`, `-review`, `-debt`, `-gain`, `-help`, hooks, registre CSV, webhook, statusline | Non repris |
+
+### Partie A : livrables
+
+1. **`plugins/claude-harness/skills/ponytail/SKILL.md`**, en anglais (DOC-2) :
+   le texte de `ponytail` adapté selon le tableau ci-dessus. Déclencheur :
+   avant la première écriture d'un développement, dans un lot ou hors lot. Le
+   répertoire du skill porte la notice MIT de l'amont (copyright et texte de
+   licence), que la licence exige pour une reprise substantielle.
+2. **Héritage par toutes les étapes, sans appel du modèle.**
+   `session-context.sh` injecte le corps du skill (le fichier `SKILL.md` sans
+   son frontmatter) dans chaque session, sous tous les profils et pour les
+   quatre sources `startup`, `resume`, `clear` et `compact`. Le développement,
+   la correction de l'autopilot (`fix`), `lot-test`, `lot-review` et
+   `lot-audit` ouvrent chacun une session : tous reçoivent le texte, et il est
+   réinjecté après une compaction. Charger le skill par une consigne
+   (`lot-start` Step B2) laisserait le choix au modèle ; ce n'est pas retenu.
+   - Le texte a son propre budget dans le hook, `PONYTAIL_CAP`, comme
+     `TABLE_CAP` : `CAP` est relevé d'autant, et `deepseek-card.py` le
+     retranche de son calcul, pour que la carte garde ses 4500 caractères.
+   - `CODE-6` n'entre pas dans `rules/deepseek.json` : le hook porte déjà le
+     texte complet.
+   - `lot-start` Step B2, `lot-test`, `lot-review` et `lot-audit` citent
+     `CODE-6` à l'endroit où ils écrivent du code, pour un agent qui ne charge
+     pas les hooks (lecture des `SKILL.md` depuis le clone).
+3. **`CONVENTIONS.md`, règle `CODE-6`**, section 13 : un renvoi court au skill,
+   sur le modèle d'OUT-2 pour `i-have-adhd`. Proposition : « Smallest complete
+   change: the `ponytail` skill, loaded before the first write of a
+   development; GATE-3, LOT-4 and OUT-0 win over it. »
+4. **Marge de `CONVENTIONS.md`.** Le master fait 14921 octets pour un plafond
+   de 15000. Le plafond de `tests/conventions.test.sh` est relevé de la taille
+   exacte de la ligne `CODE-6` : la marge de 79 octets reste ce qu'elle est.
+5. **`CLAUDE.md` et `AGENTS.md`** du harnais : la ligne `ponytail` du tableau
+   des skills et celle du recensement (DOC-1). `README.md` (section Skills) et
+   la description de `plugin.json` citent le skill.
+6. **Tests.** `tests/skills.test.sh` : le skill existe, son frontmatter est
+   valide, la notice MIT est présente, les quatre skills citent `CODE-6`.
+   `tests/session-context.test.sh` : la sortie porte le corps du skill pour
+   chacune des quatre sources, avec et sans `ANTHROPIC_BASE_URL`, et le corps
+   tient dans `PONYTAIL_CAP`. `tests/deepseek-card.test.sh` : le budget de la
+   carte est inchangé. `tests/conventions.test.sh` : le nouveau plafond.
+
+### Partie B : origine
 
 Évaluation du harnais en lecture seule, session du 2026-11-11, sur la branche
 du lot 30 avant son bump (plugin 2.5.0). `./tests/run.sh` était vert, 16 suites
-sur 16.
-Vis-à-vis du gel, les constats 1 à 3 relèvent du cas (a), faille de sécurité ;
-c'est à l'utilisateur d'en juger.
+sur 16. Vis-à-vis du gel, les constats 1 à 3 relèvent du cas (a), faille de
+sécurité.
 
 **Constat 1 : `git-guard.py` laisse passer en silence des formes courantes.**
 Décisions obtenues en soumettant la commande au hook, sans l'exécuter :
@@ -2567,99 +2640,144 @@ Décisions obtenues en soumettant la commande au hook, sans l'exécuter :
 | `git push --mirror`, `git push --all origin`, `git push origin --tags --prune` | silence |
 | `gh api -X PUT repos/o/r/pulls/1/merge`, `gh pr edit 12 --base main` | silence |
 
-Un silence renvoie au flux normal des permissions. Les trois profils
-(`settings.json`, `settings.claude.json`, `settings.deepseek.json`) autorisent
-`Bash(git *)` et `Bash(rtk *)` sans aucune entrée `deny` : la commande part
-sans invite. Aucun dépôt n'a de protection de branche (GIT-5), donc rien ne
+Un silence renvoie au flux normal des permissions, et c'est le constat 2 qui
+décide alors. Aucun dépôt n'a de protection de branche (GIT-5), donc rien ne
 rattrape un push sur `main` côté serveur. L'en-tête du hook annonce pourtant
 « Anything it cannot parse produces "ask", never a silent pass ». Cause : un
 segment n'est jugé que si son premier mot, une fois les préfixes de
 `COMMAND_WRAPPERS` retirés, est `git` ou `gh` ; un mot-clé du shell (`then`,
 `do`, `(`, `{`, `!`) ou une substitution le masque.
 
-**Constat 2 : le signal de profil se trompe.** `session-context.sh:82`, la
+**Constat 2 : le registre d'outils n'a aucun refus.** Les trois profils
+(`settings.json`, `settings.claude.json`, `settings.deepseek.json`) autorisent
+`Bash(git *)`, `Bash(rtk *)`, `Bash(docker *)`, `Bash(cp *)` et `Bash(mv *)`,
+sans aucune entrée `deny`, et `rtk proxy <cmd>` exécute n'importe quelle
+commande. Le `.claude/settings.json` du squelette ne déclare que la marketplace
+et le plugin. Toute la retenue repose donc sur les hooks : une commande que
+`git-guard.py` ne reconnaît pas part sans invite.
+
+**Constat 3 : le signal de profil se trompe.** `session-context.sh:82`, la
 Step 0 de `lot-review` et le refus de démarrage de `autopilot.py` testent
 `ANTHROPIC_BASE_URL` non vide. Dans la session d'évaluation (application
 desktop, modèle Claude natif), la variable valait `https://api.anthropic.com`
 alors qu'aucun fichier de settings ne la pose : la carte deepseek a été
 injectée, et `lot-review` aurait refusé de tourner.
 
-**Constat 3 : le verrou de lot s'écrit par Bash.** `lot-lock-guard.py` ne voit
+**Constat 4 : le verrou de lot s'écrit par Bash.** `lot-lock-guard.py` ne voit
 que `Edit`, `Write`, `MultiEdit` et `NotebookEdit`. `Bash(cp *)`, `Bash(mv *)`
-et `rtk proxy <cmd>` sont autorisés et peuvent écrire `.claude/current-lot`. La
-limite est documentée pour les écritures de code, mais la phrase « a lock is a
-real confirmation » de l'en-tête est fausse.
+et `rtk proxy <cmd>` peuvent écrire `.claude/current-lot`. La limite est
+documentée pour les écritures de code, mais la phrase « a lock is a real
+confirmation » de l'en-tête est fausse.
 
-**Constat 4 : le contrôle des Critical ouverts est textuel.**
+**Constat 5 : le contrôle des Critical ouverts est textuel.**
 `lot-deliverables.yml:93` écarte toute ligne Critical qui contient l'un des mots
 `resolved`, `fixed`, `closed`, `accepted`, `none`, `n/a`, où qu'il soit : une
 ligne « Critical … not fixed » passe.
 
-**Constat 5, mineur.** `harness-invariants.yml` interpole `inputs.lots_file`
+**Constat 6, mineur.** `harness-invariants.yml` interpole `inputs.lots_file`
 directement dans deux blocs `run:` (étapes « The lots file opens with a status
 table » et « The lots file carries no calendar commitment »), quand le reste
 des workflows passe par `env:`.
 
-**Constat 6, hors code.** Les rapports des lots 24 à 29 montrent que les
-constats trouvés sont traités : 48 corrigés en revue, 11 rejetés, tous Low ou
-Minor et motivés, aucun Critical ouvert. Ils ne mesurent pas ce que la revue
-n'a pas vu : `lot-review` porte sur le diff du lot, et les constats 1 et 2 ont
-traversé les revues et audits des lots 19, 24 et 25.
+**Constat 7, hors code.** Les rapports des lots 24 à 29 montrent que les
+constats trouvés sont traités : 48 corrigés en revue, 11 rejetés, motivés,
+aucun Critical ouvert. Ils ne mesurent pas ce que la revue n'a pas vu :
+`lot-review` porte sur le diff du lot, et les constats 1 et 3 ont traversé les
+revues et audits des lots 19, 24 et 25.
 
-### Livrables
+### Partie B : livrables
 
-1. **`git-guard.py`, formes non reconnues.** Les mots-clés et groupements du
+7. **`git-guard.py`, formes non reconnues.** Les mots-clés et groupements du
    shell en tête de segment (`if`, `then`, `elif`, `else`, `do`, `while`,
    `until`, `!`, `(`, `{`) sont retirés comme un préfixe, et le reste du
    segment est jugé. Le contenu d'une substitution `$(…)` ou entre accents
    graves, et l'argument d'`eval`, sont jugés comme une commande. Quand `git`
    ou `gh` figure dans une partie que la garde ne sait pas résoudre (nom de
    commande issu d'une variable), la réponse est `ask`.
-2. **`git-guard.py`, pushs larges.** `git push --mirror`, `--all` et `--prune`
+8. **`git-guard.py`, pushs larges.** `git push --mirror`, `--all` et `--prune`
    sont refusés : ils poussent `main` ou suppriment des branches distantes.
-3. **`git-guard.py`, `gh`.** `gh pr edit --base` suit la règle de
+9. **`git-guard.py`, `gh`.** `gh pr edit --base` suit la règle de
    `gh pr create` ; un `gh api` en écriture (`-X`/`--method` autre que `GET`)
    sur `pulls/*/merge` ou `git/refs` est refusé.
-4. **Signal de profil.** Une seule définition, dans `lotfile.py` : le profil
-   est `deepseek` quand l'hôte de `ANTHROPIC_BASE_URL` n'est pas
-   `api.anthropic.com`. `session-context.sh`, la Step 0 de `lot-review` et
-   `autopilot.py` la lisent.
-5. **`lot-lock-guard.py` et `README.md`.** L'en-tête et la documentation
-   disent ce que le verrou garantit réellement : une confirmation contre les
-   outils d'écriture, pas contre Bash.
-6. **`lot-deliverables.yml`.** La résolution d'une ligne Critical se lit dans
-   sa dernière cellule (Action), sur les formes que `lot-audit` écrit
-   (`fixed in <sha>`, `owner decision: …`) ; `open: …` reste bloquant.
-7. **`harness-invariants.yml`.** `inputs.lots_file` passe par `env:` dans les
-   deux étapes.
-8. **Tests.** `tests/git-guard.test.sh` : un cas par ligne du tableau du
-   constat 1. `tests/session-context.test.sh` : pas de carte avec
-   `https://api.anthropic.com`, carte avec l'hôte deepseek.
-   `tests/workflows.test.sh` : « Critical … not fixed » bloque.
+10. **Refus de permissions dans le dépôt.** `templates/project/.claude/settings.json`
+    gagne une liste `permissions.deny` : les pushs vers `main`, `--force`,
+    `--mirror`, `--all`, et les écritures `gh api` du livrable 9. Elle double
+    la garde par un mécanisme qui ne dépend pas de son analyse du shell.
+    `harness-invariants.yml` vérifie sa présence dans le `.claude/settings.json`
+    de chaque dépôt. La syntaxe exacte des règles se vérifie dans la
+    documentation de Claude Code au développement.
+11. **Refus de permissions sous autopilot.** `autopilot.py` passe la même
+    liste par processus, à côté de `--allowedTools`, pour les sessions
+    headless. L'option de la CLI se vérifie au développement.
+12. **`README.md`, réglages du propriétaire.** La section dit ce qui reste à
+    sa main dans `~/.claude/settings*.json` : resserrer `Bash(rtk *)`,
+    `Bash(docker *)`, `Bash(cp *)` et `Bash(mv *)`.
+13. **Signal de profil.** Une seule définition, dans `lotfile.py` : le profil
+    est `deepseek` quand l'hôte de `ANTHROPIC_BASE_URL` n'est pas
+    `api.anthropic.com`. `session-context.sh`, la Step 0 de `lot-review` et
+    `autopilot.py` la lisent.
+14. **`lot-lock-guard.py` et `README.md`.** L'en-tête et la documentation
+    disent ce que le verrou garantit réellement : une confirmation contre les
+    outils d'écriture, pas contre Bash.
+15. **`lot-deliverables.yml`.** La résolution d'une ligne Critical se lit dans
+    sa dernière cellule (Action), sur les formes que `lot-audit` écrit
+    (`fixed in <sha>`, `owner decision: …`) ; `open: …` reste bloquant.
+16. **`harness-invariants.yml`.** `inputs.lots_file` passe par `env:` dans les
+    deux étapes.
+17. **Tests.** `tests/git-guard.test.sh` : un cas par ligne du tableau du
+    constat 1. `tests/session-context.test.sh` : pas de carte avec
+    `https://api.anthropic.com`, carte avec l'hôte deepseek.
+    `tests/workflows.test.sh` : « Critical … not fixed » bloque, et un
+    `.claude/settings.json` sans la liste `deny` échoue.
+    `tests/skeleton.test.sh` : le squelette porte la liste.
+    `tests/autopilot.test.sh` : `--dry-run` affiche les refus.
 
-### Arbitrages à trancher avant le lot
+### Arbitrages (2026-11-12, décisions de l'utilisateur)
 
-| Sujet | Question |
+| Sujet | Décision |
 |---|---|
-| Substitutions et `eval` | La revue du lot 25 (constat 5) les a rejetés, décision de l'utilisateur : « the guard is not a sandbox ». Le livrable 1 rouvre cette décision ; à confirmer ou à restreindre aux mots-clés du shell |
-| Verrou et Bash | Documentation seule (livrable 5), ou refus dans `git-guard.py` de toute commande Bash qui nomme `.claude/current-lot`, hors le `rm` de `lot-ship` |
-| `gh api` | Refus, ou `ask` (qui devient un refus sous autopilot) |
+| Où inscrire les règles de `ponytail` | Le texte dans le skill, un renvoi `CODE-6` dans `CONVENTIONS.md`, et le plafond du master relevé de la taille de ce renvoi |
+| Adaptation de `CLAUDE.md` et `AGENTS.md` | Livrable du lot, pas de modification hors gate |
+| Renforcement des constats 1 et 2 | Dans ce lot, avec `ponytail` ; le lot 31 disparaît du tableau |
+| Numéro et branche | Lot 33, planifié sur une branche séparée du lot 32 |
+| Qui hérite du skill | Toute étape qui peut modifier le code : développement, correction, `lot-test`, `lot-review`, `lot-audit` (amendement du 2026-11-12) |
+
+### Arbitrages avant le développement (décisions de l'utilisateur)
+
+| Sujet | Décision |
+|---|---|
+| Adoption des `deny` par les 8 repos | Par la synchro, mais de la seule clé `permissions` : `sync-projects.sh` la recopie du `.claude/settings.json` du squelette dans celui de chaque projet, le reste du fichier reste au projet. Une copie à l'identique aurait effacé les plugins LSP d'elya et d'elya-frontend, et `autoUpdate`. `harness-invariants.yml` compare la clé à celle du squelette sur `main` |
+| Substitutions et `eval` | Restreint aux mots-clés et regroupements du shell (« je ne veux rien casser ») : accents graves, `eval` et nom de commande tiré d'une variable restent hors de la garde. La liste `deny` couvre les substitutions, que Claude Code juge comme des sous-commandes |
+| Verrou et Bash | Documentation seule (livrable 14) |
+| `gh api` | `ask`, qui devient un refus sous autopilot ; des règles `ask` dans les réglages |
+| Découpage | Un seul lot |
+| Injection du texte de `ponytail` | Un second hook `SessionStart`, `ponytail-context.sh`, au lieu de `session-context.sh` : Claude Code plafonne le texte de chaque hook à 10 000 caractères, sans réglage, et `CAP` vaut déjà 9000. `CAP`, la carte deepseek et `deepseek-card.py` restent inchangés (livrable 2 amendé) |
+| Formes `rtk` | Le hook `rtk` réécrit chaque commande git et gh, et Claude Code juge les permissions sur la commande réécrite : chaque règle existe sous `git push`, `rtk git push` et `rtk proxy git push`, de même pour `gh api`. Pas de `*` en tête, qui refuserait un message de commit citant la commande |
+| Profil | La Step 0 de `lot-review` garde `printenv ANTHROPIC_BASE_URL`, sans demande de permission, et cite la définition de `lotfile.py`. LOT-7 est réécrite à longueur égale : la carte deepseek n'a que 7 caractères de marge |
+| Pushs larges | `--branches`, autre nom de `--all`, est refusé avec lui ; `--prune` entre aussi dans la liste `deny` |
+| Critical ouverts | Résolu quand la cellule Action commence par `fixed`, `resolved`, `résolu` ou `owner decision` ; tout le reste bloque, `open: …` compris |
 
 ### Critères de validation
 
 - `./tests/run.sh` vert, nouveaux cas inclus.
-- Chaque ligne « silence » du tableau du constat 1 répond `deny` ou `ask`.
+- Chaque ligne « silence » du tableau du constat 1 répond `deny` ou `ask`, sauf
+  les accents graves, `eval` et `$g push` (arbitrage « Substitutions et `eval` »).
+- `cmp CLAUDE.md AGENTS.md` silencieux, le skill `ponytail` au recensement.
+- Un run réel de l'autopilot montre le texte de `ponytail` dans le journal de
+  chaque étape : le déclenchement de `SessionStart` en `claude -p` ne figure
+  pas parmi les points vérifiés par un run réel dans `docs/memory.md`.
 - Version du plugin bumpée (job `plugin-version`).
 
 ### Hors périmètre
 
-- Les `permissions` des settings de l'utilisateur (`~/.claude/settings*.json`) :
-  ajouter des `deny` (`git push* main`, `--force`) et resserrer `Bash(rtk *)`,
-  `Bash(docker *)`, `Bash(cp *)`, `Bash(mv *)` reste à sa main.
+- Les niveaux, les skills annexes, les hooks, le registre CSV et le webhook de
+  `ponytail`.
+- La modification des `~/.claude/settings*.json` de l'utilisateur : le
+  livrable 12 la documente, il ne la fait pas.
 - La protection de branche de `main` sur GitHub.
 - `git clean -fdx`, `git checkout -- .`, `git restore .`, `git branch -D` :
   destructeurs en local seulement, non gardés aujourd'hui.
-- Le constat 6 : aucun changement de skill ; la lecture du diff à la promotion
+- Le constat 7 : aucun changement de skill ; la lecture du diff à la promotion
   `develop` → `main` reste le contrôle humain.
 
 ---

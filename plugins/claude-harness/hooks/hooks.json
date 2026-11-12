@@ -8,6 +8,11 @@
             "type": "command",
             "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/session-context.sh\"",
             "timeout": 15
+          },
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/ponytail-context.sh\"",
+            "timeout": 15
           }
         ]
       }

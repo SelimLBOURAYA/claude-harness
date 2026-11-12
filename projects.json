@@ -4,6 +4,10 @@
   "synced_files": [
     "CONVENTIONS.md"
   ],
+  "synced_permissions": {
+    "source": "templates/project/.claude/settings.json",
+    "target": ".claude/settings.json"
+  },
   "projects": [
     "deployment",
     "elya",

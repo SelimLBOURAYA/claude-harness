@@ -209,6 +209,14 @@ echo '{"env":{"ANTHROPIC_BASE_URL":"https://api.deepseek.com/anthropic"}}' > "$W
 code=$(cd "$R" && SCEN="$R.scen" PATH="$FAKEBIN:$PATH" HOME="$WORK/badhome" python3 "$PILOT" > "$R.out" 2>&1; echo $?)
 assert_eq 2 "$code" "refuses to start under a settings.json carrying ANTHROPIC_BASE_URL"
 assert_eq "" "$(calls "$R")" "no session under the deepseek profile"
+# Lot 33: the native API URL, as the desktop app sets it, is the claude profile.
+mkdir -p "$WORK/nativehome/.claude"
+echo '{"env":{"ANTHROPIC_BASE_URL":"https://api.anthropic.com"}}' > "$WORK/nativehome/.claude/settings.json"
+code=$(cd "$R" && SCEN="$R.scen" PATH="$FAKEBIN:$PATH" HOME="$WORK/nativehome" python3 "$PILOT" --dry-run > "$R.out" 2>&1; echo $?)
+assert_eq 0 "$code" "starts under ANTHROPIC_BASE_URL=https://api.anthropic.com, the native API"
+code=$(cd "$R" && SCEN="$R.scen" PATH="$FAKEBIN:$PATH" HOME="$WORK/nativehome" \
+  ANTHROPIC_BASE_URL=https://api.deepseek.com/anthropic python3 "$PILOT" --dry-run > "$R.out" 2>&1; echo $?)
+assert_eq 2 "$code" "refuses to start under a deepseek ANTHROPIC_BASE_URL in the environment"
 
 # --- one fix iteration only -----------------------------------------------
 R=$(fixture fixonce harness)
@@ -730,6 +738,11 @@ assert_contains "$out" "Bash(claude plugin update claude-harness@claude-harness 
   "the allowlist lets lot-start update the plugin at project scope"
 assert_eq 1 "$(grep -o 'Bash(claude [^)]*)' <<< "$out" | sort -u | wc -l | tr -d ' ')" \
   "the allowlist names no other claude command"
+# Lot 33: the skeleton's permission rules go per process, its ask rules as
+# denials, since a headless session has nobody to ask.
+rules=$(jq -r '.permissions.deny + .permissions.ask | join(",")' "$REPO_ROOT/templates/project/.claude/settings.json")
+assert_contains "$out" "--disallowedTools $rules " \
+  "--dry-run passes the skeleton's deny and ask rules as --disallowedTools"
 out=$(cd "$R" && PATH="$FAKEBIN:$PATH" HOME="$FAKEHOME" python3 "$PILOT" --dry-run 5)
 assert_contains "$out" 'The `lot-start confirm N` hand-off' \
   "--dry-run shows the confirmation hand-off in the system prompt"

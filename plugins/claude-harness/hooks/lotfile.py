@@ -13,14 +13,20 @@ CLI, for the shell hooks:
   lotfile.py lots-file <root>       absolute path of the lots file, empty when none
   lotfile.py table <root>           status table, done rows folded into one line
   lotfile.py lock <root>            the lock, one key=value per line, empty when none
+  lotfile.py profile [<base url>]   `claude` or `deepseek`, from the URL or from
+                                    ANTHROPIC_BASE_URL when none is given
 """
 
 import os
 import re
 import subprocess
 import sys
+import urllib.parse
 
 LOCK_PATH = os.path.join(".claude", "current-lot")
+# The host of the native API. The desktop app sets ANTHROPIC_BASE_URL to it,
+# so a non-empty variable is not, on its own, the deepseek profile (lot 33).
+ANTHROPIC_HOST = "api.anthropic.com"
 LOTS_FILE_FALLBACKS = ("lots.md", "LOTS.md", "dev-plan.md")
 
 DONE = "✅"
@@ -232,6 +238,22 @@ def read_lock(root):
     return lock if lock.get("branch") else None
 
 
+def profile(base_url):
+    """`deepseek` when ANTHROPIC_BASE_URL names a host other than the native API, else `claude`.
+
+    The one definition of the profile signal (lot 33), read by the SessionStart
+    hook, by lot-review's profile guard and by the autopilot.
+    """
+    if not base_url:
+        return "claude"
+    try:
+        host = urllib.parse.urlsplit(base_url if "//" in base_url else "//" + base_url).hostname
+    except ValueError:
+        # An unparseable URL names no known host: not the native API.
+        return "deepseek"
+    return "claude" if host == ANTHROPIC_HOST else "deepseek"
+
+
 # --------------------------------------------------------------------------
 # CLI
 
@@ -256,6 +278,9 @@ def cli_table(root):
 
 
 def main(argv):
+    if argv[1:2] == ["profile"]:
+        print(profile(argv[2] if len(argv) > 2 else os.environ.get("ANTHROPIC_BASE_URL", "")))
+        return 0
     if len(argv) < 3:
         print(__doc__, file=sys.stderr)
         return 2

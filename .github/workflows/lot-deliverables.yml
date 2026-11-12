@@ -89,11 +89,19 @@ jobs:
             # is still open blocks the PR (lot-ship, absolute rules).
             # The severity must be the row's FIRST cell. Every report opens with
             # a summary table whose header names a Critical column; that header
-            # is not a finding.
+            # is not a finding. The resolution is read in the row's LAST cell,
+            # the Action column, in the forms lot-audit writes (lot 33): a word
+            # elsewhere in the row, as in "Critical ... not fixed", resolves
+            # nothing, and `open: ...` stays blocking.
             open_criticals=$(grep -inE '^\|[^|a-zA-Z0-9]*critical\b' "$audit" \
-              | grep -viE '\b(resolved|r.solu|fixed|closed|accepted|none|n/a)\b' || true)
+              | while IFS= read -r row; do
+                  action=$(printf '%s' "$row" \
+                    | sed -E 's/\\\|//g; s/\|[[:space:]]*$//; s/.*\|//; s/[*`]//g; s/^[[:space:]]+//')
+                  printf '%s' "$action" | grep -qiE '^(fixed|resolved|r.{1,2}solu|owner decision)' \
+                    || printf '%s\n' "$row"
+                done || true)
             if [ -n "$open_criticals" ]; then
-              echo "::error file=$audit::unresolved Critical row in $audit:"
+              echo "::error file=$audit::unresolved Critical row in $audit: its Action cell must open with 'fixed in <sha>' or 'owner decision: ...'"
               printf '%s\n' "$open_criticals"
               status=1
             fi

@@ -43,6 +43,22 @@ STATE_PATH = os.path.join(".claude", "autopilot-state.json")
 # lot-start Step A0, run verbatim so that the allowlist entry matches it.
 PLUGIN_UPDATE = "claude plugin update claude-harness@claude-harness --scope project --json"
 
+# The permission rules of templates/project/.claude/settings.json, its deny and
+# its ask rules alike, since a headless session cannot ask (lot 33). Passed per
+# process, so a run is covered before its project carries them; each rule exists
+# bare and behind `rtk`, whose hook rewrites every git and gh command before
+# Claude Code matches it. tests/autopilot.test.sh checks them against the template.
+DENIED_TOOLS = (
+    ["Bash(%s %s)" % (prefix, form)
+     for prefix in ("git push", "rtk git push", "rtk proxy git push")
+     for form in ("* main", "* main *", "*:main", "*:main *", "*:refs/heads/main", "*:refs/heads/main *",
+                  "*--force*", "-f*", "* -f*",
+                  "* +*", "*--mirror*", "*--all*", "*--branches*", "*--prune*")]
+    + ["Bash(%s %s)" % (prefix, form)
+       for prefix in ("gh api", "rtk gh api", "rtk proxy gh api")
+       for form in ("*pulls/*/merge*", "*git/refs*", "*/merges*")]
+)
+
 # A ceiling against a session that never ends (a loop on a red test, a stuck
 # CI), not a target. The environment override exists for the tests only.
 STEP_TIMEOUT = int(os.environ.get("AUTOPILOT_STEP_TIMEOUT", "1800"))
@@ -215,13 +231,13 @@ def command(step, home, session=None):
 
 
 def allowed_tools(params, home):
-    """Per-process allowlist, on top of the profile's: nothing committed in the project.
+    """Per-process allowlist and deny list, on top of the profile's: nothing committed in the project.
 
     python3 is limited to the plugin's own scripts: `python3 -c` would run any
     git command out of the git guard's sight. The two printenv are the profile
     guard and the Autopilot section of lot-review and lot-audit; the plugin
     update is Step A0 of lot-start, exact command, no wildcard: a headless
-    session denies what it cannot ask.
+    session denies what it cannot ask. The deny list is DENIED_TOOLS.
     """
     plugin = os.path.join(home, ".claude", "plugins", "cache", "claude-harness")
     tools = ["Bash(printenv ANTHROPIC_BASE_URL)", "Bash(printenv HARNESS_AUTOPILOT)",
@@ -230,7 +246,7 @@ def allowed_tools(params, home):
     validation = validation_command(params)
     if validation:
         tools[:0] = ["Bash(%s)" % validation, "Bash(%s *)" % validation]
-    return ["--allowedTools", ",".join(tools)]
+    return ["--allowedTools", ",".join(tools), "--disallowedTools", ",".join(DENIED_TOOLS)]
 
 
 def parse_output(path, offset=0):
@@ -623,10 +639,11 @@ def main(argv=None):
             base_env = json.load(handle).get("env") or {}
     except (OSError, ValueError):
         base_env = {}
-    if base_env.get("ANTHROPIC_BASE_URL") or os.environ.get("ANTHROPIC_BASE_URL"):
+    if "deepseek" in (lotfile.profile(base_env.get("ANTHROPIC_BASE_URL")),
+                      lotfile.profile(os.environ.get("ANTHROPIC_BASE_URL"))):
         return refuse(
-            "ANTHROPIC_BASE_URL is set: --settings cannot remove it, so the Claude steps "
-            "would run elsewhere. Run `claude-profile claude` first."
+            "ANTHROPIC_BASE_URL names another host than api.anthropic.com: --settings cannot "
+            "remove it, so the Claude steps would run elsewhere. Run `claude-profile claude` first."
         )
 
     if args.dry_run:

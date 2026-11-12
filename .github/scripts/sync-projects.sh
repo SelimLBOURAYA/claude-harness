@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 # Propagates the harness-managed files listed in projects.json to every project
 # of the portfolio, as one pull request per project against its base branch.
+# The permission rules (lot 33) are one key, not a file: synced_permissions names
+# the harness file whose `permissions` replaces the project's, and the rest of
+# the project's settings (its plugins, its marketplace options) stays its own.
 #
 # A project already byte-identical gets no branch, and an open sync pull request
 # left over from an earlier master is closed. A project that differs gets the
@@ -30,6 +33,8 @@ owner=$(jq -r '.owner' "$manifest")
 base=$(jq -r '.base_branch' "$manifest")
 mapfile -t files < <(jq -r '.synced_files[]' "$manifest")
 mapfile -t known < <(jq -r '.projects[]' "$manifest")
+perm_source=$(jq -r '.synced_permissions.source // empty' "$manifest")
+perm_target=$(jq -r '.synced_permissions.target // empty' "$manifest")
 if [ "$#" -gt 0 ]; then
   for p in "$@"; do
     case " ${known[*]} " in
@@ -61,7 +66,7 @@ open_pr() {
 
 # The account behind the token: a sync pull request it did not open is not merged.
 sync_login=$(gh api user --jq '.login' 2>/dev/null || true)
-synced_json=$(jq -c '.synced_files' "$manifest")
+synced_json=$(jq -c '[.synced_files[], (.synced_permissions.target // empty)]' "$manifest")
 
 # merge_pr <repo> <number> <pushed sha> : merges the sync pull request when it is
 # the token account's, touches only the synced files, and still heads at the
@@ -98,13 +103,19 @@ merge_pr() {
 }
 
 pr_body() {
+  local bt=$'\x60' files_md="" perm_line="" f
+  for f in "${files[@]}"; do files_md+="${bt}${f}${bt} "; done
+  if [ -n "$perm_target" ]; then
+    perm_line="- Sets the ${bt}permissions${bt} key of ${bt}${perm_target}${bt} from ${bt}${perm_source}${bt}; the rest of that file stays this project's"
+  fi
   cat <<EOF
 ## Summary
-- Re-copies the harness-managed files from \`claude-harness@${source_sha:0:7}\` (\`main\`): $(printf '`%s` ' "${files[@]}")
-- Opened by the \`sync-projects\` workflow of \`claude-harness\`; the files are never hand-edited here (CONVENTIONS.md section 12)
+- Re-copies the harness-managed files from ${bt}claude-harness@${source_sha:0:7}${bt} (${bt}main${bt}): ${files_md}
+${perm_line}
+- Opened by the ${bt}sync-projects${bt} workflow of ${bt}claude-harness${bt}; the files are never hand-edited here (CONVENTIONS.md section 12)
 
 ## Test plan
-- [ ] \`harness-invariants\` green on this pull request
+- [ ] ${bt}harness-invariants${bt} green on this pull request
 - [ ] Validation gate green on this pull request
 EOF
 }
@@ -126,6 +137,23 @@ for project in "${projects[@]}"; do
     cp "$root/$f" "$dir/$f"
     git -C "$dir" add -- "$f"
   done
+
+  if [ -n "$perm_target" ]; then
+    target="$dir/$perm_target"
+    current='{}'
+    # -s: jq reads an empty file as no input and would write an empty file back.
+    [ -s "$target" ] && current=$(cat "$target")
+    mkdir -p "$(dirname "$target")"
+    if ! jq --slurpfile master "$root/$perm_source" '.permissions = $master[0].permissions' \
+         <<<"$current" > "$target.sync"; then
+      echo "::error::$repo: $perm_target is not valid JSON, its permission rules cannot be set"
+      rm -f "$target.sync"
+      failed="$failed $project"
+      continue
+    fi
+    mv "$target.sync" "$target"
+    git -C "$dir" add -- "$perm_target"
+  fi
 
   if git -C "$dir" diff --cached --quiet; then
     echo "   up to date"

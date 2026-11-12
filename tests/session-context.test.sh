@@ -84,6 +84,47 @@ assert_contains "$body" "deepseek profile: imperative rules" "deepseek: rules se
 assert_contains "$body" "- LOT-1:" "deepseek: rules rendered as imperatives"
 body=$(text "$(context startup "$REPO")")
 assert_eq "" "$(printf '%s' "$body" | grep 'LOT-1' || true)" "claude profile: no deepseek rules"
+# Lot 33: the desktop app sets ANTHROPIC_BASE_URL to the native API itself.
+body=$(text "$(context startup "$REPO" https://api.anthropic.com)")
+assert_eq "" "$(printf '%s' "$body" | grep 'LOT-1' || true)" "the native API URL: no deepseek rules"
+
+# --- the profile signal, one definition (lot 33) ---------------------------
+LOTFILE="$REPO_ROOT/plugins/claude-harness/hooks/lotfile.py"
+for case in "|claude" "https://api.anthropic.com|claude" "https://API.anthropic.com/|claude" \
+            "api.anthropic.com|claude" "https://api.deepseek.com/anthropic|deepseek" \
+            "https://api.anthropic.com.evil.example|deepseek" "https://[bad|deepseek"; do
+  url=${case%|*}; want=${case##*|}
+  assert_eq "$want" "$(python3 "$LOTFILE" profile "$url")" "profile of '$url' is $want"
+done
+assert_eq deepseek "$(ANTHROPIC_BASE_URL=https://api.deepseek.com/anthropic python3 "$LOTFILE" profile)" \
+  "profile reads ANTHROPIC_BASE_URL when given no URL"
+assert_eq claude "$(env -u ANTHROPIC_BASE_URL python3 "$LOTFILE" profile)" \
+  "profile is claude when ANTHROPIC_BASE_URL is unset"
+
+# --- the ponytail text, a hook of its own (lot 33, CODE-6) ------------------
+# Claude Code keeps at most 10,000 characters of each hook's context: the text
+# has its own hook and budget, so the state and the card above keep theirs.
+PONYTAIL="$REPO_ROOT/plugins/claude-harness/hooks/ponytail-context.sh"
+PONYTAIL_MD="$REPO_ROOT/plugins/claude-harness/skills/ponytail/SKILL.md"
+assert_ok "hooks.json runs the ponytail hook on the four SessionStart matchers" -- \
+  jq -e '.hooks.SessionStart[0].hooks | any(.command | test("hooks/ponytail-context[.]sh"))' "$HOOKS_JSON"
+first_rule=$(grep -m1 '^1\. ' "$PONYTAIL_MD")
+for source in startup resume clear compact; do
+  for url in "" https://api.deepseek.com/anthropic; do
+    out=$(jq -nc --arg s "$source" --arg d "$REPO" '{hook_event_name:"SessionStart", source:$s, cwd:$d}' \
+      | env -u ANTHROPIC_BASE_URL ${url:+ANTHROPIC_BASE_URL=$url} bash "$PONYTAIL")
+    assert_eq "SessionStart" "$(printf '%s' "$out" | jq -r '.hookSpecificOutput.hookEventName')" \
+      "ponytail, $source, ${url:-no base URL}: valid SessionStart output"
+    assert_contains "$(text "$out")" "$first_rule" "ponytail, $source, ${url:-no base URL}: the text is injected"
+  done
+done
+body=$(text "$out")
+assert_eq "" "$(printf '%s\n' "$body" | grep -E '^(---|name:|description:)' || true)" \
+  "ponytail: the frontmatter is not injected"
+assert_eq "" "$(printf '%s' "$body" | grep 'truncated at' || true)" "ponytail: the text is never cut"
+cap=$(sed -n 's/^PONYTAIL_CAP=//p' "$PONYTAIL")
+assert_ok "ponytail: the body fits PONYTAIL_CAP" -- test "${#body}" -le "${cap:-0}"
+assert_ok "ponytail: PONYTAIL_CAP stays under the 10,000 characters of a hook" -- test "${cap:-10000}" -lt 10000
 
 # --- size cap --------------------------------------------------------------
 for i in $(seq 1 300); do

@@ -25,8 +25,11 @@ lot-test  →  [lot-review]  →  lot-audit  →  lot-ship
 printenv ANTHROPIC_BASE_URL
 ```
 
-Not empty → the session runs under the `deepseek` profile (LOT-7). Do not
-review, do not touch the working tree; print exactly this, then end the turn:
+Not empty, and its host is not `api.anthropic.com` → the session runs under the
+`deepseek` profile (LOT-7; the definition is `profile()` in the plugin's
+`hooks/lotfile.py`). Empty, or `https://api.anthropic.com` as the desktop app
+sets it → the `claude` profile, go on. Under `deepseek`, do not review, do not
+touch the working tree; print exactly this, then end the turn:
 
 > Code review needs the `claude` profile, in a new session.
 >
@@ -89,6 +92,7 @@ It may run as a forked agent writing the tree while this session reads it:
   the lot's specification, a schema change): ask the owner, all in one batch,
   then apply the answers before Step 3. Under the autopilot, see
   [Autopilot](#autopilot) instead.
+- **A fix you write yourself is the smallest complete change** (CODE-6).
 
 A finding about code the lot did not touch becomes a candidate lot in Step 4.
 

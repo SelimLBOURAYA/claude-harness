@@ -73,6 +73,28 @@ ln -sfn ~/.claude/plugins/marketplaces/claude-harness/CONVENTIONS.md ~/.claude/c
 Same block, committed in each repo, for traceability and so a fresh clone is
 harnessed without user-level setup.
 
+The same file carries the harness's permission rules (lot 33), a second layer
+behind the git guard that does not depend on its reading of the shell: `deny`
+for pushes to `main`, force pushes, `--mirror`, `--all`, `--branches` and
+`--prune`, and `ask` for the `gh api` requests on `pulls/*/merge` and
+`git/refs`. Claude Code matches a rule against the command its hooks rewrote, and
+the `rtk` hook rewrites every git and gh command, so each rule exists bare and
+behind `rtk` and `rtk proxy`. The master is `templates/project/.claude/settings.json`;
+`sync-projects` sets the `permissions` key of every project from it, and
+`harness-invariants` fails a project whose key differs. Like the guard, the rules
+are not a sandbox: `git -C dir push`, a variable or an `eval` escape them.
+
+### What stays in the owner's hands (`~/.claude/settings*.json`)
+
+The harness never edits the user-level settings. Their allow list decides what
+runs without a prompt, and four entries reach further than their name:
+
+- `Bash(rtk *)` also allows `rtk proxy <any command>`: allow the `rtk`
+  subcommands you use instead (`Bash(rtk git *)`, `Bash(rtk gh *)`, ...).
+- `Bash(docker *)`, `Bash(cp *)` and `Bash(mv *)` write anywhere, the lot lock
+  `.claude/current-lot` included: narrow them to what you need, or let them
+  prompt.
+
 ## Update
 
 With `autoUpdate`, Claude Code refreshes the marketplace and updates the installed
@@ -206,6 +228,7 @@ missing line is a drift that `harness-sync` and `harness-invariants.yml` report.
 | `dep-update` | Patch/minor applied, major proposed |
 | `bootstrap-project` | Generates a harnessed repository from `templates/project/` |
 | `i-have-adhd` | Focus aid, user-invoked only |
+| `ponytail` | The smallest complete change (CODE-6), adapted from ponytail 5.3.3 (MIT); its text reaches every session through a `SessionStart` hook |
 
 Gate, mandatory in order: `lot-test → lot-review → lot-audit → lot-ship`, opened by
 `lot-start` before any development.
@@ -214,11 +237,12 @@ Gate, mandatory in order: `lot-test → lot-review → lot-audit → lot-ship`, 
 
 | Hook | Event | Role |
 |---|---|---|
-| `git-guard.py` | `PreToolUse` on `Bash` | Denies pushes to `main`, force pushes, `--no-verify`, `reset --hard`, remote branch deletion, `gh pr create` without `--base develop`, and any `gh pr merge` but a lot pull request (`feat/lot-*` into `develop`) whose checks are all green, read through `gh pr view`; `--delete-branch` and `--admin` are denied. Gate deliverables are not its business: `lot-deliverables.yml` owns that rule, and owns it alone. Every other push or PR creation passes without a prompt (lot 24); it asks only for a push target it cannot resolve and for anything it cannot parse. |
+| `git-guard.py` | `PreToolUse` on `Bash` | Denies pushes to `main`, force pushes, pushes with `--mirror`, `--all`, `--branches` or `--prune`, `--no-verify`, `reset --hard`, remote branch deletion, `gh pr create` or `gh pr edit` with a base other than `develop`, and any `gh pr merge` but a lot pull request (`feat/lot-*` into `develop`) whose checks are all green, read through `gh pr view`; `--delete-branch` and `--admin` are denied. Asks for a `gh api` write on `pulls/*/merge` or `git/refs`. Sees through wrappers, `bash -c`, heredocs read by a shell and the shell keywords and groupings (`if`, `then`, `do`, `!`, `(`, `{`); not through backticks, `eval` or a command name in a variable, which the permission rules of `.claude/settings.json` back up. Gate deliverables are not its business: `lot-deliverables.yml` owns that rule, and owns it alone. Every other push or PR creation passes without a prompt (lot 24); it asks only for a push target it cannot resolve and for anything it cannot parse. |
 | `mirror-sync.sh` | `PostToolUse` on `Edit`, `Write`, `Bash` | Keeps `AGENTS.md` byte-identical to `CLAUDE.md`, including after shell edits (`cp`, `mv`, `sed -i`, redirections). |
-| `lot-lock-guard.py` | `PreToolUse` on `Edit`, `Write`, `MultiEdit`, `NotebookEdit` | On a `feat/lot-*` branch, denies every write until `.claude/current-lot` names that branch; always lets the lots file through, never the lock itself. The repository is resolved from the written path. Writes made through `Bash` are not covered: a documented limit. |
+| `lot-lock-guard.py` | `PreToolUse` on `Edit`, `Write`, `MultiEdit`, `NotebookEdit` | On a `feat/lot-*` branch, denies every write until `.claude/current-lot` names that branch; always lets the lots file through, never the lock itself. The repository is resolved from the written path. Writes made through `Bash` are not covered, the lock file's own included (`cp`, `mv`, a redirection, `rtk proxy`): the lock is a confirmation against the write tools, not against Bash. A documented limit. |
 | `lot-confirm.sh` | `UserPromptSubmit` | Writes `.claude/current-lot` when the whole user prompt is `lot-start confirm N` or `/claude-harness:lot-start confirm N` on a `feat/lot-N-*` branch; the lock holds that branch and the date, and `lot-ship` removes it after the merge. The model cannot forge a user prompt; the user's autopilot submits it only once its own checks passed. |
-| `session-context.sh` | `SessionStart` (`startup`, `resume`, `clear`, `compact`) | Re-injects branch, working tree, last merges on develop, the lot lock and the open rows of the status table; flags a compaction summary as untrusted; adds `rules/deepseek.json` when `ANTHROPIC_BASE_URL` is set. Capped at ~2K tokens, never blocks. |
+| `session-context.sh` | `SessionStart` (`startup`, `resume`, `clear`, `compact`) | Re-injects branch, working tree, last merges on develop, the lot lock and the open rows of the status table; flags a compaction summary as untrusted; adds `rules/deepseek.json` when `ANTHROPIC_BASE_URL` names a host other than `api.anthropic.com` (`lotfile.py profile`, the one definition of the profile signal, which `lot-review` and the autopilot read too). Capped at ~2K tokens, never blocks. |
+| `ponytail-context.sh` | `SessionStart` (`startup`, `resume`, `clear`, `compact`) | Injects the body of the `ponytail` skill (CODE-6) into every session, under every profile. A hook of its own: Claude Code keeps at most 10,000 characters of each hook's context, so the text keeps its own budget and leaves the state its own. Never blocks. |
 
 `session-context.sh` reads that freshness through `hooks/plugin-currency.py`, a
 helper it calls from its own tree rather than a hook of its own: the check must be
@@ -269,8 +293,9 @@ autopilot --resume --answer "..."   # the answers to a blocked lot-start or dev
   `lot-start confirm N` itself. `TEXT` may not be a lot confirmation: the
   confirmation never precedes the checks. A `blocked` `lot-review` or `lot-audit`
   is unchanged: settle it, then `--resume` goes on with the next step.
-- **Profile precondition**: `~/.claude/settings.json` carries no
-  `ANTHROPIC_BASE_URL` (run `claude-profile claude` first). `--settings` merges
+- **Profile precondition**: neither `~/.claude/settings.json` nor the
+  environment points `ANTHROPIC_BASE_URL` at a host other than
+  `api.anthropic.com` (run `claude-profile claude` first). `--settings` merges
   and cannot remove a variable, so the script refuses to start otherwise.
 - **Checks**: every step answers through a JSON schema (`status`, `lot`,
   `questions`, `reason`), and the script checks it itself before the next one:
@@ -285,7 +310,9 @@ autopilot --resume --answer "..."   # the answers to a blocked lot-start or dev
   and `printenv HARNESS_AUTOPILOT` for the `lot-review` and `lot-audit` guards,
   and `python3` on the plugin's own scripts under
   `~/.claude/plugins/cache/claude-harness/`) on top of the profile's; never `--dangerously-skip-permissions`. A refused command stops the
-  step.
+  step. The skeleton's permission rules go per process too, as
+  `--disallowedTools`, its `ask` rules among them since nobody can answer: a
+  run is covered before its project carries them.
 - **Stop**: at the first `blocked`, `failed`, failed check or step over 30
   minutes, the state (reason, status, questions, step) goes to
   `.claude/autopilot-state.json` (kept out of git through `.git/info/exclude`),
@@ -379,12 +406,15 @@ the change edits `CONVENTIONS.md`, and outside a pull request, where the secret
 was available and its absence is a real fault.
 
 **3. Let the harness open the sync pull requests.** The portfolio is listed once,
-in [`projects.json`](projects.json). When `CONVENTIONS.md` (or that list) changes
+in [`projects.json`](projects.json). When `CONVENTIONS.md`, the skeleton's
+permission rules (`templates/project/.claude/settings.json`) or that list change
 on `main`, `.github/workflows/sync-projects.yml` opens or refreshes one pull
 request per listed project — branch `chore/sync-harness-files`, base `develop` —
-and closes a leftover one once the project has caught up. It then merges each pull
-request at once, but only when it is the token account's own, touches nothing but
-the `synced_files`, and still heads at the commit the run pushed; otherwise it
+and closes a leftover one once the project has caught up. The `synced_files` are
+copied whole; of the project's `.claude/settings.json` only the `permissions`
+key is set (`synced_permissions`), the rest of that file stays the project's. It
+then merges each pull request at once, but only when it is the token account's
+own, touches nothing but those files, and still heads at the commit the run pushed; otherwise it
 leaves it open, says why, and fails the run (§7 of `CONVENTIONS.md`, the sync
 pull request exception). It does not wait for the project's checks: the projects
 call the harness workflows at `@main`, so a red the sync pull request shows is
