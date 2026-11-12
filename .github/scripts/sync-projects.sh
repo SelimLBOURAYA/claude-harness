@@ -136,7 +136,8 @@ for project in "${projects[@]}"; do
   if [ -n "$perm_target" ]; then
     target="$dir/$perm_target"
     current='{}'
-    [ -f "$target" ] && current=$(cat "$target")
+    # -s: jq reads an empty file as no input and would write an empty file back.
+    [ -s "$target" ] && current=$(cat "$target")
     mkdir -p "$(dirname "$target")"
     if ! jq --slurpfile master "$root/$perm_source" '.permissions = $master[0].permissions' \
          <<<"$current" > "$target.sync"; then

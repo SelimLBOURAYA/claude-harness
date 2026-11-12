@@ -249,6 +249,11 @@ expect ask "$FEAT" "gh api --method=PUT repos/o/r/pulls/1/merge"
 expect ask "$FEAT" "gh api -XPATCH repos/o/r/git/refs/heads/main -f sha=abc"
 expect ask "$FEAT" "gh api repos/o/r/git/refs -f ref=refs/heads/x -f sha=abc"
 expect ask "$FEAT" "rtk gh api -X DELETE /repos/o/r/git/refs/heads/feat/x"
+# Lot 33 review: a branch merge, and a write whose endpoint is not resolved.
+expect ask "$FEAT" "gh api repos/o/r/merges -f base=main -f head=feat/x"
+expect ask "$FEAT" "gh api -X PUT \"\$U\""
+expect deny "$FEAT" "gh pr edit 12 -Bmain"
+expect deny "$FEAT" "gh pr create -Bmain -t t -b b"
 assert_eq deny "$(HARNESS_AUTOPILOT=1 decision "$FEAT" "gh api -X PUT repos/o/r/pulls/1/merge")" \
   "autopilot: a gh api write on a merge is denied, not asked"
 # A read, or a write elsewhere, is none of the guard's business.

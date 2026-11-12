@@ -66,7 +66,7 @@ for form in '* main' '*:main' '*--force*' '-f*' '* +*' '*--mirror*' '*--all*' '*
   done
 done
 ask=$(jq -r '.permissions.ask[]' "$S")
-for form in '*pulls/*/merge*' '*git/refs*'; do
+for form in '*pulls/*/merge*' '*git/refs*' '*/merges*'; do
   for prefix in 'gh api' 'rtk gh api' 'rtk proxy gh api'; do
     assert_ok "the skeleton asks for $prefix $form" -- grep -qxF "Bash($prefix $form)" <<< "$ask"
   done

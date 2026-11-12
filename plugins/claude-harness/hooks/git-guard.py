@@ -62,7 +62,7 @@ BROAD_PUSH_FLAGS = {"--mirror", "--all", "--branches", "--prune"}
 
 # `gh api` requests that merge a pull request or move a branch (lot 33), and the
 # options it reads: gh sends a POST as soon as a field or an input is given.
-GH_API_WRITE_TARGET = re.compile(r"(^|/)(pulls/[^/]+/merge|git/refs)(/|$|\?)")
+GH_API_WRITE_TARGET = re.compile(r"(^|/)(pulls/[^/]+/merge|git/refs|merges)(/|$|\?)")
 GH_API_VALUE_OPTIONS = {
     "-X", "--method", "-H", "--header", "-f", "--raw-field", "-F", "--field",
     "--input", "-q", "--jq", "-t", "--template", "--hostname", "--cache",
@@ -631,6 +631,9 @@ def option_value(args, *names):
         for name in names:
             if token.startswith(name + "="):
                 return token.split("=", 1)[1]
+            # `-Bmain`: a short option takes its value attached, as gh reads it.
+            if len(name) == 2 and token.startswith(name) and len(token) > 2:
+                return token[2:]
     return None
 
 
@@ -840,9 +843,11 @@ def api_request(args):
 def guard_gh(segment, cwd, retargets):
     if segment[1:2] == ["api"]:
         method, endpoint = api_request(segment[2:])
-        if method != "GET" and GH_API_WRITE_TARGET.search(endpoint or ""):
+        if method != "GET" and (GH_API_WRITE_TARGET.search(endpoint or "")
+                                or UNRESOLVED.search(endpoint or "")):
             ask(
-                "`gh api` %s on `%s` merges a pull request or moves a branch outside "
+                "`gh api` %s on `%s` merges a pull request or a branch, moves a branch, "
+                "or names an endpoint the guard cannot resolve, outside "
                 "lot-ship and the guard's checks; confirm it manually (CONVENTIONS.md "
                 "section 7)." % (method, endpoint)
             )
