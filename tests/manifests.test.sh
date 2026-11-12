@@ -82,6 +82,14 @@ assert_ok "CLAUDE.md and AGENTS.md are byte-identical" -- \
 assert_ok "CLAUDE.md declares its Gate parameters" -- \
   grep -q '^## Gate parameters' "$REPO_ROOT/CLAUDE.md"
 
+# Lot 36: the plan stays light and the lot 24 freeze restriction is gone.
+assert_ok "dev-plan.md stays under 600 lines" -- \
+  test "$(wc -l < "$REPO_ROOT/dev-plan.md")" -lt 600
+assert_eq 0 "$(grep -c '^## Freeze' "$REPO_ROOT/CLAUDE.md")" \
+  "CLAUDE.md carries no Freeze section"
+assert_eq 0 "$(grep -c 'Freeze since lot 24' "$REPO_ROOT/docs/memory.md")" \
+  "the project memory carries no freeze note"
+
 # Skills live in the plugin, never in a legacy skill/ directory (finding #1).
 assert_eq "absent" "$([ -d "$REPO_ROOT/skill" ] && echo present || echo absent)" \
   "no legacy skill/ directory"

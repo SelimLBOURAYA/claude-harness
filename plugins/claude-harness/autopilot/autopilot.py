@@ -149,6 +149,11 @@ TEST_FILES = {
     "harness": lambda path: path.startswith("tests/"),
 }
 
+# A gate report's census row is an addition to CLAUDE.md and AGENTS.md that
+# GATE-8 and DOC-1 require, not a change to the lot's scope (lot 36).
+CENSUS_FILES = ("CLAUDE.md", "AGENTS.md")
+CENSUS_ROW = re.compile(r"^\|\s*`docs/audits/[^`]+`\s*\|")
+
 
 class Stop(Exception):
     """A stop: the reason, the step a --resume starts from, and the answer.
@@ -200,6 +205,33 @@ def changed_files(root, base, head="HEAD"):
 
 def committed(root, path):
     return git(root, "cat-file", "-e", "HEAD:" + path) is not None
+
+
+def census_only(root, path, base, head="HEAD"):
+    """True when base..head only adds census rows for docs/audits/ to path.
+
+    A removed or modified line, or an added line that is not such a row, makes
+    it false: any other change to the two files still stops the run (lot 36).
+    """
+    diff = git(root, "diff", "--no-color", "--no-ext-diff", "-U0",
+               "%s..%s" % (base, head), "--", path) or ""
+    added = 0
+    in_hunk = False
+    for line in diff.splitlines():
+        # Header lines come before the first hunk only: inside a hunk, a line
+        # starting with "---" or "+++" is a removed or added line.
+        if line.startswith("@@"):
+            in_hunk = True
+            continue
+        if not in_hunk:
+            continue
+        if line.startswith("-"):
+            return False
+        if line.startswith("+"):
+            if not CENSUS_ROW.match(line[1:]):
+                return False
+            added += 1
+    return added > 0
 
 
 def exclude_state(root):
@@ -489,6 +521,7 @@ class Pilot:
         outside = [
             path for path in changed_files(self.root, before)
             if not allowed(path) and path != friction
+            and not (path in CENSUS_FILES and census_only(self.root, path, before))
         ]
         if outside:
             raise Stop("test: lot-test committed non-test files: " + ", ".join(outside), "test")
@@ -521,6 +554,7 @@ class Pilot:
         outside = [
             path for path in changed_files(self.root, before)
             if path not in lot_diff and not path.startswith("docs/audits/") and path not in allowed
+            and not (path in CENSUS_FILES and census_only(self.root, path, before))
         ]
         if outside:
             raise Stop("%s: a commit touches files outside the lot's diff: %s"

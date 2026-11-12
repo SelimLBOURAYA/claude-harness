@@ -62,12 +62,6 @@ docs/audits/                         lot audit reports
 docs/audits/portfolio/               cross-cutting portfolio audits (P4, P5, P6)
 ```
 
-## Freeze
-
-Since lot 24 the harness changes only for (a) a broken CI or a security flaw, or
-(b) an incident on a project that cost real time. A friction entry no longer
-opens a lot. Every change is still a lot with the full gate.
-
 ## Branching and delivery
 
 Standard §7 model: `main` is what the consuming repos actually run, `develop` is
@@ -112,7 +106,7 @@ Every blocking invariant is also enforced in CI, which is the only agent-agnosti
 | [`AGENTS.md`](AGENTS.md) | Byte-identical mirror of `CLAUDE.md` |
 | [`CONVENTIONS.md`](CONVENTIONS.md) | **Master** of the cross-cutting conventions (lot 5) |
 | [`README.md`](README.md) | Plugin installation, the two owner settings that make the harness consumable, gate parameters contract |
-| [`dev-plan.md`](dev-plan.md) | Remediation plan — lots, decisions, findings matrices (French) |
+| [`dev-plan.md`](dev-plan.md) | Lots plan — status table, decisions in force, open lots (French) |
 | [`docs/memory.md`](docs/memory.md) | Project memory: working notes read by `lot-start`, amended at the close of development (MEM-1) |
 | [`projects.json`](projects.json) | The portfolio: projects and harness-managed files that `sync-projects.yml` keeps current |
 | `plugins/claude-harness/skills/bootstrap-project/SKILL.md` | New project generation skill |
@@ -186,6 +180,8 @@ Every blocking invariant is also enforced in CI, which is the only agent-agnosti
 | `docs/audits/lot-35-friction.md` | Lot 35 friction record — what each gate skill's own run cost |
 | `docs/audits/lot-35-review.md` | Lot 35 code-review report |
 | `docs/audits/lot-35.md` | Lot 35 audit report — security, performance, architecture |
+| `docs/audits/lot-36-review.md` | Lot 36 code-review report |
+| `docs/audits/lot-36.md` | Lot 36 audit report — security, performance, architecture |
 | `docs/audits/portfolio/p4-meta-harness-2026-09-17-v2.md` | P4 portfolio audit (supersedes the removed morning v1) |
 | `docs/audits/portfolio/p5-harness-cicd-2026-09-17.md` | P5 CI/CD guards audit |
 | `docs/audits/portfolio/p6-meta-portfolio-2026-09-17.md` | P6 cross-cutting portfolio audit |

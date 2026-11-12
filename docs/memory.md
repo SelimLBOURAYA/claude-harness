@@ -21,8 +21,9 @@
   session per step; the `integration` step runs the repo's `Integration
   command` itself, the session then writes the report from its log (lot 32);
   `step_ship` removes the lot lock once the PR is `MERGED` (lot 35: headless
-  cannot write `.claude/`); `tests/autopilot.test.sh` fakes
-  `claude`, `gh`, `notify-send`.
+  cannot write `.claude/`); gate checks accept census-only additions to
+  `CLAUDE.md`/`AGENTS.md` (lot 36); `tests/autopilot.test.sh` fakes `claude`,
+  `gh`, `notify-send`.
 - `templates/project/`: skeleton for `bootstrap-project`; its
   `.claude/settings.json` holds the master permission rules (lot 33).
 - `.github/workflows/`: reusable workflows; `sync-projects.yml` pushes the
@@ -34,8 +35,6 @@
   `develop` → `main`. Skills read `CONVENTIONS.md`, the plugin version and the
   memory template from `origin/main`, never the working tree (lot 24);
   `bootstrap-project` copies `templates/project/` from it.
-- Freeze since lot 24: a change needs a broken CI, a security flaw or a real
-  incident; lots 26, 27, 30 and 33 are user-decided exceptions.
 - Skills and docs cite a rule by ID, never restate it (lot 24).
 - `CONVENTIONS.md` stays within 15225 bytes (15134 after lot 35), English,
   no dated story; a new ID prefix goes in the citation regex of its test.

@@ -119,6 +119,12 @@ EOF
 out=$(sync "$P")
 assert_eq "9" "$(field "$out" '.candidate')" "paused and frozen rows are not candidates"
 
+# --- 3b. the real lots plan stays machine-readable (lot 36) ---------------
+R=$(new_repo realplan < "$REPO_ROOT/dev-plan.md")
+out=$(sync "$R")
+assert_eq "lots.md" "$(field "$out" '.lots_file')" \
+  "the rewritten dev-plan.md parses as a status table"
+
 # --- 4. a done row with no trace on develop is a stop ---------------------
 D=$(new_repo done-no-merge <<'EOF'
 | Lot | Branche | Statut |
