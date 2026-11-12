@@ -638,10 +638,11 @@ def main(argv=None):
             base_env = json.load(handle).get("env") or {}
     except (OSError, ValueError):
         base_env = {}
-    if base_env.get("ANTHROPIC_BASE_URL") or os.environ.get("ANTHROPIC_BASE_URL"):
+    if "deepseek" in (lotfile.profile(base_env.get("ANTHROPIC_BASE_URL")),
+                      lotfile.profile(os.environ.get("ANTHROPIC_BASE_URL"))):
         return refuse(
-            "ANTHROPIC_BASE_URL is set: --settings cannot remove it, so the Claude steps "
-            "would run elsewhere. Run `claude-profile claude` first."
+            "ANTHROPIC_BASE_URL names another host than api.anthropic.com: --settings cannot "
+            "remove it, so the Claude steps would run elsewhere. Run `claude-profile claude` first."
         )
 
     if args.dry_run:
