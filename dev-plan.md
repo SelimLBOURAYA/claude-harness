@@ -57,6 +57,7 @@
 | 28 | `feat/lot-28-autopilot-lot-answers` | A – Harness | Autopilot : lot nommé par `--lot N`, réponses aux questions de `lot-start` par `--resume --answer`, lancement depuis un terminal | claude-harness, les 8 repos (via `main`) | ✅ |
 | 29 | `feat/lot-29-autopilot-confirm-handoff` | A – Harness | Autopilot : la passation `lot-start confirm N` de `lot-start` n'est plus prise pour une question, l'autopilot envoie la confirmation | claude-harness, les 8 repos (via `main`) | ✅ |
 | 30 | `feat/lot-30-plugin-update-before-lot` | A – Harness | `lot-start` met à jour le plugin du repo (`claude plugin update … --scope project`) avant tout lot, et arrête la session quand la version a changé | claude-harness, les 8 repos (via `main`) | ✅ |
+| 32 | `feat/lot-32-autopilot-integration` | A – Harness | Autopilot : étape `integration` qui lance la commande `Integration command` du frontend contre le vrai backend et fait rédiger le rapport, contrôle de fraîcheur du rapport avant `ship` | claude-harness, les 8 repos (via `main`) | ⬜ |
 | 33 | `feat/lot-33-ponytail-guards` | A – Harness | Skill `ponytail` (le plus petit changement complet) avec son renvoi `CODE-6` dans `CONVENTIONS.md` ; durcissement des gardes repris du lot 31 : formes shell que `git-guard.py` laisse passer, refus de permissions, signal de profil, contrôle des Critical ouverts | claude-harness, les 8 repos (via `main` et la PR de synchro) | ✅ |
 
 Légende des statuts *(P6-D10)* : ⬜ à faire · 🔄 en cours (livré sur la branche, PR non
@@ -2778,6 +2779,95 @@ revues et audits des lots 19, 24 et 25.
   destructeurs en local seulement, non gardés aujourd'hui.
 - Le constat 7 : aucun changement de skill ; la lecture du diff à la promotion
   `develop` → `main` reste le contrôle humain.
+
+---
+
+## LOT 32 — Autopilot : étape `integration` automatisée ⬜
+
+Branche `feat/lot-32-autopilot-integration`, depuis `develop`. Repo touché :
+`claude-harness`. Les 8 repos en héritent à la promotion `develop` → `main`.
+
+### Origine
+
+Demande de l'utilisateur du 2026-11-11 (gel levé par sa demande explicite),
+pendant le lot 7 d'elya-frontend. Aujourd'hui `integration-check` est manuel et
+l'autopilot ne le lance pas : `step_ship` vérifie seulement que
+`docs/audits/lot-0-integration.md` existe (`autopilot.py`, `step_ship`). Deux
+conséquences :
+
+- un rapport ancien suffit à passer `ship` : celui d'elya-frontend date du
+  2026-10-15 (lot 6) et ne couvre pas l'upload de médias du lot 7 ;
+- le dernier rapport note que l'UI n'a pas été exercée : le scénario joué à la
+  main n'est pas reproductible.
+
+Le lot 7 d'elya-frontend a ajouté un e2e Playwright contre le vrai backend
+(`npm run e2e`, `e2e/reset-fixtures.sql`) : le scénario de la Step 3 du skill
+peut devenir une commande.
+
+### Livrables
+
+1. **Paramètre de gate `Integration command`** : la commande du repo qui
+   démarre le vrai backend, joue le scénario et rend un code de sortie ;
+   `n/a` quand le repo n'en a pas. Ajouté à DOC-5 (`CONVENTIONS.md`), au
+   contrat du `README.md`, à `templates/project/CLAUDE.md` et son miroir, au
+   `CLAUDE.md` de ce repo (`n/a`), et lu par `lotfile.py`.
+2. **`autopilot.py`, étape `integration`**, entre `audit` et `ship`, seulement
+   quand `Stack` vaut `frontend` et que `Integration command` n'est ni absent
+   ni `n/a` :
+   - l'autopilot lance lui-même la commande (sous-processus, pas une session),
+     sortie dans `~/.claude/autopilot/<projet>/<date>-lot-N-integration.log`,
+     délai maximal de 20 min ;
+   - code de sortie non nul ou délai dépassé → `Stop("integration: ...")` avec
+     le chemin du log, reprise à `integration` ;
+   - code 0 → une session `/claude-harness:integration-check` rédige le
+     rapport à partir du log, puis l'autopilot vérifie qu'il est committé,
+     comme `gate_step`.
+3. **Contrôle de fraîcheur dans `step_ship`** : quand `Integration command`
+   est renseigné, `docs/audits/lot-0-integration.md` doit figurer dans le diff
+   `develop...HEAD` du lot ; sinon arrêt. Sans commande, le contrôle
+   d'existence actuel reste tel quel.
+4. **Skill `integration-check`, section `Autopilot`** : quand
+   `HARNESS_AUTOPILOT` est défini, ne pas rejouer les Steps 1 à 3 ; lire le
+   log, remplir le scénario et la comparaison des contrats à partir de lui,
+   verdict `Fail` interdit sur un code 0 et `Pass` interdit sur un scénario
+   partiel, puis Step 6 (commit seul). Le skill cesse de se dire « manuel »
+   dans sa description quand une commande existe.
+5. **Conventions** : GATE-7 dit que l'autopilot lance `integration-check`
+   quand `Integration command` est renseigné ; `rules/deepseek.json` régénéré.
+6. **Tests** : `tests/autopilot.test.sh` (étape présente pour un frontend avec
+   commande, absente pour un backend et pour `n/a` ; arrêt sur code non nul ;
+   arrêt de `ship` sur un rapport hors du diff du lot ; `--dry-run` affiche
+   l'étape), `tests/skills.test.sh` (section `Autopilot` du skill),
+   `tests/skeleton.test.sh` et `tests/conventions.test.sh` (nouvelle ligne).
+7. **Mémoire** : `docs/memory.md`, étape `integration` et son paramètre.
+
+### Arbitrages (2026-11-11, à la rédaction, à confirmer par l'utilisateur)
+
+| Sujet | Décision proposée |
+|---|---|
+| Backend déployé ou local | Local : le rapport exige un SHA backend connu, le script de remise à zéro des données ne doit pas viser un environnement partagé, et l'autopilot ne doit pas dépendre d'un hôte absent |
+| Qui lance la commande | `autopilot.py` en sous-processus, pas une session : rien à ajouter à `allowed_tools()`, résultat déterministe |
+| Fréquence | À chaque lot frontend dont le repo déclare la commande ; pas de détection « le contrat a changé » |
+| Position | Après `audit`, avant `ship` : le code du lot est figé |
+| Ligne absente des 8 repos | Absente = `n/a` pour l'autopilot ; `harness-invariants.yml` **n'exige pas** la ligne dans ce lot, sinon les 8 repos passent au rouge à la promotion. L'exigence viendra dans un lot ultérieur, après adoption |
+| Comparaison des contrats | Reste un jugement de la session, à partir du log ; le lot n'impose pas de format de trace réseau |
+
+### Critères de validation
+
+- `./tests/run.sh` vert, nouveaux cas inclus.
+- `autopilot.py --dry-run` sur un frontend avec commande liste
+  `start, dev, test, review, audit, integration, ship` ; sur un backend, la
+  séquence actuelle.
+- Version du plugin bumpée (job `plugin-version`).
+
+### Hors périmètre
+
+- Le script d'elya-frontend qui démarre le backend `elya` (worktree de
+  `origin/develop`, `docker compose`, attente du `Health path`, remise à zéro
+  des fixtures) et sa ligne `Integration command` : lot du repo elya-frontend.
+- Un environnement de staging déployé.
+- Le e2e dans la CI GitHub.
+- L'exigence de la ligne `Integration command` dans `harness-invariants.yml`.
 
 ---
 
