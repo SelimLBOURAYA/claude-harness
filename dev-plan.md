@@ -60,6 +60,7 @@
 | 32 | `feat/lot-32-autopilot-integration` | A – Harness | Autopilot : étape `integration` qui lance la commande `Integration command` du frontend contre le vrai backend et fait rédiger le rapport, contrôle de fraîcheur du rapport avant `ship` | claude-harness, les 8 repos (via `main`) | ✅ |
 | 33 | `feat/lot-33-ponytail-guards` | A – Harness | Skill `ponytail` (le plus petit changement complet) avec son renvoi `CODE-6` dans `CONVENTIONS.md` ; durcissement des gardes repris du lot 31 : formes shell que `git-guard.py` laisse passer, refus de permissions, signal de profil, contrôle des Critical ouverts | claude-harness, les 8 repos (via `main` et la PR de synchro) | ✅ |
 | 34 | `feat/lot-34-autopilot-watch` | A – Harness | Autopilot : suivi en direct dans le terminal, une ligne par appel d'outil avec l'heure, l'étape et le modèle, lancé avec l'autopilot | claude-harness, les 8 repos (via `main`) | ⬜ |
+| 35 | `feat/lot-35-headless-ship` | A – Harness | Autopilot : le verrou de lot retiré par l'autopilot après le merge, et une règle « une commande simple par appel Bash » portée par la carte deepseek | claude-harness, les 8 repos (via `main` et la PR de synchro) | ⬜ |
 
 Légende des statuts *(P6-D10)* : ⬜ à faire · 🔄 en cours (livré sur la branche, PR non
 mergée) · ✅ mergé sur `develop` · ⏸️ planifié mais dormant · ❄️ gelé.
@@ -2928,6 +2929,59 @@ devant un sous-agent). L'utilisateur ne veut plus de copie locale.
 - L'heure sur les lignes propres d'`autopilot.py`.
 - Une option pour désactiver le suivi.
 - La mise à jour du skill perso `autopilot-run`, hors dépôt.
+
+---
+
+## LOT 35 — Autopilot : `ship` sans blocage en headless ⬜
+
+Branche `feat/lot-35-headless-ship`, depuis `develop`. Repo touché :
+`claude-harness`. Les 8 repos en héritent à la promotion `develop` → `main`, et
+reçoivent `CONVENTIONS.md` par la PR de synchro.
+
+### Origine
+
+Incident du 2026-11-12, lot 7 d'elya-frontend sous l'autopilot (critère (b) du
+gel, et demande explicite de l'utilisateur). La PR #37 est fusionnée, mais
+l'étape `ship` finit `blocked` :
+
+1. **Verrou** : `lot-ship` supprime `.claude/current-lot` par
+   `rm -f "$(git rev-parse --show-toplevel)/.claude/current-lot"`. La session
+   headless refuse la substitution, puis le `rm` en chemin littéral : Claude Code
+   protège en écriture tout `.claude/`, même en `acceptEdits`, et `-p` ne peut
+   pas demander. `autopilot.py` s'arrête alors sur « the lot lock is still
+   present ». Chaque `ship` de l'autopilot finit ainsi.
+2. **Commandes composées** : une dizaine de refus dans la même étape
+   (`$VAR`, `$(...)`, pipe vers `head`/`tail`/`jq`, redirection vers `/tmp`),
+   chacun suivi d'un nouvel essai en commande simple.
+
+### Livrables
+
+1. **`autopilot.py`, `step_ship`** : une fois la PR `MERGED` constatée,
+   l'autopilot supprime lui-même `lotfile.LOCK_PATH` s'il existe, au lieu de
+   s'arrêter. Le skill `lot-ship` garde son `rm` pour l'usage interactif, et dit
+   que sous l'autopilot c'est l'autopilot qui le retire.
+2. **`CONVENTIONS.md`** : une règle à identifiant, une commande simple par appel
+   Bash (ni `$(...)`, ni `$VAR` non posée, ni chaîne `&&`/`;`/`|`, ni
+   redirection hors du dépôt), raison incluse : une session headless refuse ce
+   qu'elle ne peut pas vérifier.
+3. **Carte deepseek** : l'identifiant ajouté à `rules/deepseek.json`, texte
+   régénéré par `deepseek-card.py`, budget respecté (`--check`).
+4. **Tests** : `tests/autopilot.test.sh` : PR `MERGED` et verrou présent → le
+   verrou est retiré et l'étape passe ; PR non `MERGED` → le verrou reste.
+5. **Documentation** : `docs/memory.md`, version du plugin bumpée.
+
+### Critères de validation
+
+- `./tests/run.sh` vert, nouveaux cas inclus.
+- `deepseek-card.py --check` vert.
+- Version du plugin bumpée (job `plugin-version`).
+
+### Hors périmètre
+
+- La branche de lot en retard sur `develop` (`CONVENTIONS.md` périmé,
+  `harness-invariants` rouge, rattrapé par un merge de `develop` dans le même
+  run) : constat 2 du diagnostic, non retenu par l'utilisateur.
+- Les autres `$(...)` des skills (`--match-head-commit "$(git rev-parse HEAD)"`).
 
 ---
 
