@@ -51,7 +51,8 @@ PLUGIN_UPDATE = "claude plugin update claude-harness@claude-harness --scope proj
 DENIED_TOOLS = (
     ["Bash(%s %s)" % (prefix, form)
      for prefix in ("git push", "rtk git push", "rtk proxy git push")
-     for form in ("* main", "* main *", "*:main", "*:main *", "*--force*", "-f*", "* -f*",
+     for form in ("* main", "* main *", "*:main", "*:main *", "*:refs/heads/main", "*:refs/heads/main *",
+                  "*--force*", "-f*", "* -f*",
                   "* +*", "*--mirror*", "*--all*", "*--branches*", "*--prune*")]
     + ["Bash(%s %s)" % (prefix, form)
        for prefix in ("gh api", "rtk gh api", "rtk proxy gh api")

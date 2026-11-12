@@ -60,7 +60,7 @@ assert_eq "true" "$(jq -r '.enabledPlugins["claude-harness@claude-harness"]' "$S
 # Code matches it, and none opens on a `*`, which would deny a commit message
 # that quotes the command.
 deny=$(jq -r '.permissions.deny[]' "$S")
-for form in '* main' '*:main' '*--force*' '-f*' '* +*' '*--mirror*' '*--all*' '*--branches*' '*--prune*'; do
+for form in '* main' '*:main' '*:refs/heads/main' '*--force*' '-f*' '* +*' '*--mirror*' '*--all*' '*--branches*' '*--prune*'; do
   for prefix in 'git push' 'rtk git push' 'rtk proxy git push'; do
     assert_ok "the skeleton denies $prefix $form" -- grep -qxF "Bash($prefix $form)" <<< "$deny"
   done
