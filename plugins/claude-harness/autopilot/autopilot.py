@@ -62,6 +62,9 @@ DENIED_TOOLS = (
 # A ceiling against a session that never ends (a loop on a red test, a stuck
 # CI), not a target. The environment override exists for the tests only.
 STEP_TIMEOUT = int(os.environ.get("AUTOPILOT_STEP_TIMEOUT", "1800"))
+# The Integration command's own ceiling: twenty minutes (lot 32). Override for the tests.
+INTEGRATION_TIMEOUT = int(os.environ.get("AUTOPILOT_INTEGRATION_TIMEOUT", "1200"))
+INTEGRATION_REPORT = "docs/audits/lot-0-integration.md"
 
 OPUS = ("--model", "claude-opus-5-5", "--effort", "medium")
 PROFILES = {"claude": "settings.claude.json", "deepseek": "settings.deepseek.json"}
@@ -74,6 +77,7 @@ MODELS = {
     "fix": ("DeepSeek", (), "deepseek"),
     "review": ("Opus", OPUS, "claude"),
     "audit": ("Opus", OPUS, "claude"),
+    "integration": ("Opus", OPUS, "claude"),
     "ship": ("DeepSeek", (), "deepseek"),
 }
 SEQUENCE = ("start", "dev", "test", "review", "audit", "ship")
@@ -99,6 +103,7 @@ PROMPTS = {
     "fix": FIX_PROMPT,
     "review": "/claude-harness:lot-review",
     "audit": "/claude-harness:lot-audit",
+    "integration": "/claude-harness:integration-check {log}",
     "ship": "/claude-harness:lot-ship",
 }
 
@@ -171,6 +176,20 @@ def validation_command(params):
     """The Validation command of the Gate parameters, None when it does not apply."""
     validation = params.get("Validation command", "")
     return validation if validation and validation.lower() != "n/a" else None
+
+
+def integration_command(params):
+    """The Integration command of the Gate parameters, None when it does not apply."""
+    command = params.get("Integration command", "")
+    return command if command and command.lower() != "n/a" else None
+
+
+def steps(params):
+    """The step sequence: `integration` between `audit` and `ship` where it applies (lot 32)."""
+    order = list(SEQUENCE)
+    if params.get("Stack") == "frontend" and integration_command(params):
+        order.insert(order.index("ship"), "integration")
+    return order
 
 
 def changed_files(root, base, head="HEAD"):
@@ -300,6 +319,11 @@ class Pilot:
         date = datetime.date.today().isoformat()
         return os.path.join(self.logs, "%s-lot-%s-%s.jsonl" % (date, self.lot or "new", step))
 
+    def integration_log(self):
+        """The Integration command's output log, read by the integration-check session."""
+        date = datetime.date.today().isoformat()
+        return os.path.join(self.logs, "%s-lot-%s-integration.log" % (date, self.lot or "new"))
+
     def answered_session(self, step, text):
         """Resume the stopped session with the owner's answers (lot 28).
 
@@ -323,7 +347,7 @@ class Pilot:
         """Run one step's session; returns its structured answer, or stops."""
         cmd = command(step, self.home, resume) + allowed_tools(self.params, self.home)
         if prompt is None:
-            prompt = PROMPTS[step].format(lot=self.lot)
+            prompt = PROMPTS[step].format(lot=self.lot, log=self.integration_log())
         env = dict(os.environ, HARNESS_AUTOPILOT="1")
         path = self.log_path(step)
         os.makedirs(self.logs, exist_ok=True)
@@ -517,12 +541,47 @@ class Pilot:
     def step_audit(self):
         self.gate_step("audit", "docs/audits/lot-%s.md" % self.lot, "ship")
 
+    def step_integration(self):
+        """Run the repo's Integration command, then have the report written (lot 32).
+
+        The command runs here, never in a session: its result is deterministic
+        and nothing joins `allowed_tools()`. A non-zero exit or the timeout stops
+        the run with the log's path; the session then fills the report from it,
+        and `gate_step` checks the report is committed.
+        """
+        command = integration_command(self.params)
+        path = self.integration_log()
+        os.makedirs(self.logs, exist_ok=True)
+        print("autopilot: integration `%s`, log %s" % (command, path), flush=True)
+        with open(path, "w", encoding="utf-8") as out:
+            proc = subprocess.Popen(
+                command, shell=True, cwd=self.root, stdout=out,
+                stderr=subprocess.STDOUT, text=True, start_new_session=True,
+            )
+            try:
+                code = proc.wait(timeout=INTEGRATION_TIMEOUT)
+            except subprocess.TimeoutExpired:
+                # Its own process group, as for a session: the command's children die with it.
+                os.killpg(proc.pid, signal.SIGKILL)
+                proc.wait()
+                code = "timeout"
+        if code != 0:
+            raise Stop("integration: `%s` %s, log %s"
+                       % (command, "timed out" if code == "timeout" else "exited %s" % code, path),
+                       "integration")
+        self.gate_step("integration", INTEGRATION_REPORT, "ship")
+
     def step_ship(self):
-        integration = "docs/audits/lot-0-integration.md"
-        if self.params.get("Stack") == "frontend" and not os.path.isfile(
-            os.path.join(self.root, integration)
-        ):
-            raise Stop("ship: frontend without %s; run integration-check by hand" % integration, "ship")
+        if self.params.get("Stack") == "frontend":
+            if integration_command(self.params):
+                develop = lotfile.develop_ref(self.root) or "origin/develop"
+                diff = (git(self.root, "diff", "--name-only", "%s...HEAD" % develop) or "").splitlines()
+                if INTEGRATION_REPORT not in diff:
+                    raise Stop("ship: %s is not part of the lot's diff; run integration"
+                               % INTEGRATION_REPORT, "ship")
+            elif not os.path.isfile(os.path.join(self.root, INTEGRATION_REPORT)):
+                raise Stop("ship: frontend without %s; run integration-check by hand"
+                           % INTEGRATION_REPORT, "ship")
         self.expect_ok("ship", self.session("ship"))
         state = subprocess.run(
             ["gh", "pr", "view", self.state["branch"], "--json", "state", "--jq", ".state"],
@@ -534,7 +593,8 @@ class Pilot:
             raise Stop("ship: the lot lock .claude/current-lot is still present", "ship")
 
     def run(self, first):
-        for step in SEQUENCE[SEQUENCE.index(first):]:
+        order = steps(self.params)
+        for step in order[order.index(first):]:
             self.state["step"] = step
             getattr(self, "step_" + step)()
 
@@ -649,10 +709,13 @@ def main(argv=None):
     if args.dry_run:
         long_values = {json.dumps(SCHEMA): "<schema>", SYSTEM_PROMPT: "<system prompt>"}
         print("<schema> = %s\n<system prompt> = %s\n" % (json.dumps(SCHEMA), SYSTEM_PROMPT))
-        for step in SEQUENCE[:3] + ("fix",) + SEQUENCE[3:]:
+        order = steps(params)
+        order.insert(order.index("test") + 1, "fix")
+        for step in order:
             session = "<lot-start session>" if step == "dev" else None
             cmd = [long_values.get(arg, arg) for arg in command(step, home, session) + allowed_tools(params, home)]
-            prompt = start_prompt(args.lot) if step == "start" else PROMPTS[step].format(lot="<N>")
+            prompt = start_prompt(args.lot) if step == "start" else \
+                PROMPTS[step].format(lot="<N>", log="<integration log>")
             print("%-6s %-8s %s <<< %s" % (step, MODELS[step][0], " ".join(cmd), prompt))
         return 0
 

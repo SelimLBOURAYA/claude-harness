@@ -28,6 +28,7 @@ since lot 5) and are not repeated here. This file holds what is specific to this
 | `Migrations directory` | n/a |
 | `Lots file` | `dev-plan.md` |
 | `Frontend backend pair` | n/a |
+| `Integration command` | n/a |
 | `Health path` | n/a |
 | `Dist forbidden pattern` | n/a |
 | `Image name` | n/a |

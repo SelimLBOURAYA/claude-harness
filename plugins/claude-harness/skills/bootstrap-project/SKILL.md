@@ -28,6 +28,7 @@ rather than guess. Every one of these lands in a file that later gates the build
 | `Coverage tool`, `Coverage threshold`, `Coverage exclusions` | `lot-test`, `lot-audit` |
 | `Migrations directory` (or `n/a`) | `migrations-immutable.yml` |
 | `Frontend backend pair` (or `n/a`) | `integration-check` |
+| `Integration command` (or `n/a`) | the autopilot's `integration` step, `integration-check` |
 | `Health path`, `Image name` (backend) | `image-smoke.yml`, `image-publish.yml` |
 | `Dist forbidden pattern` (frontend) | `frontend-dist.yml` |
 | Language, framework, database, build tool | `CLAUDE.md` Stack table |

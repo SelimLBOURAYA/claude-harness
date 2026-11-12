@@ -1,10 +1,11 @@
 ---
 name: integration-check
 description: >-
-  Runs the manual smoke test of a frontend against its real backend and writes
-  docs/audits/lot-0-integration.md, which every frontend PR requires. Use before
-  the first frontend PR, when the API contract changed, or when the user
-  mentions integration, the real backend, end-to-end or the contract.
+  Runs the smoke test of a frontend against its real backend, by hand or through
+  the repo's Integration command, and writes docs/audits/lot-0-integration.md,
+  which every frontend PR requires. Use before the first frontend PR, when the
+  API contract changed, or when the user mentions integration, the real backend,
+  end-to-end or the contract.
 metadata:
   version: "2.0"
 ---
@@ -13,8 +14,9 @@ metadata:
 
 A green frontend unit suite proves the components talk correctly to **mocks**,
 not that the application works against the real API: field names, status codes
-and payload shapes only meet the backend here. This skill is a **manual** smoke
-test with a written deliverable.
+and payload shapes only meet the backend here. This skill is a smoke test with a
+written deliverable, run by hand or, when the repo declares an `Integration
+command`, by the autopilot from the command's log.
 
 ## When it is required
 
@@ -34,6 +36,7 @@ Re-run this skill, and update the deliverable, whenever:
 | Parameter | Used for |
 |---|---|
 | `Frontend backend pair` | Which repository to start as the backend |
+| `Integration command` | The command the autopilot runs; its log feeds the Autopilot section |
 | `Health path` | The backend readiness probe to poll |
 | `Dist forbidden pattern` | The string that must not survive into a production build |
 
@@ -161,6 +164,27 @@ propose it, and wait for approval before editing that file.
    ```
 
 4. Do not push: the push belongs to `lot-ship`.
+
+## Autopilot
+
+Applies only when `printenv HARNESS_AUTOPILOT` prints `1`: the autopilot script
+sets it, and a model's account of the session is never the signal. The autopilot
+has already run the repo's `Integration command` and passes the path of its log
+in the prompt. No owner is present, so Steps 1 to 3 are never replayed:
+
+- **Read the log**, never re-run the command: it holds the command's output, the
+  scenario it exercised and its outcome.
+- Fill the scenario table and the contract comparison (Step 4) from that log,
+  one row per scenario step, with what the log proves and nothing more.
+- Verdicts: `Fail` is forbidden when the command exited 0, and `Pass` is
+  forbidden on a partially exercised scenario. A step the log does not cover is
+  `not exercised by the command`, and the verdict falls to `Pass with findings`
+  at best.
+- Then **Step 6 only**: `Validation command` green, the report committed alone
+  with `docs: add the integration check report`. A contract mismatch or a failed
+  scenario is a finding in the report, never a reason to re-run the command.
+- The autopilot then checks the report is committed, and `ship` stops a lot
+  whose report is not in its diff.
 
 ## Rules
 

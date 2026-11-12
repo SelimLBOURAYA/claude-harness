@@ -169,6 +169,20 @@ for skill in lot-review lot-audit; do
   assert_contains "$section" "rejected: minor (autopilot)" "$skill: an ignored finding keeps its row"
 done
 
+# --- integration-check under the autopilot (lot 32) -----------------------
+# The command already ran; the session reads its log instead of replaying the
+# manual steps, and its verdict may not contradict the exit code.
+SECTION=$(sed -n '/^## Autopilot$/,/^## /p' "$SKILLS/integration-check/SKILL.md")
+assert_contains "$SECTION" "HARNESS_AUTOPILOT" "integration-check: the Autopilot section keys on HARNESS_AUTOPILOT"
+assert_contains "$SECTION" "Steps 1 to 3 are never replayed" "integration-check: the manual steps are not replayed"
+assert_contains "$SECTION" "Read the log" "integration-check: the log feeds the report"
+assert_contains "$SECTION" "\`Fail\` is forbidden" "integration-check: no Fail on a zero exit code"
+assert_contains "$SECTION" "\`Pass\` is" "integration-check: no Pass on a partial scenario"
+assert_contains "$SECTION" "docs: add the integration check report" "integration-check: Step 6 commits the report"
+DESC=$(sed -n '/^description:/,/^metadata:/p' "$SKILLS/integration-check/SKILL.md")
+assert_eq "" "$(grep -i 'manual' <<< "$DESC" || true)" \
+  "integration-check no longer calls itself manual"
+
 # --- ponytail, the smallest complete change (lot 33, CODE-6) --------------
 # The text is adapted from an MIT project, whose licence requires its notice.
 PONY="$SKILLS/ponytail"
