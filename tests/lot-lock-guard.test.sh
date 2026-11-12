@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Exercises the lot write guard (lot 19) against the trapped cases of dev-plan.md.
+# Exercises the lot write guard (lot 19): branches, locks and paths it must deny or allow.
 #
 # Real git repositories in a temp directory: the guard resolves the repository
 # from the written path through git and realpath, and a fake would prove
