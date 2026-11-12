@@ -59,6 +59,7 @@
 | 30 | `feat/lot-30-plugin-update-before-lot` | A – Harness | `lot-start` met à jour le plugin du repo (`claude plugin update … --scope project`) avant tout lot, et arrête la session quand la version a changé | claude-harness, les 8 repos (via `main`) | ✅ |
 | 32 | `feat/lot-32-autopilot-integration` | A – Harness | Autopilot : étape `integration` qui lance la commande `Integration command` du frontend contre le vrai backend et fait rédiger le rapport, contrôle de fraîcheur du rapport avant `ship` | claude-harness, les 8 repos (via `main`) | ✅ |
 | 33 | `feat/lot-33-ponytail-guards` | A – Harness | Skill `ponytail` (le plus petit changement complet) avec son renvoi `CODE-6` dans `CONVENTIONS.md` ; durcissement des gardes repris du lot 31 : formes shell que `git-guard.py` laisse passer, refus de permissions, signal de profil, contrôle des Critical ouverts | claude-harness, les 8 repos (via `main` et la PR de synchro) | ✅ |
+| 34 | `feat/lot-34-autopilot-watch` | A – Harness | Autopilot : suivi en direct dans le terminal, une ligne par appel d'outil avec l'heure, l'étape et le modèle, lancé avec l'autopilot | claude-harness, les 8 repos (via `main`) | ⬜ |
 
 Légende des statuts *(P6-D10)* : ⬜ à faire · 🔄 en cours (livré sur la branche, PR non
 mergée) · ✅ mergé sur `develop` · ⏸️ planifié mais dormant · ❄️ gelé.
@@ -2868,6 +2869,65 @@ peut devenir une commande.
 - Un environnement de staging déployé.
 - Le e2e dans la CI GitHub.
 - L'exigence de la ligne `Integration command` dans `harness-invariants.yml`.
+
+---
+
+## LOT 34 — Autopilot : suivi en direct dans le terminal ⬜
+
+Branche `feat/lot-34-autopilot-watch`, depuis `develop`. Repo touché :
+`claude-harness`. Les 8 repos en héritent à la promotion `develop` → `main`.
+
+### Origine
+
+Demande de l'utilisateur du 2026-11-12 (gel levé par sa demande explicite).
+Pendant un run, l'onglet de l'autopilot n'affiche qu'une ligne par étape
+(`autopilot: ship (DeepSeek), log ...`). Le suivi détaillé vient d'un script
+local hors dépôt, `~/.claude/skills/autopilot-run/watch.py`, lancé à la main
+dans un second onglet : il lit le `.jsonl` de l'étape en cours et affiche une
+ligne par appel d'outil, texte, refus et fin d'étape. Le 2026-11-12, l'heure a
+été ajoutée à chaque ligne de l'historique et le modèle à chaque ligne (`↳`
+devant un sous-agent). L'utilisateur ne veut plus de copie locale.
+
+### Livrables
+
+1. **`plugins/claude-harness/autopilot/watch.py`** : le script local, repris
+   tel quel (bibliothèque standard seule, V6). Chaque ligne porte l'heure
+   (`HH:MM:SS` en direct, `~HH:MM` pour l'historique, faute d'heure par
+   événement dans le journal), l'étape, le modèle (`message.model`, sinon
+   celui de l'événement `init`, `↳` devant un sous-agent) et l'outil ou le
+   texte.
+2. **`autopilot.py` le lance** en processus enfant, dans le même terminal,
+   seulement quand sa sortie standard est un terminal (`isatty`) et hors
+   `--dry-run` ; l'enfant est arrêté à la sortie de l'autopilot, quelle
+   qu'elle soit (merge, arrêt, Ctrl-C).
+3. **Tests** : `tests/autopilot.test.sh` : format d'une ligne (heure, étape,
+   modèle, outil), `↳` sur un sous-agent, modèle de l'`init` sur une ligne de
+   résultat, aucun enfant lancé quand la sortie n'est pas un terminal.
+4. **Documentation** : `README.md` (section autopilot), recensement de
+   `CLAUDE.md` et de son miroir `AGENTS.md`, `docs/memory.md`.
+
+### Arbitrages (2026-11-12, utilisateur)
+
+| Sujet | Décision |
+|---|---|
+| Déroulé | PR de plan, puis développement dans une session ; `lot-test`, `lot-review`, `lot-audit`, `lot-ship` chacun dans une nouvelle session (GATE-7, LOT-7) |
+| Emplacement | À côté d'`autopilot.py` |
+| Lancement | Même terminal, processus enfant de l'autopilot, pas de fenêtre séparée |
+| Copie locale | Supprimée ; le skill perso `autopilot-run` (hors dépôt) pointe vers le plugin après la promotion `develop` → `main` |
+
+### Critères de validation
+
+- `./tests/run.sh` vert, nouveaux cas inclus.
+- Lancé depuis un terminal, `autopilot.py` affiche les lignes de suivi de
+  l'étape en cours sans second onglet ; redirigé vers un fichier, il n'en
+  affiche aucune.
+- Version du plugin bumpée (job `plugin-version`).
+
+### Hors périmètre
+
+- L'heure sur les lignes propres d'`autopilot.py`.
+- Une option pour désactiver le suivi.
+- La mise à jour du skill perso `autopilot-run`, hors dépôt.
 
 ---
 
