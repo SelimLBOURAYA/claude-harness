@@ -9,10 +9,10 @@
 ## Code map
 
 - `plugins/claude-harness/hooks/`: `git-guard.py` (git/gh rules, merge only by
-  `lot-ship`), `lot-lock-guard.py` + `lot-confirm.sh` (write lock opened by the
-  user's `lot-start confirm N`), `session-context.sh` (state, `CAP`/`TABLE_CAP`),
-  `ponytail-context.sh` (CODE-6 text), `lotfile.py` (gate parameters, status
-  table, lock, `profile`), `plugin-currency.py`, `mirror-sync.sh`.
+  `lot-ship`), `lot-lock-guard.py` + `lot-confirm.sh` (write lock, user's
+  `lot-start confirm N`), `session-context.sh` (state, `CAP`/`TABLE_CAP`),
+  `ponytail-context.sh` (CODE-6), `lotfile.py` (parameters, table, lock,
+  `profile`), `plugin-currency.py`, `mirror-sync.sh`.
 - `plugins/claude-harness/skills/<name>/SKILL.md`; `lot-start/sync-status.py`
   maps develop merges to status rows.
 - `CONVENTIONS.md`: master of the rules; `.github/scripts/deepseek-card.py`
@@ -20,48 +20,46 @@
 - `plugins/claude-harness/autopilot/autopilot.py`: one lot, a `claude -p`
   session per step; the `integration` step runs the repo's `Integration
   command` itself, the session then writes the report from its log (lot 32);
-  `tests/autopilot.test.sh` fakes `claude`, `gh`, `notify-send`.
+  `step_ship` removes the lot lock once the PR is `MERGED` (lot 35, the headless
+  session cannot write under `.claude/`); `tests/autopilot.test.sh` fakes
+  `claude`, `gh`, `notify-send`.
 - `templates/project/`: skeleton for `bootstrap-project`; its
   `.claude/settings.json` holds the master permission rules (lot 33).
 - `.github/workflows/`: reusable workflows; `sync-projects.yml` pushes the
   `synced_files` and the `permissions` key (`synced_permissions`) to the 8 repos.
-- `tests/run.sh` runs every `tests/*.test.sh` (helpers in `tests/lib.sh`).
 
 ## Decisions
 
-- Consumers run `main`; nothing reaches the 8 repos before the user promotes
+- Consumers run `main`: nothing reaches the 8 repos before the user promotes
   `develop` → `main`. Skills read `CONVENTIONS.md`, the plugin version and the
   memory template from `origin/main`, never the working tree (lot 24);
-  `bootstrap-project` still copies `templates/project/` from it.
+  `bootstrap-project` copies `templates/project/` from it.
 - Freeze since lot 24: a change needs a broken CI, a security flaw or a real
   incident; lots 26, 27, 30 and 33 are user-decided exceptions.
-- Skills and docs cite a rule by its ID, never restate it (lot 24).
-- `CONVENTIONS.md` stays within 15225 bytes (15000 + CODE-6 and the lot 32
-  additions), English, no dated story; a new ID prefix goes in the citation
-  regex of its test.
+- `CONVENTIONS.md` stays within 15225 bytes (15126 after lot 35), English,
+  no dated story; a new ID prefix goes in the citation regex of its test.
 - Every lot bumps the plugin version in its own commit,
   `chore(N): bump the plugin to X.Y.Z`, in `plugin.json` and both fields of
   `.claude-plugin/marketplace.json`.
 - Lot branches are created `--no-track`: one tracking `develop` sends a bare
   `git push` there (lot 22).
 - `lot-test` writes test files only; the dev session writes the memory (lot 26).
-- Autopilot (lots 27-29): the script checks each step itself, never trusts the
+- Autopilot (lots 27-35): the script checks each step itself, never trusts the
   model's status; `HARNESS_AUTOPILOT=1` turns a guard ask into a deny; allow
-  and deny lists go per process; answers go back into the stopped session,
-  never into the Lots file; the script confirms the lot, after its checks.
+  and deny lists go per process; answers go into the stopped session, never the
+  lots file; it confirms the lot after its checks.
 - Integration (lot 32, owner-confirmed): the backend is local; the command runs
-  in `autopilot.py` as a subprocess, its log under
-  `~/.claude/autopilot/<projet>/`, 20 min at most; the step exists only for
-  `Stack` frontend and a command other than `n/a`, between `audit` and `ship`;
-  at `ship` a frontend with a command needs the report in `develop...HEAD`,
+  in `autopilot.py` as a subprocess, log under `~/.claude/autopilot/<projet>/`,
+  20 min at most; only for `Stack` frontend with a command other than `n/a`,
+  between `audit` and `ship`; at `ship` the report must be in `develop...HEAD`,
   without one the old existence check stays.
 - Profile (lot 33): `lotfile.py profile` is deepseek when the host of
   `ANTHROPIC_BASE_URL` is not `api.anthropic.com`; `lot-review` cites
   `printenv` (no permission prompt).
 - Permission rules (lot 33), second layer behind the guard: Claude Code matches
-  the command the `rtk` hook rewrote, so each rule exists bare and behind `rtk`
-  and `rtk proxy`; none opens on `*`, which would deny a commit message quoting
-  the command. Synced as one key: projects keep their own LSP plugins.
+  the command `rtk` rewrote, so each rule exists bare and behind `rtk`/`rtk
+  proxy`; none opens on `*` (a commit message quoting the command would be
+  denied). Synced as one key: projects keep their own LSP plugins.
 - `git-guard.py` sees through shell keywords and groupings; backticks, `eval`
   and a command name in a variable stay out by decision (lots 25, 33).
 - Claude Code caps a hook's context at 10,000 characters: `ponytail` has its
@@ -69,8 +67,10 @@
 
 ## Pitfalls
 
-- The deepseek card (4500 chars) has a 7-char margin: shorten a carded rule
-  before lengthening one; MEM-1 is off the card (lot 33).
+- The deepseek card (4500 chars) has a 22-char margin after lot 35: a new
+  carded rule costs ~180 chars found in the carded ones; under the autopilot
+  `python3 .github/scripts/*` is denied, so edit it by hand and let
+  `deepseek-card.test.sh` prove the generation.
 - The session runs the installed plugin copy, not the branch: a fix on the
   branch acts only after promotion and update.
 - No local `shellcheck`: CI runs the workflows lint.
