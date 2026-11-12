@@ -89,6 +89,7 @@ It may run as a forked agent writing the tree while this session reads it:
   the lot's specification, a schema change): ask the owner, all in one batch,
   then apply the answers before Step 3. Under the autopilot, see
   [Autopilot](#autopilot) instead.
+- **A fix you write yourself is the smallest complete change** (CODE-6).
 
 A finding about code the lot did not touch becomes a candidate lot in Step 4.
 

@@ -96,6 +96,7 @@ Cross-cutting rules of every project; project-specific rules go to the project's
 - **GATE-7** The lot gate runs once per lot, in order: `lot-start` → development → its close (MEM-1) → `lot-test` → `lot-review` → `lot-audit` → `lot-ship`, with `integration-check` before `lot-ship` on a frontend. Each step is invoked explicitly, except the close, which the development session runs on its own; never skip one, never run two from one invocation.
 - **GATE-8** A gate skill commits its deliverable alone, after a green `Validation command`, before it reports back, and adds it to the census when new: `docs/audits/lot-N-review.md` (`docs(N): add the lot review report`), `docs/audits/lot-N.md` (`docs(N): add the lot audit report`), `docs/audits/lot-0-integration.md` (`docs: add the integration check report`). `lot-deliverables.yml` blocks a pull request without them.
 - **GATE-9** When a gate skill fails or costs work for nothing in its own run, record it in `docs/audits/lot-N-friction.md` under `## <skill>`, each entry opening with the key `` `<skill> / <step>` ``. The lot's own bugs are `lot-review` findings, not friction. No check requires the file.
+- **CODE-6** Smallest complete change: the `ponytail` skill, loaded before the first write of a development; GATE-3, LOT-4 and OUT-0 win over it.
 
 ## 14. Review in a new session, under the claude profile
 
