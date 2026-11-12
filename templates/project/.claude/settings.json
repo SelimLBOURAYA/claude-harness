@@ -10,5 +10,53 @@
   },
   "enabledPlugins": {
     "claude-harness@claude-harness": true
+  },
+  "permissions": {
+    "deny": [
+      "Bash(git push * main)",
+      "Bash(git push * main *)",
+      "Bash(git push *:main)",
+      "Bash(git push *:main *)",
+      "Bash(git push *--force*)",
+      "Bash(git push -f*)",
+      "Bash(git push * -f*)",
+      "Bash(git push * +*)",
+      "Bash(git push *--mirror*)",
+      "Bash(git push *--all*)",
+      "Bash(git push *--branches*)",
+      "Bash(git push *--prune*)",
+      "Bash(rtk git push * main)",
+      "Bash(rtk git push * main *)",
+      "Bash(rtk git push *:main)",
+      "Bash(rtk git push *:main *)",
+      "Bash(rtk git push *--force*)",
+      "Bash(rtk git push -f*)",
+      "Bash(rtk git push * -f*)",
+      "Bash(rtk git push * +*)",
+      "Bash(rtk git push *--mirror*)",
+      "Bash(rtk git push *--all*)",
+      "Bash(rtk git push *--branches*)",
+      "Bash(rtk git push *--prune*)",
+      "Bash(rtk proxy git push * main)",
+      "Bash(rtk proxy git push * main *)",
+      "Bash(rtk proxy git push *:main)",
+      "Bash(rtk proxy git push *:main *)",
+      "Bash(rtk proxy git push *--force*)",
+      "Bash(rtk proxy git push -f*)",
+      "Bash(rtk proxy git push * -f*)",
+      "Bash(rtk proxy git push * +*)",
+      "Bash(rtk proxy git push *--mirror*)",
+      "Bash(rtk proxy git push *--all*)",
+      "Bash(rtk proxy git push *--branches*)",
+      "Bash(rtk proxy git push *--prune*)"
+    ],
+    "ask": [
+      "Bash(gh api *pulls/*/merge*)",
+      "Bash(gh api *git/refs*)",
+      "Bash(rtk gh api *pulls/*/merge*)",
+      "Bash(rtk gh api *git/refs*)",
+      "Bash(rtk proxy gh api *pulls/*/merge*)",
+      "Bash(rtk proxy gh api *git/refs*)"
+    ]
   }
 }

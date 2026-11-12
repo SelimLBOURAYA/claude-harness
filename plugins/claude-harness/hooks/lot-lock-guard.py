@@ -9,11 +9,14 @@ answers with a permission decision:
           of a harnessed repository
   (silence) - everything else, and the normal permission flow applies
 
-The lock is `.claude/current-lot`, written only by the UserPromptSubmit hook
+The lock is `.claude/current-lot`, written by the UserPromptSubmit hook
 lot-confirm.sh when the *user* types `lot-start confirm <N>`. The model cannot
-forge a user prompt, so a lock is a real confirmation. It is bound to the branch
-it was confirmed on (lot 24): a lock left by another branch unlocks nothing, and
-lot-ship removes it once the lot is merged.
+forge a user prompt, and this guard denies a tool write to the lock: against the
+write tools, a lock is a real confirmation. Against Bash it is not (lot 33): a
+command can write the lock itself (`cp`, `mv`, a redirection, `rtk proxy`), and
+this guard never sees it. It is bound to the branch it was confirmed on (lot 24):
+a lock left by another branch unlocks nothing, and lot-ship removes it once the
+lot is merged.
 
 The repository is resolved from the path of the file being written, never from
 the session directory (lesson C3 of lot 18): a session sitting in one clone and

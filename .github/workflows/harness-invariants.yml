@@ -114,6 +114,31 @@ jobs:
           jq -e '.enabledPlugins["claude-harness@claude-harness"] == true' "$settings" > /dev/null \
             || { echo "::error::the claude-harness plugin is declared but not enabled in $settings"; exit 1; }
 
+      # Lot 33: the permission rules are the second layer behind the git guard,
+      # a mechanism that does not depend on its reading of the shell. They are
+      # the harness's own key, kept current by sync-projects.
+      - name: The permission rules match the harness master
+        env:
+          CONVENTIONS_REF: ${{ inputs.conventions_ref }}
+        run: |
+          settings=.claude/settings.json
+          master=.harness-master/templates/project/.claude/settings.json
+          [ -f "$settings" ] || { echo "::error::$settings is missing: the plugin is not declared"; exit 1; }
+          if ! jq -e '(.permissions.deny // []) | length > 0' "$settings" > /dev/null; then
+            echo "::error::$settings carries no permissions.deny list: the git guard has no second layer."
+            echo "Merge the open chore/sync-harness-files pull request, or re-run the sync-projects workflow of claude-harness for this repository."
+            exit 1
+          fi
+          if [ ! -f "$master" ]; then
+            echo "::warning::the harness master at ref $CONVENTIONS_REF is unreachable: the permission rules of $settings are present but not compared."
+            exit 0
+          fi
+          if [ "$(jq -cS '.permissions' "$settings")" != "$(jq -cS '.permissions' "$master")" ]; then
+            echo "::error::the permissions of $settings differ from the harness master (templates/project/.claude/settings.json at ref $CONVENTIONS_REF)."
+            echo "Never edit them by hand: merge the open chore/sync-harness-files pull request, or re-run the sync-projects workflow of claude-harness for this repository."
+            exit 1
+          fi
+
       - name: No legacy skill/ directory
         run: |
           if [ -d skill ]; then
@@ -258,8 +283,10 @@ jobs:
           exit $status
 
       - name: The lots file opens with a status table
+        env:
+          LOTS_FILE: ${{ inputs.lots_file }}
         run: |
-          lots="${{ inputs.lots_file }}"
+          lots="$LOTS_FILE"
           [ -f "$lots" ] || { echo "::error::the lots file '$lots' does not exist"; exit 1; }
 
           header=$(grep -n '^|' "$lots" | head -1)
@@ -287,8 +314,10 @@ jobs:
           fi
 
       - name: The lots file carries no calendar commitment
+        env:
+          LOTS_FILE: ${{ inputs.lots_file }}
         run: |
-          lots="${{ inputs.lots_file }}"
+          lots="$LOTS_FILE"
           # P6-D5: the order of lots is committed, dates are not.
           hits=$(grep -nEi '\b(20[0-9]{2}-[01][0-9]-[0-3][0-9])\b.*\b(deadline|echeance|livraison|cible|target)\b|fenetre de (janvier|fevrier|mars|avril|mai|juin|juillet|aout|septembre|octobre|novembre|decembre)' "$lots" || true)
           if [ -n "$hits" ]; then
