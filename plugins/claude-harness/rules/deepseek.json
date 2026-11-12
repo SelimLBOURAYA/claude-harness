@@ -25,7 +25,7 @@
     },
     {
       "id": "LOT-7",
-      "rule": "Development closes with `lot-start` Step B3; `lot-test` follows in a new session, any profile, test files only. Then `claude-profile claude` and a new session for `lot-review`, `lot-audit`, `lot-ship`; `lot-review` reads the profile from `lotfile.py`, never a model's account of its identity."
+      "rule": "Development closes with `lot-start` Step B3; `lot-test` follows in a new session, any profile, test files only. Then the user runs `claude-profile claude`, opens a new session for `lot-review`, `lot-audit`, `lot-ship`; `lot-review` reads the profile from `lotfile.py`, never a model's account of its identity."
     },
     {
       "id": "CTX-1",
@@ -33,7 +33,7 @@
     },
     {
       "id": "GATE-1",
-      "rule": "During development, run only the targeted tests of the changed code. Run the full `Validation command` of the project `CLAUDE.md` once, before each commit."
+      "rule": "During development, run only the targeted tests of the changed code. Run the full `Validation command` of `CLAUDE.md` once, before each commit."
     },
     {
       "id": "GATE-2",
@@ -61,7 +61,7 @@
     },
     {
       "id": "CODE-1",
-      "rule": "Constructor injection only, never `@Autowired` on a field. No `System.out.println` or `console.log` (use the project logger), no silent `catch` (log with context, ideally rethrow typed), no commented-out code, no hard-coded identifier, key, password or path."
+      "rule": "Constructor injection only, never `@Autowired` on a field. No `System.out.println` or `console.log` (use the project logger), no silent `catch` (log with context, ideally rethrow typed), no commented-out code, no hard-coded identifier, key, password or absolute path."
     },
     {
       "id": "CODE-3",
@@ -69,7 +69,7 @@
     },
     {
       "id": "CODE-4",
-      "rule": "Navigate and check code with the LSP tool (definitions, references, diagnostics) before grep or whole-file reads: `jdtls-lsp` for Java, `typescript-lsp` for TypeScript. If it is missing, ask the user to install it from `claude-plugins-official` and reopen the session."
+      "rule": "Navigate and check code with the LSP tool (definitions, references, diagnostics) before grep or whole-file reads: `jdtls-lsp` for Java, `typescript-lsp` for TypeScript. If missing, ask the user to install it from `claude-plugins-official` and reopen the session."
     },
     {
       "id": "CODE-7",
