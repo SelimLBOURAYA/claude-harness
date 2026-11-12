@@ -394,6 +394,25 @@ assert_contains "$(state "$R" reason)" "other.txt" "any commit type outside the 
 assert_eq "start dev test review " "$(calls "$R")" "the stop comes right after lot-review"
 assert_contains "$(state "$R" reason)" "other.txt" "the reason names the file"
 
+# --- the census rows of a gate report (lot 36) ----------------------------
+R=$(fixture censusreview harness)
+cat >> "$R.scen/review.sh" <<'EOF'
+printf '| `docs/audits/lot-5-review.md` | Lot 5 code-review report |\n' >> CLAUDE.md
+printf '| `docs/audits/lot-5-review.md` | Lot 5 code-review report |\n' >> AGENTS.md
+git add CLAUDE.md AGENTS.md && git commit -qm "docs(5): add the census rows"
+EOF
+assert_eq 0 "$(pilot "$R")" "a review may add the census rows of its report"
+assert_eq "start dev test review audit ship " "$(calls "$R")" \
+  "the census rows do not stop the run"
+
+R=$(fixture censusmodify harness)
+cat >> "$R.scen/review.sh" <<'EOF'
+sed -i 's/| `true` |/| `false` |/' CLAUDE.md
+git add CLAUDE.md && git commit -qm "fix(5): touch a line of CLAUDE.md"
+EOF
+assert_eq 1 "$(pilot "$R")" "a review that modifies another line of CLAUDE.md stops the run"
+assert_contains "$(state "$R" reason)" "CLAUDE.md" "the reason names the modified file"
+
 # --- the close of the development -----------------------------------------
 R=$(fixture dirty harness)
 echo 'echo x > stray.txt' >> "$R.scen/dev.sh"
@@ -421,6 +440,28 @@ EOF
 assert_eq 1 "$(pilot "$R")" "a lot-test commit outside the test files stops the run"
 assert_eq "start dev test " "$(calls "$R")" "no lot-review after it"
 assert_contains "$(state "$R" reason)" "src/b.txt" "the reason names the file"
+
+# Lot 36: the census row of a friction report is an addition lot-test may make.
+R=$(fixture testcensus harness)
+cat > "$R.scen/test.sh" <<'EOF'
+mkdir -p tests docs/audits && echo t > tests/a.test.sh && echo f > docs/audits/lot-5-friction.md
+printf '| `docs/audits/lot-5-friction.md` | Lot 5 friction record |\n' >> CLAUDE.md
+printf '| `docs/audits/lot-5-friction.md` | Lot 5 friction record |\n' >> AGENTS.md
+git add tests docs CLAUDE.md AGENTS.md && git commit -qm "test(5): complete the lot coverage"
+EOF
+assert_eq 0 "$(pilot "$R")" "lot-test may add the census rows of its friction report"
+assert_eq "start dev test review audit ship " "$(calls "$R")" \
+  "the census rows do not stop the run"
+
+R=$(fixture testcensusmodify harness)
+cat > "$R.scen/test.sh" <<'EOF'
+mkdir -p tests && echo t > tests/a.test.sh
+sed -i 's/| `true` |/| `false` |/' CLAUDE.md
+git add tests CLAUDE.md && git commit -qm "test(5): complete the lot coverage"
+EOF
+assert_eq 1 "$(pilot "$R")" "lot-test cannot modify another line of CLAUDE.md"
+assert_eq "start dev test " "$(calls "$R")" "no lot-review after it"
+assert_contains "$(state "$R" reason)" "CLAUDE.md" "the reason names the modified file"
 
 R=$(fixture testblocked harness)
 echo blocked > "$R.scen/test.status"
