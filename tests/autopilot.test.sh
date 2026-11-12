@@ -209,6 +209,14 @@ echo '{"env":{"ANTHROPIC_BASE_URL":"https://api.deepseek.com/anthropic"}}' > "$W
 code=$(cd "$R" && SCEN="$R.scen" PATH="$FAKEBIN:$PATH" HOME="$WORK/badhome" python3 "$PILOT" > "$R.out" 2>&1; echo $?)
 assert_eq 2 "$code" "refuses to start under a settings.json carrying ANTHROPIC_BASE_URL"
 assert_eq "" "$(calls "$R")" "no session under the deepseek profile"
+# Lot 33: the native API URL, as the desktop app sets it, is the claude profile.
+mkdir -p "$WORK/nativehome/.claude"
+echo '{"env":{"ANTHROPIC_BASE_URL":"https://api.anthropic.com"}}' > "$WORK/nativehome/.claude/settings.json"
+code=$(cd "$R" && SCEN="$R.scen" PATH="$FAKEBIN:$PATH" HOME="$WORK/nativehome" python3 "$PILOT" --dry-run > "$R.out" 2>&1; echo $?)
+assert_eq 0 "$code" "starts under ANTHROPIC_BASE_URL=https://api.anthropic.com, the native API"
+code=$(cd "$R" && SCEN="$R.scen" PATH="$FAKEBIN:$PATH" HOME="$WORK/nativehome" \
+  ANTHROPIC_BASE_URL=https://api.deepseek.com/anthropic python3 "$PILOT" --dry-run > "$R.out" 2>&1; echo $?)
+assert_eq 2 "$code" "refuses to start under a deepseek ANTHROPIC_BASE_URL in the environment"
 
 # --- one fix iteration only -----------------------------------------------
 R=$(fixture fixonce harness)

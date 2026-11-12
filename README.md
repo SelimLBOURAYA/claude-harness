@@ -241,7 +241,7 @@ Gate, mandatory in order: `lot-test → lot-review → lot-audit → lot-ship`, 
 | `mirror-sync.sh` | `PostToolUse` on `Edit`, `Write`, `Bash` | Keeps `AGENTS.md` byte-identical to `CLAUDE.md`, including after shell edits (`cp`, `mv`, `sed -i`, redirections). |
 | `lot-lock-guard.py` | `PreToolUse` on `Edit`, `Write`, `MultiEdit`, `NotebookEdit` | On a `feat/lot-*` branch, denies every write until `.claude/current-lot` names that branch; always lets the lots file through, never the lock itself. The repository is resolved from the written path. Writes made through `Bash` are not covered, the lock file's own included (`cp`, `mv`, a redirection, `rtk proxy`): the lock is a confirmation against the write tools, not against Bash. A documented limit. |
 | `lot-confirm.sh` | `UserPromptSubmit` | Writes `.claude/current-lot` when the whole user prompt is `lot-start confirm N` or `/claude-harness:lot-start confirm N` on a `feat/lot-N-*` branch; the lock holds that branch and the date, and `lot-ship` removes it after the merge. The model cannot forge a user prompt; the user's autopilot submits it only once its own checks passed. |
-| `session-context.sh` | `SessionStart` (`startup`, `resume`, `clear`, `compact`) | Re-injects branch, working tree, last merges on develop, the lot lock and the open rows of the status table; flags a compaction summary as untrusted; adds `rules/deepseek.json` when `ANTHROPIC_BASE_URL` is set. Capped at ~2K tokens, never blocks. |
+| `session-context.sh` | `SessionStart` (`startup`, `resume`, `clear`, `compact`) | Re-injects branch, working tree, last merges on develop, the lot lock and the open rows of the status table; flags a compaction summary as untrusted; adds `rules/deepseek.json` when `ANTHROPIC_BASE_URL` names a host other than `api.anthropic.com` (`lotfile.py profile`, the one definition of the profile signal, which `lot-review` and the autopilot read too). Capped at ~2K tokens, never blocks. |
 | `ponytail-context.sh` | `SessionStart` (`startup`, `resume`, `clear`, `compact`) | Injects the body of the `ponytail` skill (CODE-6) into every session, under every profile. A hook of its own: Claude Code keeps at most 10,000 characters of each hook's context, so the text keeps its own budget and leaves the state its own. Never blocks. |
 
 `session-context.sh` reads that freshness through `hooks/plugin-currency.py`, a
@@ -293,8 +293,9 @@ autopilot --resume --answer "..."   # the answers to a blocked lot-start or dev
   `lot-start confirm N` itself. `TEXT` may not be a lot confirmation: the
   confirmation never precedes the checks. A `blocked` `lot-review` or `lot-audit`
   is unchanged: settle it, then `--resume` goes on with the next step.
-- **Profile precondition**: `~/.claude/settings.json` carries no
-  `ANTHROPIC_BASE_URL` (run `claude-profile claude` first). `--settings` merges
+- **Profile precondition**: neither `~/.claude/settings.json` nor the
+  environment points `ANTHROPIC_BASE_URL` at a host other than
+  `api.anthropic.com` (run `claude-profile claude` first). `--settings` merges
   and cannot remove a variable, so the script refuses to start otherwise.
 - **Checks**: every step answers through a JSON schema (`status`, `lot`,
   `questions`, `reason`), and the script checks it itself before the next one:

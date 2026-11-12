@@ -101,7 +101,7 @@ Cross-cutting rules of every project; project-specific rules go to the project's
 ## 14. Review in a new session, under the claude profile
 
 - **PROF-1** Two profiles, switched by `/home/selim/.local/bin/claude-profile`: `claude` (a native Claude model) for review, audit and judgement on produced work; `deepseek` (`ANTHROPIC_BASE_URL=https://api.deepseek.com/anthropic`) for delegated coding. The script rewrites `settings.json`, which only the next session reads: never switch on your own initiative. The autopilot picks each step's model per process, never through `settings.json`.
-- **LOT-7** Development closes with `lot-start` Step B3; `lot-test` follows in a new session, any profile, test files only. The user then runs `claude-profile claude` under `deepseek` and opens a new session for `lot-review`, `lot-audit` and `lot-ship`. `lot-review` needs an empty `ANTHROPIC_BASE_URL`, never a model's account of its identity.
+- **LOT-7** Development closes with `lot-start` Step B3; `lot-test` follows in a new session, any profile, test files only. The user then runs `claude-profile claude` under `deepseek` and opens a new session for `lot-review`, `lot-audit` and `lot-ship`. `lot-review` reads the profile from `lotfile.py`, never a model's account of its identity.
 
 ## 15. Response shape
 

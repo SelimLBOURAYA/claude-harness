@@ -7,8 +7,9 @@
 # of the model before its first action: repository, branch, working tree, the
 # last merges on develop, the lot lock, and the status table.
 #
-# Under the deepseek profile (runtime signal: ANTHROPIC_BASE_URL is set, the same
-# one lot-review checks), the imperative rules of rules/deepseek.json are added.
+# Under the deepseek profile (runtime signal: ANTHROPIC_BASE_URL names a host
+# other than api.anthropic.com, `lotfile.py profile`, the definition lot-review
+# and the autopilot read too), the imperative rules of rules/deepseek.json are added.
 #
 # Never blocks: a missing repository, lots file or table degrades the output,
 # and the hook always exits 0. The output is capped at CAP characters (~2K tokens).
@@ -79,7 +80,7 @@ if [ "$source" = "compact" ]; then
 fi
 
 card_section=""
-if [ -n "${ANTHROPIC_BASE_URL:-}" ] && [ -f "$rules" ]; then
+if [ "$(python3 "$here/lotfile.py" profile 2>/dev/null)" = deepseek ] && [ -f "$rules" ]; then
   card=$(jq -r '.rules[] | "- \(.id): \(.rule)"' "$rules" 2>/dev/null || true)
   if [ -n "$card" ]; then
     card_section=$'\n'"## deepseek profile: imperative rules"$'\n'
