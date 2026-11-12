@@ -333,6 +333,15 @@ assert_contains "$(state "$R" reason)" "lot-5-integration.log" \
   "the timeout reason gives the log path too"
 assert_eq integration "$(state "$R" resume)" "the timed-out integration is the step resumed"
 
+R=$(fixture integrationleftover frontend 'sleep 300 & echo $! > .git/leftover.pid')
+cat > "$R.scen/integration.sh" <<'EOF'
+mkdir -p docs/audits && echo ok > docs/audits/lot-0-integration.md
+git add docs && git commit -qm "docs: add the integration check report"
+EOF
+assert_eq 0 "$(pilot "$R")" "a command leaving a background process still passes"
+assert_ok "the command's background process is killed once it exits" -- \
+  bash -c '! kill -0 "$1" 2>/dev/null' _ "$(cat "$R/.git/leftover.pid")"
+
 R=$(fixture integrationnoreport frontend true)
 assert_eq 1 "$(pilot "$R")" "an integration session that commits no report stops the run"
 assert_eq "start dev test review audit integration " "$(calls "$R")" \

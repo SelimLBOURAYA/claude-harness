@@ -573,6 +573,12 @@ class Pilot:
                 os.killpg(proc.pid, signal.SIGKILL)
                 proc.wait()
                 raise Stop("integration: interrupted, command killed, log %s" % path, "integration")
+            else:
+                # A backend left in the background would hold its port against the next run.
+                try:
+                    os.killpg(proc.pid, signal.SIGKILL)
+                except ProcessLookupError:
+                    pass
         if code != 0:
             raise Stop("integration: `%s` %s, log %s"
                        % (command, "timed out" if code == "timeout" else "exited %s" % code, path),
