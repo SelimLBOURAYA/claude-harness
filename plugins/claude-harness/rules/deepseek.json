@@ -1,6 +1,6 @@
 {
   "profile": "deepseek",
-  "purpose": "Imperative rules for the deepseek profile, injected by the SessionStart hook when ANTHROPIC_BASE_URL is set. The rules are chosen by identifier; their text is generated from CONVENTIONS.md by .github/scripts/deepseek-card.py. Edit the rule there, never here.",
+  "purpose": "Imperative rules for the deepseek profile, injected by the SessionStart hook when ANTHROPIC_BASE_URL names a host other than api.anthropic.com (lotfile.py profile). The rules are chosen by identifier; their text is generated from CONVENTIONS.md by .github/scripts/deepseek-card.py. Edit the rule there, never here.",
   "precedence": "Project CLAUDE.md > this card > your own judgement. A loaded skill overrides this card for the step it covers.",
   "rules": [
     {
@@ -25,7 +25,7 @@
     },
     {
       "id": "LOT-7",
-      "rule": "Development closes with `lot-start` Step B3; `lot-test` follows in a new session, any profile, test files only. The user then runs `claude-profile claude` under `deepseek` and opens a new session for `lot-review`, `lot-audit` and `lot-ship`. `lot-review` needs an empty `ANTHROPIC_BASE_URL`, never a model's account of its identity."
+      "rule": "Development closes with `lot-start` Step B3; `lot-test` follows in a new session, any profile, test files only. The user then runs `claude-profile claude` under `deepseek` and opens a new session for `lot-review`, `lot-audit` and `lot-ship`. `lot-review` reads the profile from `lotfile.py`, never a model's account of its identity."
     },
     {
       "id": "CTX-1",

@@ -84,6 +84,22 @@ assert_contains "$body" "deepseek profile: imperative rules" "deepseek: rules se
 assert_contains "$body" "- LOT-1:" "deepseek: rules rendered as imperatives"
 body=$(text "$(context startup "$REPO")")
 assert_eq "" "$(printf '%s' "$body" | grep 'LOT-1' || true)" "claude profile: no deepseek rules"
+# Lot 33: the desktop app sets ANTHROPIC_BASE_URL to the native API itself.
+body=$(text "$(context startup "$REPO" https://api.anthropic.com)")
+assert_eq "" "$(printf '%s' "$body" | grep 'LOT-1' || true)" "the native API URL: no deepseek rules"
+
+# --- the profile signal, one definition (lot 33) ---------------------------
+LOTFILE="$REPO_ROOT/plugins/claude-harness/hooks/lotfile.py"
+for case in "|claude" "https://api.anthropic.com|claude" "https://API.anthropic.com/|claude" \
+            "api.anthropic.com|claude" "https://api.deepseek.com/anthropic|deepseek" \
+            "https://api.anthropic.com.evil.example|deepseek" "https://[bad|deepseek"; do
+  url=${case%|*}; want=${case##*|}
+  assert_eq "$want" "$(python3 "$LOTFILE" profile "$url")" "profile of '$url' is $want"
+done
+assert_eq deepseek "$(ANTHROPIC_BASE_URL=https://api.deepseek.com/anthropic python3 "$LOTFILE" profile)" \
+  "profile reads ANTHROPIC_BASE_URL when given no URL"
+assert_eq claude "$(env -u ANTHROPIC_BASE_URL python3 "$LOTFILE" profile)" \
+  "profile is claude when ANTHROPIC_BASE_URL is unset"
 
 # --- the ponytail text, a hook of its own (lot 33, CODE-6) ------------------
 # Claude Code keeps at most 10,000 characters of each hook's context: the text
