@@ -61,6 +61,7 @@
 | 33 | `feat/lot-33-ponytail-guards` | A – Harness | Skill `ponytail` (le plus petit changement complet) avec son renvoi `CODE-6` dans `CONVENTIONS.md` ; durcissement des gardes repris du lot 31 : formes shell que `git-guard.py` laisse passer, refus de permissions, signal de profil, contrôle des Critical ouverts | claude-harness, les 8 repos (via `main` et la PR de synchro) | ✅ |
 | 34 | `feat/lot-34-autopilot-watch` | A – Harness | Autopilot : suivi en direct dans le terminal, une ligne par appel d'outil avec l'heure, l'étape et le modèle, lancé avec l'autopilot | claude-harness, les 8 repos (via `main`) | ⬜ |
 | 35 | `feat/lot-35-headless-ship` | A – Harness | Autopilot : le verrou de lot retiré par l'autopilot après le merge, et une règle « une commande simple par appel Bash » portée par la carte deepseek | claude-harness, les 8 repos (via `main` et la PR de synchro) | ✅ |
+| 36 | `feat/lot-36-census-guard-unfreeze` | A – Harness | Autopilot : la ligne de recensement d'un rapport de gate n'arrête plus le run ; fin du gel du lot 24 ; `dev-plan.md` allégé et actualisé | claude-harness, les 8 repos (via `main`) | ⬜ |
 
 Légende des statuts *(P6-D10)* : ⬜ à faire · 🔄 en cours (livré sur la branche, PR non
 mergée) · ✅ mergé sur `develop` · ⏸️ planifié mais dormant · ❄️ gelé.
@@ -2982,6 +2983,90 @@ l'étape `ship` finit `blocked` :
   `harness-invariants` rouge, rattrapé par un merge de `develop` dans le même
   run) : constat 2 du diagnostic, non retenu par l'utilisateur.
 - Les autres `$(...)` des skills (`--match-head-commit "$(git rev-parse HEAD)"`).
+
+---
+
+## LOT 36 — Garde du recensement, fin du gel, `dev-plan.md` allégé ⬜
+
+Branche `feat/lot-36-census-guard-unfreeze`, depuis `develop`. Repo touché :
+`claude-harness`. Les 8 repos héritent du correctif de l'autopilot à la
+promotion `develop` → `main`.
+
+### Origine
+
+Demande de l'utilisateur du 2026-11-12, après l'analyse du run autopilot du
+lot 35 (≈ 22 min de sessions, plus ≈ 2 min d'arrêt) :
+
+1. **Faux positif du garde de l'autopilot** : après une review réussie
+   (`73db6a3`), `gate_step` (`autopilot.py`) s'arrête sur « a commit touches
+   files outside the lot's diff: AGENTS.md, CLAUDE.md ». Ces deux fichiers n'ont
+   reçu que la ligne de recensement du rapport, qu'exigent GATE-8 et DOC-1.
+   Coût : un arrêt et une reprise à la main
+   (`docs/audits/lot-35-friction.md`). Il se redéclenchera à chaque lot qui ne
+   touche pas déjà `CLAUDE.md`. `check_test_files` a le même défaut pour la
+   ligne de recensement d'un rapport de friction écrit par `lot-test`.
+2. **Le gel du lot 24 est levé** : chaque lot depuis le 26 l'a contourné
+   (« exception », « gel levé par sa demande explicite ») ; il n'a plus d'objet.
+3. **`dev-plan.md` fait 3 125 lignes** : `lot-start` et `lot-ship` tâtonnent
+   avec `grep` et `sed` pour retrouver la section du lot (au lot 35, `start` :
+   43 tours, 19 lectures de fichiers).
+
+### Livrables
+
+1. **`autopilot.py`** : `gate_step` et `check_test_files` acceptent un commit
+   qui ne fait qu'ajouter à `CLAUDE.md` et `AGENTS.md` des lignes de
+   recensement d'un fichier de `docs/audits/` (ligne de tableau
+   `` | `docs/audits/… ``), sans ligne retirée ni modifiée. Toute autre
+   modification de ces deux fichiers hors du diff du lot arrête toujours le run.
+2. **Fin du gel** : section `## Freeze` retirée de `CLAUDE.md` (= `AGENTS.md`),
+   note retirée de `docs/memory.md`, encadré de tête et toutes les mentions du
+   gel retirés de `dev-plan.md` ; titre et ligne du lot 24 réécrits sur ce
+   qu'il a livré. Le lot 16 reste ❄️, motif réécrit sans renvoi au gel
+   (livrable manuel d'abord, CI ensuite). Restent tels quels : les rapports
+   `docs/audits/` (archives), le nom de branche `feat/lot-24-harness-freeze`,
+   et le statut ❄️ du contrat des fichiers de lots (`lotfile.FROZEN`).
+3. **`dev-plan.md` allégé et actualisé**, moins de 600 lignes :
+   - en-tête réécrit sur l'état actuel (harnais central adopté par les 8 repos,
+     autopilot) au lieu du plan de remédiation de septembre ;
+   - tableau `## Vue d'ensemble` gardé ligne par ligne (contrat P6-D10, lu par
+     `sync-status.py`), statuts inchangés ; paragraphes périmés retirés (ordre
+     strict, priorité avant les premières images, branche unique des lots
+     0 à 6) ;
+   - `## Décisions` ramené aux décisions en vigueur, sans les marques
+     d'historique (*(réécrit au lot 24)*, *(P5-#n)*, *(P6-Dn)*) ;
+   - chaque lot ✅ réduit à son titre et 2 à 4 lignes : ce qu'il a livré et le
+     lien vers son rapport d'audit ; le texte complet reste dans l'historique
+     git ;
+   - sections closes retirées : `Règles transverses du plan` sans objet,
+     `Prérequis`, matrices constats → lots, `Points ouverts` tranchés ;
+     `Risques` réduits à ceux encore vrais ;
+   - lots ⬜ et ❄️ (16, 34, 36) gardés en entier.
+   Les en-têtes de `tests/git-guard.test.sh` et `tests/lot-lock-guard.test.sh`,
+   qui renvoient aux cas listés dans `dev-plan.md`, sont réécrits pour ne plus
+   dépendre d'un texte retiré.
+4. **Tests** : `tests/autopilot.test.sh` : review qui ajoute seulement une
+   ligne de recensement à `CLAUDE.md` et `AGENTS.md` → l'étape passe ; review
+   qui modifie une autre ligne de `CLAUDE.md` → arrêt ; même paire pour
+   `lot-test` et un rapport de friction.
+5. **Documentation** : `docs/memory.md` amendé, version du plugin bumpée.
+
+### Critères de validation
+
+- `./tests/run.sh` vert, nouveaux cas inclus.
+- Plus aucune mention du gel du harnais dans `CLAUDE.md`, `AGENTS.md`,
+  `docs/memory.md` et `dev-plan.md`, hors du nom de branche du lot 24.
+- `dev-plan.md` sous 600 lignes ; `sync-status.py` relit le tableau sans
+  écart.
+- `cmp CLAUDE.md AGENTS.md` silencieux.
+- Version du plugin bumpée (job `plugin-version`).
+
+### Hors périmètre
+
+- Le filtre rtk qui masque des sorties (sessions qui relancent leurs commandes
+  en `rtk proxy` : 36 fois en `dev`, 27 en `start` au lot 35).
+- `./tests/run.sh` lancé 8 fois en `review` au lot 35 (GATE-1 non tenu par les
+  commits de correction successifs).
+- Les rapports `docs/audits/` qui citent le gel.
 
 ---
 
