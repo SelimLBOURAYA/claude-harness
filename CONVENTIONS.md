@@ -16,7 +16,7 @@ Cross-cutting rules of every project; project-specific rules go to the project's
 - **LOT-4** If an acceptance criterion is ambiguous, ask all your questions in one batch before writing code; otherwise say "no ambiguity" and restate the criteria in one list.
 - **LOT-5** Implement strictly the lot scope. Anything else becomes a suggestion in the PR description.
 - **GATE-3** Write the lot's tests with the code: one unit test per new or modified public service method, one integration test (§2.5) per new endpoint, in the same commit.
-- **GATE-1** During development, run only the targeted tests of the changed code. Run the full `Validation command` of the project `CLAUDE.md` once, before each commit.
+- **GATE-1** During development, run only the targeted tests of the changed code. Run the full `Validation command` of `CLAUDE.md` once, before each commit.
 - **GATE-2** The `Validation command` is green before every commit and PR. A red test is fixed, never skipped, disabled (`@Disabled`, `@Ignore`, `test.skip`) or stripped of its assertion.
 - **LOT-6** One lot per session. Once `lot-ship` has merged the lot's pull request, stop: never start, prepare or test the next lot.
 - **MEM-1** `docs/memory.md` is the project memory: working notes, not the truth (the code and git are), at most 6000 characters, in four sections: `Code map`, `Decisions`, `Pitfalls`, `Open questions`. `lot-start` reads it before the lot section. The development session amends it at its close (`lot-start` Step B3, or `lot-start close N`), rewriting or deleting the notes the lot touched, and commits `docs(N): update the project memory` only when it changed. `lot-test` reads it, `lot-review` checks it against the code. A note the code contradicts is fixed in the current lot.
@@ -28,7 +28,7 @@ Cross-cutting rules of every project; project-specific rules go to the project's
 
 ## 3. Forbidden patterns
 
-- **CODE-1** Constructor injection only, never `@Autowired` on a field. No `System.out.println` or `console.log` (use the project logger), no silent `catch` (log with context, ideally rethrow typed), no commented-out code, no hard-coded identifier, key, password or path.
+- **CODE-1** Constructor injection only, never `@Autowired` on a field. No `System.out.println` or `console.log` (use the project logger), no silent `catch` (log with context, ideally rethrow typed), no commented-out code, no hard-coded identifier, key, password or absolute path.
 - **CODE-5** No Lombok `@Data` on an entity with relations: `@Getter @Setter @EqualsAndHashCode(of = "id")`.
 - **CODE-7** One simple command per Bash call: no `$(...)`, no unset `$VAR`, no `&&`/`;`/`|` chain, no redirection outside the repo. A headless session denies what it cannot verify.
 
@@ -72,7 +72,7 @@ Cross-cutting rules of every project; project-specific rules go to the project's
 - **CTX-1** A compaction summary is not a source of truth: re-anchor on the hook output (or START-2) and re-read the current lot section before the next write.
 - **CTX-2** Read files by targeted range (offset and limit, grep), once; never re-read a whole unchanged file.
 - **CTX-3** Before debugging a framework error, check the exact dependency versions in `pom.xml` or `package.json`.
-- **CODE-4** Navigate and check code with the LSP tool (definitions, references, diagnostics) before grep or whole-file reads: `jdtls-lsp` for Java, `typescript-lsp` for TypeScript. If it is missing, ask the user to install it from `claude-plugins-official` and reopen the session.
+- **CODE-4** Navigate and check code with the LSP tool (definitions, references, diagnostics) before grep or whole-file reads: `jdtls-lsp` for Java, `typescript-lsp` for TypeScript. If missing, ask the user to install it from `claude-plugins-official` and reopen the session.
 - **PLUG-1** A stale plugin stops lot work: the `SessionStart` warning that the installed version is not the one `main` declares, an unknown `claude-harness:` skill, or a `lot-start confirm N` that writes no lock. Run `claude plugin update claude-harness@claude-harness --scope user`, then `--scope project` in each project installing it, and ask the user to reopen the session. Never fall back to the local clone's `SKILL.md` files.
 
 ## 10. Pre-commit gate
@@ -102,7 +102,7 @@ Cross-cutting rules of every project; project-specific rules go to the project's
 ## 14. Review in a new session, under the claude profile
 
 - **PROF-1** Two profiles, switched by `/home/selim/.local/bin/claude-profile`: `claude` (a native Claude model) for review, audit and judgement on produced work; `deepseek` (`ANTHROPIC_BASE_URL=https://api.deepseek.com/anthropic`) for delegated coding. The script rewrites `settings.json`, which only the next session reads: never switch on your own initiative. The autopilot picks each step's model per process, never through `settings.json`.
-- **LOT-7** Development closes with `lot-start` Step B3; `lot-test` follows in a new session, any profile, test files only. Then `claude-profile claude` and a new session for `lot-review`, `lot-audit`, `lot-ship`; `lot-review` reads the profile from `lotfile.py`, never a model's account of its identity.
+- **LOT-7** Development closes with `lot-start` Step B3; `lot-test` follows in a new session, any profile, test files only. Then the user runs `claude-profile claude`, opens a new session for `lot-review`, `lot-audit`, `lot-ship`; `lot-review` reads the profile from `lotfile.py`, never a model's account of its identity.
 
 ## 15. Response shape
 
