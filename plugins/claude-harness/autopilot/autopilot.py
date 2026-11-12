@@ -55,7 +55,7 @@ DENIED_TOOLS = (
                   "* +*", "*--mirror*", "*--all*", "*--branches*", "*--prune*")]
     + ["Bash(%s %s)" % (prefix, form)
        for prefix in ("gh api", "rtk gh api", "rtk proxy gh api")
-       for form in ("*pulls/*/merge*", "*git/refs*")]
+       for form in ("*pulls/*/merge*", "*git/refs*", "*/merges*")]
 )
 
 # A ceiling against a session that never ends (a loop on a red test, a stuck

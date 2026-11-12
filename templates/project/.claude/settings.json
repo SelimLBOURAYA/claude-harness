@@ -53,10 +53,13 @@
     "ask": [
       "Bash(gh api *pulls/*/merge*)",
       "Bash(gh api *git/refs*)",
+      "Bash(gh api */merges*)",
       "Bash(rtk gh api *pulls/*/merge*)",
       "Bash(rtk gh api *git/refs*)",
+      "Bash(rtk gh api */merges*)",
       "Bash(rtk proxy gh api *pulls/*/merge*)",
-      "Bash(rtk proxy gh api *git/refs*)"
+      "Bash(rtk proxy gh api *git/refs*)",
+      "Bash(rtk proxy gh api */merges*)"
     ]
   }
 }
