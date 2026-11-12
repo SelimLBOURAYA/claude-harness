@@ -61,7 +61,7 @@
 | 33 | `feat/lot-33-ponytail-guards` | A – Harness | Skill `ponytail` (le plus petit changement complet) avec son renvoi `CODE-6` dans `CONVENTIONS.md` ; durcissement des gardes repris du lot 31 : formes shell que `git-guard.py` laisse passer, refus de permissions, signal de profil, contrôle des Critical ouverts | claude-harness, les 8 repos (via `main` et la PR de synchro) | ✅ |
 | 34 | `feat/lot-34-autopilot-watch` | A – Harness | Autopilot : suivi en direct dans le terminal, une ligne par appel d'outil avec l'heure, l'étape et le modèle, lancé avec l'autopilot | claude-harness, les 8 repos (via `main`) | ⬜ |
 | 35 | `feat/lot-35-headless-ship` | A – Harness | Autopilot : le verrou de lot retiré par l'autopilot après le merge, et une règle « une commande simple par appel Bash » portée par la carte deepseek | claude-harness, les 8 repos (via `main` et la PR de synchro) | ✅ |
-| 36 | `feat/lot-36-census-guard-unfreeze` | A – Harness | Autopilot : la ligne de recensement d'un rapport de gate n'arrête plus le run ; fin du gel du lot 24 ; `dev-plan.md` allégé et actualisé | claude-harness, les 8 repos (via `main`) | ⬜ |
+| 36 | `feat/lot-36-census-guard-unfreeze` | A – Harness | Autopilot : la ligne de recensement d'un rapport de gate n'arrête plus le run ; fin du gel du lot 24 ; `dev-plan.md` allégé et actualisé | claude-harness, les 8 repos (via `main`) | 🔄 |
 
 Légende des statuts *(P6-D10)* : ⬜ à faire · 🔄 en cours (livré sur la branche, PR non
 mergée) · ✅ mergé sur `develop` · ⏸️ planifié mais dormant · ❄️ gelé.
@@ -2986,7 +2986,7 @@ l'étape `ship` finit `blocked` :
 
 ---
 
-## LOT 36 — Garde du recensement, fin du gel, `dev-plan.md` allégé ⬜
+## LOT 36 — Garde du recensement, fin du gel, `dev-plan.md` allégé 🔄
 
 Branche `feat/lot-36-census-guard-unfreeze`, depuis `develop`. Repo touché :
 `claude-harness`. Les 8 repos héritent du correctif de l'autopilot à la
