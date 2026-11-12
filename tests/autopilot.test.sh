@@ -497,6 +497,17 @@ R=$(fixture locked harness)
 assert_eq 0 "$(pilot "$R")" "the autopilot removes the lock left after lot-ship"
 assert_ok "and the lock is gone" -- test ! -e "$R/.claude/current-lot"
 
+# A removal that fails is a recorded stop, not a traceback: the run resumes at
+# lot-ship once the owner has cleared the lock (lot 35).
+R=$(fixture unremovable harness)
+cat > "$R.scen/ship.sh" <<'EOF'
+rm -f .claude/current-lot
+mkdir .claude/current-lot
+EOF
+assert_eq 1 "$(pilot "$R")" "a lock that cannot be removed stops the run"
+assert_contains "$(state "$R" reason)" "cannot remove the lot lock" "the reason says the lock cannot be removed"
+assert_eq ship "$(state "$R" resume)" "the stop resumes at lot-ship"
+
 # --- outside a harnessed repository ---------------------------------------
 mkdir -p "$WORK/plain" && git -C "$WORK/plain" init -q
 code=$(cd "$WORK/plain" && PATH="$FAKEBIN:$PATH" HOME="$FAKEHOME" python3 "$PILOT" >/dev/null 2>&1; echo $?)
