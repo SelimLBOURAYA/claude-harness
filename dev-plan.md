@@ -2741,19 +2741,26 @@ revues et audits des lots 19, 24 et 25.
 | Numéro et branche | Lot 33, planifié sur une branche séparée du lot 32 |
 | Qui hérite du skill | Toute étape qui peut modifier le code : développement, correction, `lot-test`, `lot-review`, `lot-audit` (amendement du 2026-11-12) |
 
-### Arbitrages à trancher avant le lot
+### Arbitrages avant le développement (décisions de l'utilisateur)
 
-| Sujet | Question |
+| Sujet | Décision |
 |---|---|
-| Adoption des `deny` par les 8 repos | Une PR par dépôt, ou `.claude/settings.json` ajouté aux `synced_files` de `projects.json` |
-| Substitutions et `eval` | La revue du lot 25 (constat 5) les a rejetés, décision de l'utilisateur : « the guard is not a sandbox ». Le livrable 7 rouvre cette décision ; à confirmer ou à restreindre aux mots-clés du shell |
-| Verrou et Bash | Documentation seule (livrable 14), ou refus dans `git-guard.py` de toute commande Bash qui nomme `.claude/current-lot`, hors le `rm` de `lot-ship` |
-| `gh api` | Refus, ou `ask` (qui devient un refus sous autopilot) |
+| Adoption des `deny` par les 8 repos | Par la synchro, mais de la seule clé `permissions` : `sync-projects.sh` la recopie du `.claude/settings.json` du squelette dans celui de chaque projet, le reste du fichier reste au projet. Une copie à l'identique aurait effacé les plugins LSP d'elya et d'elya-frontend, et `autoUpdate`. `harness-invariants.yml` compare la clé à celle du squelette sur `main` |
+| Substitutions et `eval` | Restreint aux mots-clés et regroupements du shell (« je ne veux rien casser ») : accents graves, `eval` et nom de commande tiré d'une variable restent hors de la garde. La liste `deny` couvre les substitutions, que Claude Code juge comme des sous-commandes |
+| Verrou et Bash | Documentation seule (livrable 14) |
+| `gh api` | `ask`, qui devient un refus sous autopilot ; des règles `ask` dans les réglages |
+| Découpage | Un seul lot |
+| Injection du texte de `ponytail` | Un second hook `SessionStart`, `ponytail-context.sh`, au lieu de `session-context.sh` : Claude Code plafonne le texte de chaque hook à 10 000 caractères, sans réglage, et `CAP` vaut déjà 9000. `CAP`, la carte deepseek et `deepseek-card.py` restent inchangés (livrable 2 amendé) |
+| Formes `rtk` | Le hook `rtk` réécrit chaque commande git et gh, et Claude Code juge les permissions sur la commande réécrite : chaque règle existe sous `git push`, `rtk git push` et `rtk proxy git push`, de même pour `gh api`. Pas de `*` en tête, qui refuserait un message de commit citant la commande |
+| Profil | La Step 0 de `lot-review` garde `printenv ANTHROPIC_BASE_URL`, sans demande de permission, et cite la définition de `lotfile.py`. LOT-7 est réécrite à longueur égale : la carte deepseek n'a que 7 caractères de marge |
+| Pushs larges | `--branches`, autre nom de `--all`, est refusé avec lui ; `--prune` entre aussi dans la liste `deny` |
+| Critical ouverts | Résolu quand la cellule Action commence par `fixed`, `resolved`, `résolu` ou `owner decision` ; tout le reste bloque, `open: …` compris |
 
 ### Critères de validation
 
 - `./tests/run.sh` vert, nouveaux cas inclus.
-- Chaque ligne « silence » du tableau du constat 1 répond `deny` ou `ask`.
+- Chaque ligne « silence » du tableau du constat 1 répond `deny` ou `ask`, sauf
+  les accents graves, `eval` et `$g push` (arbitrage « Substitutions et `eval` »).
 - `cmp CLAUDE.md AGENTS.md` silencieux, le skill `ponytail` au recensement.
 - Un run réel de l'autopilot montre le texte de `ponytail` dans le journal de
   chaque étape : le déclenchement de `SessionStart` en `claude -p` ne figure
