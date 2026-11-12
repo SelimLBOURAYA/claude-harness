@@ -106,7 +106,7 @@ Every blocking invariant is also enforced in CI, which is the only agent-agnosti
 | [`AGENTS.md`](AGENTS.md) | Byte-identical mirror of `CLAUDE.md` |
 | [`CONVENTIONS.md`](CONVENTIONS.md) | **Master** of the cross-cutting conventions (lot 5) |
 | [`README.md`](README.md) | Plugin installation, the two owner settings that make the harness consumable, gate parameters contract |
-| [`dev-plan.md`](dev-plan.md) | Remediation plan — lots, decisions, findings matrices (French) |
+| [`dev-plan.md`](dev-plan.md) | Lots plan — status table, decisions in force, open lots (French) |
 | [`docs/memory.md`](docs/memory.md) | Project memory: working notes read by `lot-start`, amended at the close of development (MEM-1) |
 | [`projects.json`](projects.json) | The portfolio: projects and harness-managed files that `sync-projects.yml` keeps current |
 | `plugins/claude-harness/skills/bootstrap-project/SKILL.md` | New project generation skill |

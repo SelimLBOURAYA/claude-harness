@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Exercises the git/gh guard against every trapped case listed in dev-plan.md
-# ("Gate allege des lots de remediation", rule 1).
+# Exercises the git/gh guard against the trapped cases it must refuse or ask
+# about: pushes to main, force-pushes, broad pushes and non-lot merges.
 #
 # The fixtures are real git repositories created in a temp directory: the guard
 # resolves branches and repo roots by shelling out to git, and a fake would
