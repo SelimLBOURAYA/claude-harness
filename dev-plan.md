@@ -2556,7 +2556,8 @@ des hooks, un registre CSV par tâche et un webhook optionnel.
 
 Le harnais porte déjà la même intention côté périmètre (LOT-5) ; il ne dit rien
 de la taille de la solution à l'intérieur du périmètre. C'est ce que le skill
-ajoute, pour les sessions de développement, qui tournent sous `deepseek`.
+ajoute, pour toute étape qui peut écrire du code : le développement, la
+correction de l'autopilot, `lot-test`, `lot-review` et `lot-audit`.
 
 Adaptation des règles de `ponytail` aux conventions :
 
@@ -2583,8 +2584,22 @@ Adaptation des règles de `ponytail` aux conventions :
    avant la première écriture d'un développement, dans un lot ou hors lot. Le
    répertoire du skill porte la notice MIT de l'amont (copyright et texte de
    licence), que la licence exige pour une reprise substantielle.
-2. **`lot-start`, Step B2** : charge `claude-harness:ponytail` avant la
-   première écriture (GATE-6).
+2. **Héritage par toutes les étapes, sans appel du modèle.**
+   `session-context.sh` injecte le corps du skill (le fichier `SKILL.md` sans
+   son frontmatter) dans chaque session, sous tous les profils et pour les
+   quatre sources `startup`, `resume`, `clear` et `compact`. Le développement,
+   la correction de l'autopilot (`fix`), `lot-test`, `lot-review` et
+   `lot-audit` ouvrent chacun une session : tous reçoivent le texte, et il est
+   réinjecté après une compaction. Charger le skill par une consigne
+   (`lot-start` Step B2) laisserait le choix au modèle ; ce n'est pas retenu.
+   - Le texte a son propre budget dans le hook, `PONYTAIL_CAP`, comme
+     `TABLE_CAP` : `CAP` est relevé d'autant, et `deepseek-card.py` le
+     retranche de son calcul, pour que la carte garde ses 4500 caractères.
+   - `CODE-6` n'entre pas dans `rules/deepseek.json` : le hook porte déjà le
+     texte complet.
+   - `lot-start` Step B2, `lot-test`, `lot-review` et `lot-audit` citent
+     `CODE-6` à l'endroit où ils écrivent du code, pour un agent qui ne charge
+     pas les hooks (lecture des `SKILL.md` depuis le clone).
 3. **`CONVENTIONS.md`, règle `CODE-6`**, section 13 : un renvoi court au skill,
    sur le modèle d'OUT-2 pour `i-have-adhd`. Proposition : « Smallest complete
    change: the `ponytail` skill, loaded before the first write of a
@@ -2596,8 +2611,11 @@ Adaptation des règles de `ponytail` aux conventions :
    des skills et celle du recensement (DOC-1). `README.md` (section Skills) et
    la description de `plugin.json` citent le skill.
 6. **Tests.** `tests/skills.test.sh` : le skill existe, son frontmatter est
-   valide, la notice MIT est présente, la Step B2 de `lot-start` le charge.
-   `tests/conventions.test.sh` : le nouveau plafond.
+   valide, la notice MIT est présente, les quatre skills citent `CODE-6`.
+   `tests/session-context.test.sh` : la sortie porte le corps du skill pour
+   chacune des quatre sources, avec et sans `ANTHROPIC_BASE_URL`, et le corps
+   tient dans `PONYTAIL_CAP`. `tests/deepseek-card.test.sh` : le budget de la
+   carte est inchangé. `tests/conventions.test.sh` : le nouveau plafond.
 
 ### Partie B : origine
 
@@ -2721,12 +2739,12 @@ revues et audits des lots 19, 24 et 25.
 | Adaptation de `CLAUDE.md` et `AGENTS.md` | Livrable du lot, pas de modification hors gate |
 | Renforcement des constats 1 et 2 | Dans ce lot, avec `ponytail` ; le lot 31 disparaît du tableau |
 | Numéro et branche | Lot 33, planifié sur une branche séparée du lot 32 |
+| Qui hérite du skill | Toute étape qui peut modifier le code : développement, correction, `lot-test`, `lot-review`, `lot-audit` (amendement du 2026-11-12) |
 
 ### Arbitrages à trancher avant le lot
 
 | Sujet | Question |
 |---|---|
-| Carte deepseek | `CODE-6` entre-t-il dans `rules/deepseek.json` ? Le développement tourne sous `deepseek`, mais le budget de la carte (4500 caractères rendus) n'a plus qu'environ 7 caractères de marge : il faudrait relever `CAP` de `session-context.sh` de la longueur rendue de la règle |
 | Adoption des `deny` par les 8 repos | Une PR par dépôt, ou `.claude/settings.json` ajouté aux `synced_files` de `projects.json` |
 | Substitutions et `eval` | La revue du lot 25 (constat 5) les a rejetés, décision de l'utilisateur : « the guard is not a sandbox ». Le livrable 7 rouvre cette décision ; à confirmer ou à restreindre aux mots-clés du shell |
 | Verrou et Bash | Documentation seule (livrable 14), ou refus dans `git-guard.py` de toute commande Bash qui nomme `.claude/current-lot`, hors le `rm` de `lot-ship` |
@@ -2737,6 +2755,9 @@ revues et audits des lots 19, 24 et 25.
 - `./tests/run.sh` vert, nouveaux cas inclus.
 - Chaque ligne « silence » du tableau du constat 1 répond `deny` ou `ask`.
 - `cmp CLAUDE.md AGENTS.md` silencieux, le skill `ponytail` au recensement.
+- Un run réel de l'autopilot montre le texte de `ponytail` dans le journal de
+  chaque étape : le déclenchement de `SessionStart` en `claude -p` ne figure
+  pas parmi les points vérifiés par un run réel dans `docs/memory.md`.
 - Version du plugin bumpée (job `plugin-version`).
 
 ### Hors périmètre
