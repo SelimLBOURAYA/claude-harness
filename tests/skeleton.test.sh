@@ -34,10 +34,14 @@ assert_ok "the skeleton declares a Gate parameters section" -- \
   grep -q '^## Gate parameters' "$SK/CLAUDE.md"
 for p in Stack "Validation command" "Coverage tool" "Coverage threshold" \
          "Coverage exclusions" "Migrations directory" "Lots file" \
-         "Frontend backend pair" "Health path" "Dist forbidden pattern" "Image name"; do
+         "Frontend backend pair" "Integration command" "Health path" \
+         "Dist forbidden pattern" "Image name"; do
   assert_ok "the skeleton declares the '$p' row" -- \
     grep -qF "| \`$p\`" "$SK/CLAUDE.md"
 done
+# Lot 32: the row is the skeleton's, not yet a requirement of the 8 repos.
+assert_eq "" "$(grep -F '"Integration command"' "$REPO_ROOT/.github/workflows/harness-invariants.yml" || true)" \
+  "harness-invariants does not require the Integration command row yet"
 # The workflow reads these exact labels; a renamed row is a silent gap.
 WF_PARAMS=$(sed -n '/for p in Stack/,/done/p' "$REPO_ROOT/.github/workflows/harness-invariants.yml")
 for p in Stack "Lots file" "Image name"; do

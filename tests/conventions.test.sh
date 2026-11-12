@@ -28,10 +28,12 @@ while IFS= read -r ref; do
 done < <(grep -oE '\b(CODE|LOT|GATE|ASK|SEC|API|GIT|DOC|START|CTX|PLUG|PROF|OUT|MEM)-[0-9]+\b' "$C" | sort -u)
 
 # --- the rules other machinery reads ---------------------------------------
-# The eleven parameters, spelled as harness-invariants.yml greps for them.
+# The eleven parameters of harness-invariants.yml, and the Integration command
+# the autopilot reads (lot 32).
 for p in Stack "Validation command" "Coverage tool" "Coverage threshold" \
          "Coverage exclusions" "Migrations directory" "Lots file" \
-         "Frontend backend pair" "Health path" "Dist forbidden pattern" "Image name"; do
+         "Frontend backend pair" "Integration command" "Health path" \
+         "Dist forbidden pattern" "Image name"; do
   assert_ok "section 12 lists the '$p' parameter" -- grep -qF "\`$p\`" "$C"
 done
 # One list of commit types: the master's is commit-format.yml's default.
@@ -44,8 +46,9 @@ assert_eq "$types" \
   "lot-ship lists the same commit types"
 
 # --- short, rules only, English (section 11 applies to itself) ------------
-# 15000, raised by the exact size of the CODE-6 line (lot 33).
-assert_ok "the master stays within 15146 bytes" -- test "$(wc -c < "$C")" -le 15146
+# 15000, raised by the exact size of the CODE-6 line (lot 33) and of the
+# Integration command additions (lot 32).
+assert_ok "the master stays within 15225 bytes" -- test "$(wc -c < "$C")" -le 15225
 assert_eq "" "$(grep -niE 'incident|20[0-9]{2}-[0-9]{2}-[0-9]{2}' "$C" || true)" \
   "the master carries no incident narrative and no dated story"
 assert_eq "" "$(grep -cE '\b(le |la |les |une |des |dans |pour |avec )' "$C" \
