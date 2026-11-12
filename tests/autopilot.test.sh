@@ -348,13 +348,24 @@ git -C "$R" push -q origin develop
 assert_eq 1 "$(pilot "$R")" "a report outside the lot's diff stops the ship"
 assert_eq "start dev test review audit integration " "$(calls "$R")" \
   "the ship is not run without a fresh report"
-assert_eq ship "$(state "$R" resume)" "the stop resumes at ship"
+assert_eq integration "$(state "$R" resume)" "the stale report resumes at integration"
 assert_contains "$(state "$R" reason)" "lot-0-integration.md" "the reason names the report"
-echo new > "$R/docs/audits/lot-0-integration.md"
-git -C "$R" add docs && git -C "$R" commit -qm "docs: refresh the integration check report"
+cat > "$R.scen/integration.sh" <<'EOF'
+echo new > docs/audits/lot-0-integration.md
+git add docs && git commit -qm "docs: add the integration check report"
+EOF
 : > "$R.scen/calls.log"
 assert_eq 0 "$(pilot "$R" --resume)" "--resume finishes once the report is in the lot's diff"
-assert_eq "ship " "$(calls "$R")" "the resume starts at lot-ship"
+assert_eq "integration ship " "$(calls "$R")" "the resume reruns integration, then ships"
+
+R=$(fixture integrationaudit frontend true)
+cat > "$R.scen/integration.sh" <<'EOF'
+mkdir -p docs/audits && echo ok > docs/audits/lot-0-integration.md
+git add docs && git commit -qm "docs: add the integration check report"
+EOF
+echo blocked > "$R.scen/audit.status"
+assert_eq 1 "$(pilot "$R")" "a blocked lot-audit stops a frontend run"
+assert_eq integration "$(state "$R" resume)" "a blocked audit resumes at integration, never past it"
 
 # --- a review fix outside the lot's diff ----------------------------------
 R=$(fixture outside harness)

@@ -347,7 +347,8 @@ class Pilot:
         """Run one step's session; returns its structured answer, or stops."""
         cmd = command(step, self.home, resume) + allowed_tools(self.params, self.home)
         if prompt is None:
-            prompt = PROMPTS[step].format(lot=self.lot, log=self.integration_log())
+            prompt = PROMPTS[step].format(
+                lot=self.lot, log=self.state.get("integration_log") or self.integration_log())
         env = dict(os.environ, HARNESS_AUTOPILOT="1")
         path = self.log_path(step)
         os.makedirs(self.logs, exist_ok=True)
@@ -539,7 +540,8 @@ class Pilot:
         self.gate_step("review", "docs/audits/lot-%s-review.md" % self.lot, "audit")
 
     def step_audit(self):
-        self.gate_step("audit", "docs/audits/lot-%s.md" % self.lot, "ship")
+        order = steps(self.params)
+        self.gate_step("audit", "docs/audits/lot-%s.md" % self.lot, order[order.index("audit") + 1])
 
     def step_integration(self):
         """Run the repo's Integration command, then have the report written (lot 32).
@@ -550,12 +552,13 @@ class Pilot:
         and `gate_step` checks the report is committed.
         """
         command = integration_command(self.params)
-        path = self.integration_log()
+        # Recorded once: the session's prompt names this very file, even past midnight.
+        path = self.state["integration_log"] = self.integration_log()
         os.makedirs(self.logs, exist_ok=True)
         print("autopilot: integration `%s`, log %s" % (command, path), flush=True)
         with open(path, "w", encoding="utf-8") as out:
             proc = subprocess.Popen(
-                command, shell=True, cwd=self.root, stdout=out,
+                command, shell=True, cwd=self.root, stdin=subprocess.DEVNULL, stdout=out,
                 stderr=subprocess.STDOUT, text=True, start_new_session=True,
             )
             try:
@@ -565,6 +568,11 @@ class Pilot:
                 os.killpg(proc.pid, signal.SIGKILL)
                 proc.wait()
                 code = "timeout"
+            except KeyboardInterrupt:
+                # Its own process group: Ctrl-C does not reach the backend it started.
+                os.killpg(proc.pid, signal.SIGKILL)
+                proc.wait()
+                raise Stop("integration: interrupted, command killed, log %s" % path, "integration")
         if code != 0:
             raise Stop("integration: `%s` %s, log %s"
                        % (command, "timed out" if code == "timeout" else "exited %s" % code, path),
@@ -573,12 +581,13 @@ class Pilot:
 
     def step_ship(self):
         if self.params.get("Stack") == "frontend":
-            if integration_command(self.params):
+            if "integration" in steps(self.params):
                 develop = lotfile.develop_ref(self.root) or "origin/develop"
                 diff = (git(self.root, "diff", "--name-only", "%s...HEAD" % develop) or "").splitlines()
                 if INTEGRATION_REPORT not in diff:
+                    # --resume reruns the command and the report session.
                     raise Stop("ship: %s is not part of the lot's diff; run integration"
-                               % INTEGRATION_REPORT, "ship")
+                               % INTEGRATION_REPORT, "integration")
             elif not os.path.isfile(os.path.join(self.root, INTEGRATION_REPORT)):
                 raise Stop("ship: frontend without %s; run integration-check by hand"
                            % INTEGRATION_REPORT, "ship")
@@ -724,6 +733,9 @@ def main(argv=None):
         if not state or not state.get("resume"):
             return refuse("nothing to resume: no stopped run in %s" % STATE_PATH)
         first = state["resume"]
+        if first not in steps(params):
+            return refuse("the recorded step `%s` is not in this repo's sequence; "
+                          "check the Gate parameters" % first)
         if args.answer is not None:
             if not answerable(state.get("status"), first):
                 return refuse("--answer applies only to a stop blocked at start or dev, "
