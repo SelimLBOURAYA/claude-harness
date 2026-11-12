@@ -730,6 +730,11 @@ assert_contains "$out" "Bash(claude plugin update claude-harness@claude-harness 
   "the allowlist lets lot-start update the plugin at project scope"
 assert_eq 1 "$(grep -o 'Bash(claude [^)]*)' <<< "$out" | sort -u | wc -l | tr -d ' ')" \
   "the allowlist names no other claude command"
+# Lot 33: the skeleton's permission rules go per process, its ask rules as
+# denials, since a headless session has nobody to ask.
+rules=$(jq -r '.permissions.deny + .permissions.ask | join(",")' "$REPO_ROOT/templates/project/.claude/settings.json")
+assert_contains "$out" "--disallowedTools $rules " \
+  "--dry-run passes the skeleton's deny and ask rules as --disallowedTools"
 out=$(cd "$R" && PATH="$FAKEBIN:$PATH" HOME="$FAKEHOME" python3 "$PILOT" --dry-run 5)
 assert_contains "$out" 'The `lot-start confirm N` hand-off' \
   "--dry-run shows the confirmation hand-off in the system prompt"

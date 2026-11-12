@@ -526,6 +526,72 @@ assert_eq "1" "$(run_conv "$D" "$BASE")" "a missing CONVENTIONS.md fails whateve
 assert_ok "the conventions-master checkout is not fatal on its own" -- \
   grep -q '^        continue-on-error: true' "$WF/harness-invariants.yml"
 
+# --- lot 33: the permission rules, second layer behind the git guard -------
+extract_step "The permission rules match the harness master" > "$COVWORK/perm.sh"
+assert_ok "the permission-rules step has an extractable script" -- test -s "$COVWORK/perm.sh"
+MASTER_SETTINGS="$TPL/project/.claude/settings.json"
+# perm_repo <dir> <permissions json or "none">
+perm_repo() {
+  mkdir -p "$1/.claude"
+  if [ "$2" = none ]; then
+    jq 'del(.permissions)' "$MASTER_SETTINGS" > "$1/.claude/settings.json"
+  else
+    jq --argjson p "$2" '.permissions = $p' "$MASTER_SETTINGS" > "$1/.claude/settings.json"
+  fi
+}
+with_settings_master() {
+  mkdir -p "$1/.harness-master/templates/project/.claude"
+  cp "$MASTER_SETTINGS" "$1/.harness-master/templates/project/.claude/settings.json"
+}
+run_perm() { ( cd "$1" && CONVENTIONS_REF=main bash "$COVWORK/perm.sh" > /dev/null 2>&1; echo $? ); }
+MASTER_PERMS=$(jq -c '.permissions' "$MASTER_SETTINGS")
+
+D="$COVWORK/perm-match"; perm_repo "$D" "$MASTER_PERMS"; with_settings_master "$D"
+assert_eq "0" "$(run_perm "$D")" "permission rules equal to the master pass"
+D="$COVWORK/perm-none"; perm_repo "$D" none; with_settings_master "$D"
+assert_eq "1" "$(run_perm "$D")" "a .claude/settings.json without the deny list fails"
+D="$COVWORK/perm-drift"; perm_repo "$D" '{"deny":["Bash(git push * main)"]}'; with_settings_master "$D"
+assert_eq "1" "$(run_perm "$D")" "permission rules that drifted from the master fail"
+D="$COVWORK/perm-unreadable"; perm_repo "$D" "$MASTER_PERMS"
+assert_eq "0" "$(run_perm "$D")" "an unreadable master passes when the deny list is present"
+D="$COVWORK/perm-unreadable-none"; perm_repo "$D" none
+assert_eq "1" "$(run_perm "$D")" "an unreadable master never excuses a missing deny list"
+D="$COVWORK/perm-missing"; mkdir -p "$D"; with_settings_master "$D"
+assert_eq "1" "$(run_perm "$D")" "a missing .claude/settings.json fails"
+
+# The lots file name reaches the shell through env, never inline (lot 33).
+assert_eq "" "$(grep -n 'inputs.lots_file' "$WF/harness-invariants.yml" | grep -v 'LOTS_FILE:' || true)" \
+  "harness-invariants passes the lots file through env"
+
+# --- lot 33: a Critical row is resolved in its Action cell only ------------
+extract_step_from "$WF/lot-deliverables.yml" \
+  "Each lot ships its audit report, and its review report before it" > "$COVWORK/crit.sh"
+assert_ok "the deliverables step has an extractable script" -- test -s "$COVWORK/crit.sh"
+# crit <action cell> : the exit status of the step on a report with that Critical row
+crit() {
+  local d="$COVWORK/crit-$RANDOM"
+  mkdir -p "$d/docs/audits"
+  {
+    echo '## Summary'
+    echo '| Dimension | Critical | Warning | Info |'
+    echo '|---|---|---|---|'
+    echo '| Security | 1 | 0 | 0 |'
+    echo '## Security'
+    echo '| Severity | Location | Finding | Action |'
+    echo '|---|---|---|---|'
+    printf '| %s | `a.sh:1` | a \\| b | %s |\n' "${2:-Critical}" "$1"
+  } > "$d/docs/audits/lot-5.md"
+  ( cd "$d" && LOTS=5 REQUIRE_REVIEW=false bash "$COVWORK/crit.sh" > /dev/null 2>&1; echo $? )
+}
+assert_eq "1" "$(crit 'not fixed')" "Critical ... not fixed blocks"
+assert_eq "1" "$(crit 'open: owner decision (autopilot)')" "an open: action blocks"
+assert_eq "1" "$(crit 'see the next lot, fixed later')" "a resolution word away from the start blocks"
+assert_eq "0" "$(crit 'fixed in abc1234')" "fixed in <sha> resolves"
+assert_eq "0" "$(crit 'owner decision: accepted for lot 34')" "owner decision: resolves"
+assert_eq "0" "$(crit '**Resolved in `86f9c30`**, on the user go-ahead')" "a bold Resolved resolves"
+assert_eq "0" "$(crit 'fixed in abc1234' '**Critical**')" "a bold severity is read the same way"
+assert_eq "0" "$(crit 'n/a' Warning)" "a Warning row is not a Critical one"
+
 
 # --- lot 18: lint.yml has a branch for `other` and `harness` -------------
 # P5-#21: both stacks were accepted by this workflow and matched no step, so

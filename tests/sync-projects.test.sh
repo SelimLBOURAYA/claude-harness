@@ -21,6 +21,12 @@ assert_eq "" "$(jq -r '.projects[] | select(. == "claude-harness")' "$MANIFEST")
 for f in $(jq -r '.synced_files[]' "$MANIFEST"); do
   assert_file "$REPO_ROOT/$f" "synced file $f exists in the harness"
 done
+# Lot 33: the permission rules are one key of the project's settings, not a file.
+PERM_SOURCE=$(jq -r '.synced_permissions.source' "$MANIFEST")
+assert_eq ".claude/settings.json" "$(jq -r '.synced_permissions.target' "$MANIFEST")" \
+  "the permission rules go to the project's .claude/settings.json"
+assert_ok "the permission rules source carries a deny list" -- \
+  jq -e '.permissions.deny | length > 0' "$REPO_ROOT/$PERM_SOURCE"
 
 # --- workflow ---------------------------------------------------------------
 assert_file "$WF" "sync-projects.yml is shipped"
@@ -28,6 +34,7 @@ assert_eq "contents: read" "$(sed -n '/^permissions:/{n;s/^ *//p;}' "$WF")" \
   "sync-projects keeps its own token read-only"
 assert_ok "sync-projects runs on main only" -- grep -q "github.ref == 'refs/heads/main'" "$WF"
 assert_ok "sync-projects triggers on a master change" -- grep -q '^      - CONVENTIONS.md' "$WF"
+assert_ok "sync-projects triggers on a permission rules change" -- grep -qxF "      - $PERM_SOURCE" "$WF"
 assert_ok "sync-projects writes with the dedicated secret" -- grep -q 'secrets.HARNESS_SYNC_TOKEN' "$WF"
 assert_eq "" "$(grep -nE '^\s*uses:' "$WF" \
   | grep -vE 'uses: *[A-Za-z0-9._/-]+@[0-9a-f]{40} +# v[0-9]+\.[0-9]+\.[0-9]+' || true)" \
@@ -42,24 +49,33 @@ H="$WORK/harness"
 mkdir -p "$H/.github/scripts"
 cp "$SCRIPT" "$H/.github/scripts/"
 printf 'master v2\n' > "$H/CONVENTIONS.md"
-jq -n '{owner:"me", base_branch:"develop", synced_files:["CONVENTIONS.md"], projects:["stale","fresh"]}' \
-  > "$H/projects.json"
+mkdir -p "$H/templates/project/.claude"
+printf '{"enabledPlugins":{"claude-harness@claude-harness":true},"permissions":{"deny":["Bash(git push * main)"]}}\n' \
+  > "$H/templates/project/.claude/settings.json"
+jq -n '{owner:"me", base_branch:"develop", synced_files:["CONVENTIONS.md"],
+        synced_permissions:{source:"templates/project/.claude/settings.json", target:".claude/settings.json"},
+        projects:["stale","fresh"]}' > "$H/projects.json"
 git init -q "$H" && git -C "$H" add -A \
   && git -C "$H" -c user.email=t@e -c user.name=T commit -qm "feat: harness"
 
 REMOTES="$WORK/remotes"
 mkdir -p "$REMOTES"
-seed() { # seed <project> <conventions content>
+seed() { # seed <project> <conventions content> <settings.json content>
   local s="$WORK/seed-$1"
   git init -q -b develop "$s"
   printf '%s\n' "$2" > "$s/CONVENTIONS.md"
+  mkdir -p "$s/.claude"
+  printf '%s\n' "$3" > "$s/.claude/settings.json"
   git -C "$s" add -A
   git -C "$s" -c user.email=t@e -c user.name=T commit -qm "feat: seed"
   git init -q --bare -b develop "$REMOTES/$1.git"
   git -C "$s" push -q "$REMOTES/$1.git" develop
 }
-seed stale "master v1"
-seed fresh "master v2"
+# A project's own settings (its LSP plugin) survive the sync: only the
+# permissions key is the harness's (lot 33).
+seed stale "master v1" '{"enabledPlugins":{"jdtls-lsp@claude-plugins-official":true}}'
+seed fresh "master v2" "$(jq --slurpfile m "$H/templates/project/.claude/settings.json" \
+  '.permissions = $m[0].permissions' <<< '{"enabledPlugins":{"typescript-lsp@claude-plugins-official":true}}')"
 
 # gh stub: records every call; `pr list` answers from $WORK/open-<repo-name>,
 # `api user` with $GH_LOGIN, `pr view` with $GH_PR_AUTHOR and $GH_PR_FILES, and
@@ -95,6 +111,11 @@ assert_eq "" "$(git --git-dir="$REMOTES/fresh.git" branch --list chore/sync-harn
   "an up-to-date project gets no branch"
 assert_eq "master v1" "$(git --git-dir="$REMOTES/stale.git" show develop:CONVENTIONS.md)" \
   "develop itself is never written"
+branch_settings() { git --git-dir="$REMOTES/$1.git" show chore/sync-harness-files:.claude/settings.json 2>/dev/null; }
+assert_eq '["Bash(git push * main)"]' "$(branch_settings stale | jq -c '.permissions.deny')" \
+  "the stale project gets the master permission rules"
+assert_eq "true" "$(branch_settings stale | jq '.enabledPlugins["jdtls-lsp@claude-plugins-official"]')" \
+  "the rest of the project's settings stays its own"
 assert_eq "1" "$(grep -c '^pr create' "$WORK/gh.log")" "exactly one pull request is opened"
 assert_contains "$(grep -m1 '^pr list' "$WORK/gh.log")" "--base develop" \
   "only a sync pull request against the base branch is picked up"
@@ -115,6 +136,12 @@ assert_ok "a second sync succeeds" -- run_sync
 assert_eq "0" "$(grep -c '^pr create' "$WORK/gh.log")" "an open sync pull request is not duplicated"
 assert_contains "$(grep '^pr merge' "$WORK/gh.log")" "pr merge 7 --repo me/stale" \
   "the refreshed pull request is merged"
+# The settings file is a synced path: a pull request that touches it is merged.
+: > "$WORK/gh.log"
+GH_PR_FILES='[{"path":"CONVENTIONS.md"},{"path":".claude/settings.json"}]' run_sync; rc=$?
+assert_eq "0" "$rc" "a sync pull request that sets the permission rules is merged"
+assert_contains "$(grep '^pr merge' "$WORK/gh.log")" "pr merge 7 --repo me/stale" \
+  "the settings file does not stop the merge"
 
 # The merge is refused, the pull request left open and the project failed, when
 # the pull request is not the token account's, carries another file, can no
@@ -141,6 +168,7 @@ assert_eq "0" "$(grep -c '^pr merge' "$WORK/gh.log")" "no merge without the toke
 git clone -q "$REMOTES/stale.git" "$WORK/merge" 2>/dev/null
 git -C "$WORK/merge" checkout -q develop
 printf 'master v2\n' > "$WORK/merge/CONVENTIONS.md"
+git -C "$WORK/merge" show origin/chore/sync-harness-files:.claude/settings.json > "$WORK/merge/.claude/settings.json"
 git -C "$WORK/merge" -c user.email=t@e -c user.name=T commit -qam "docs: merged"
 git -C "$WORK/merge" push -q origin develop
 : > "$WORK/gh.log"
