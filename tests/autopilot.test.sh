@@ -413,6 +413,31 @@ EOF
 assert_eq 1 "$(pilot "$R")" "a review that modifies another line of CLAUDE.md stops the run"
 assert_contains "$(state "$R" reason)" "CLAUDE.md" "the reason names the modified file"
 
+R=$(fixture censusother harness)
+cat >> "$R.scen/review.sh" <<'EOF'
+printf '| `README.md` | Project readme |\n' >> CLAUDE.md
+git add CLAUDE.md && git commit -qm "docs(5): add a census row for another document"
+EOF
+assert_eq 1 "$(pilot "$R")" "a row naming a document outside docs/audits/ stops the run"
+assert_eq "start dev test review " "$(calls "$R")" "no lot-audit after a non-census addition"
+assert_contains "$(state "$R" reason)" "CLAUDE.md" "the reason names the file"
+
+# The real census row goes inside the table, not at the end of the file.
+R=$(fixture censusinsert harness)
+cp "$R/CLAUDE.md" "$R/AGENTS.md"
+git -C "$R" add AGENTS.md
+git -C "$R" commit -qm "chore: seed the mirror"
+git -C "$R" push -q origin develop
+cat >> "$R.scen/review.sh" <<'EOF'
+for f in CLAUDE.md AGENTS.md; do
+  sed -i '/^| `Lots file`/i | `docs/audits/lot-5-review.md` | Lot 5 code-review report |' "$f"
+done
+git add CLAUDE.md AGENTS.md && git commit -qm "docs(5): add the census rows"
+EOF
+assert_eq 0 "$(pilot "$R")" "census rows inserted inside the table pass"
+assert_eq "start dev test review audit ship " "$(calls "$R")" \
+  "the insertion does not stop the run"
+
 # --- the close of the development -----------------------------------------
 R=$(fixture dirty harness)
 echo 'echo x > stray.txt' >> "$R.scen/dev.sh"
