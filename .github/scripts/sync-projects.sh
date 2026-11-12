@@ -105,7 +105,7 @@ merge_pr() {
 pr_body() {
   cat <<EOF
 ## Summary
-- Re-copies the harness-managed files from \`claude-harness@${source_sha:0:7}\` (\`main\`): $(printf '`%s` ' "${files[@]}")
+- Re-copies the harness-managed files from \`claude-harness@${source_sha:0:7}\` (\`main\`): $(printf '\x60%s\x60 ' "${files[@]}")
 ${perm_target:+- Sets the \`permissions\` key of \`$perm_target\` from \`$perm_source\`; the rest of that file stays this project's}
 - Opened by the \`sync-projects\` workflow of \`claude-harness\`; the files are never hand-edited here (CONVENTIONS.md section 12)
 
