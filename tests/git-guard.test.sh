@@ -122,6 +122,35 @@ expect deny "$FEAT" "sh -c 'git push origin HEAD:main'"
 expect deny "$FEAT" "echo start && git push origin main"
 expect deny "$FEAT" "git status; git push origin main"
 
+# --- shell keywords and groupings open a command (lot 33) ----------------
+# Finding 1 of the lot 33 evaluation: each of these passed in silence.
+expect deny "$FEAT" "if true; then git push origin main; fi"
+expect deny "$FEAT" "for i in 1; do git push origin main; done"
+expect deny "$FEAT" "while git push origin main; do :; done"
+expect deny "$FEAT" "(git push origin main)"
+expect deny "$FEAT" "{ git push origin main; }"
+expect deny "$FEAT" "! git push origin main"
+expect deny "$FEAT" "x=\$(git push origin main)"
+expect deny "$FEAT" "if true; then rtk git push --force; fi"
+expect deny "$MAIN" "(git push)"
+# Seen through, an ordinary command still passes.
+expect pass "$FEAT" "if git diff --quiet; then git push -u origin feat/lot-1-hooks; fi"
+expect pass "$FEAT" "(cd $FEAT && git status)"
+# Left out by decision (lot 33, after lot 25: the guard is not a sandbox):
+# backticks, eval, and a command name held in a variable. The permission deny
+# list of .claude/settings.json is the second layer.
+expect pass "$FEAT" "echo \`git push origin main\`"
+expect pass "$FEAT" "eval \"git push origin main\""
+expect pass "$FEAT" "g=git; \$g push origin main"
+
+# --- pushes of every branch, or that delete remote ones (lot 33) ----------
+expect deny "$FEAT" "git push --mirror"
+expect deny "$FEAT" "git push --all origin"
+expect deny "$FEAT" "git push --branches origin"
+expect deny "$FEAT" "git push origin --tags --prune"
+expect deny "$FEAT" "rtk git push --all origin"
+expect pass "$FEAT" "git push --tags origin"
+
 # --- what cannot be resolved must be confirmed, never passed -------------
 expect ask "$FEAT" "B=main; git push origin \$B"
 expect ask "$FEAT" "git push origin \$(git branch --show-current)"
@@ -206,6 +235,27 @@ expect pass "$FRONT" "gh pr create --base develop --title t --body b"
 expect pass "$FEAT" "gh pr view 12"
 expect pass "$FEAT" "gh pr checks --watch"
 expect pass "$FEAT" "gh repo view --json visibility"
+
+# --- gh pr edit and the gh api writes (lot 33) -----------------------------
+expect deny "$FEAT" "gh pr edit 12 --base main"
+expect deny "$FEAT" "gh pr edit 12 -B main"
+expect deny "$FEAT" "gh pr edit 12 --base=main"
+expect pass "$FEAT" "gh pr edit 12 --base develop"
+expect pass "$FEAT" "gh pr edit 12 --title t"
+# A merge or a branch move outside lot-ship is asked (owner decision), and
+# denied under the autopilot, which has nobody to ask.
+expect ask "$FEAT" "gh api -X PUT repos/o/r/pulls/1/merge"
+expect ask "$FEAT" "gh api --method=PUT repos/o/r/pulls/1/merge"
+expect ask "$FEAT" "gh api -XPATCH repos/o/r/git/refs/heads/main -f sha=abc"
+expect ask "$FEAT" "gh api repos/o/r/git/refs -f ref=refs/heads/x -f sha=abc"
+expect ask "$FEAT" "rtk gh api -X DELETE /repos/o/r/git/refs/heads/feat/x"
+assert_eq deny "$(HARNESS_AUTOPILOT=1 decision "$FEAT" "gh api -X PUT repos/o/r/pulls/1/merge")" \
+  "autopilot: a gh api write on a merge is denied, not asked"
+# A read, or a write elsewhere, is none of the guard's business.
+expect pass "$FEAT" "gh api repos/o/r/git/refs/heads/main"
+expect pass "$FEAT" "gh api repos/o/r/pulls/1/merge"
+expect pass "$FEAT" "gh api -X POST repos/o/r/issues/1/comments -f body=x"
+expect pass "$FEAT" "gh api user --jq .login"
 
 # --- gh pr merge: lot-ship merges a green lot PR into develop (lot 24) -----
 GREEN='{"baseRefName":"develop","headRefName":"feat/lot-1-hooks","statusCheckRollup":[

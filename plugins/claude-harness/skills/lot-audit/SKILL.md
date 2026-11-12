@@ -198,7 +198,9 @@ git -C ~/ENV/projets/claude-harness show origin/main:plugins/claude-harness/.cla
 | **Info** | Optional improvement |
 
 A fixed row stays in its table, its Action saying how and where it was fixed:
-the CI guard looks for the resolution, not for the row's absence.
+the CI guard looks for the resolution, not for the row's absence. It reads it
+in the Action cell only, which must open with `fixed in <sha>` or
+`owner decision: …`; any other start, `open: …` included, blocks the PR.
 
 **Recommended lot**: when a Critical cannot be fixed within the lot's scope, the
 same Warning dimension recurs on consecutive lots, or a cross-cutting theme

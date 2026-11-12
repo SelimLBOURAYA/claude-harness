@@ -55,6 +55,25 @@ assert_eq "github" "$(jq -r '.extraKnownMarketplaces["claude-harness"].source.so
 assert_eq "true" "$(jq -r '.enabledPlugins["claude-harness@claude-harness"]' "$S")" \
   "the skeleton enables the plugin"
 
+# Lot 33: the permission rules, second layer behind the git guard. Each rule
+# exists bare and behind `rtk`, whose hook rewrites the command before Claude
+# Code matches it, and none opens on a `*`, which would deny a commit message
+# that quotes the command.
+deny=$(jq -r '.permissions.deny[]' "$S")
+for form in '* main' '*:main' '*--force*' '-f*' '* +*' '*--mirror*' '*--all*' '*--branches*' '*--prune*'; do
+  for prefix in 'git push' 'rtk git push' 'rtk proxy git push'; do
+    assert_ok "the skeleton denies $prefix $form" -- grep -qxF "Bash($prefix $form)" <<< "$deny"
+  done
+done
+ask=$(jq -r '.permissions.ask[]' "$S")
+for form in '*pulls/*/merge*' '*git/refs*'; do
+  for prefix in 'gh api' 'rtk gh api' 'rtk proxy gh api'; do
+    assert_ok "the skeleton asks for $prefix $form" -- grep -qxF "Bash($prefix $form)" <<< "$ask"
+  done
+done
+assert_eq "" "$(jq -r '.permissions | (.deny + .ask)[] | select(startswith("Bash(*"))' "$S")" \
+  "no permission rule opens on a wildcard"
+
 # --- section 8: the documentation is versioned, the secrets are not ------
 for doc in 'CLAUDE.md' 'AGENTS.md' 'CONVENTIONS.md' 'lots.md'; do
   assert_eq "" "$(grep -nE "^/?$doc$" "$SK/.gitignore" || true)" \
