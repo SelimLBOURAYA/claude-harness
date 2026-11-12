@@ -206,6 +206,7 @@ missing line is a drift that `harness-sync` and `harness-invariants.yml` report.
 | `dep-update` | Patch/minor applied, major proposed |
 | `bootstrap-project` | Generates a harnessed repository from `templates/project/` |
 | `i-have-adhd` | Focus aid, user-invoked only |
+| `ponytail` | The smallest complete change (CODE-6), adapted from ponytail 5.3.3 (MIT); its text reaches every session through a `SessionStart` hook |
 
 Gate, mandatory in order: `lot-test → lot-review → lot-audit → lot-ship`, opened by
 `lot-start` before any development.
@@ -219,6 +220,7 @@ Gate, mandatory in order: `lot-test → lot-review → lot-audit → lot-ship`, 
 | `lot-lock-guard.py` | `PreToolUse` on `Edit`, `Write`, `MultiEdit`, `NotebookEdit` | On a `feat/lot-*` branch, denies every write until `.claude/current-lot` names that branch; always lets the lots file through, never the lock itself. The repository is resolved from the written path. Writes made through `Bash` are not covered: a documented limit. |
 | `lot-confirm.sh` | `UserPromptSubmit` | Writes `.claude/current-lot` when the whole user prompt is `lot-start confirm N` or `/claude-harness:lot-start confirm N` on a `feat/lot-N-*` branch; the lock holds that branch and the date, and `lot-ship` removes it after the merge. The model cannot forge a user prompt; the user's autopilot submits it only once its own checks passed. |
 | `session-context.sh` | `SessionStart` (`startup`, `resume`, `clear`, `compact`) | Re-injects branch, working tree, last merges on develop, the lot lock and the open rows of the status table; flags a compaction summary as untrusted; adds `rules/deepseek.json` when `ANTHROPIC_BASE_URL` is set. Capped at ~2K tokens, never blocks. |
+| `ponytail-context.sh` | `SessionStart` (`startup`, `resume`, `clear`, `compact`) | Injects the body of the `ponytail` skill (CODE-6) into every session, under every profile. A hook of its own: Claude Code keeps at most 10,000 characters of each hook's context, so the text keeps its own budget and leaves the state its own. Never blocks. |
 
 `session-context.sh` reads that freshness through `hooks/plugin-currency.py`, a
 helper it calls from its own tree rather than a hook of its own: the check must be

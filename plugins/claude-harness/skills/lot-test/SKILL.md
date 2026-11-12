@@ -85,7 +85,8 @@ configuration (threshold, exclusions).
 3. Fill the business-rule matrix (section 2) and find each row's existing test.
 4. For each criterion or branch left uncovered, write a **black-box** test:
    drawn from the lot's specification, not from the code, so that it asserts
-   what the code should do rather than what it does.
+   what the code should do rather than what it does. Write it as CODE-6 says:
+   the smallest complete test, on the fixtures and helpers already there.
 5. `Validation command` green (section 3) → commit the added tests:
    `test(N): complete the lot coverage`. Nothing added → no commit.
 6. A test you added is red → it has revealed a bug. **Do not fix it**: no

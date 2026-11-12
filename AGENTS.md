@@ -46,6 +46,7 @@ plugins/claude-harness/
   hooks/lot-lock-guard.py            write lock: no development before the user confirmed the lot
   hooks/lot-confirm.sh               writes .claude/current-lot on the user's `lot-start confirm N`
   hooks/session-context.sh           re-injects the repository state at start and after compaction
+  hooks/ponytail-context.sh          injects the ponytail skill (CODE-6) into every session
   hooks/lotfile.py                   shared readers: gate parameters, status table, lock
   hooks/plugin-currency.py           installed copy vs main: the freshness warning of the SessionStart hook
   hooks/mirror-sync.sh               CLAUDE.md <-> AGENTS.md mirror
@@ -91,6 +92,7 @@ with the plugin enabled they are announced as `claude-harness:<name>`.
 | `dep-update` | dependency refresh | Patch/minor applied, major proposed |
 | `bootstrap-project` | new repo, or a repo joining the harness | Generates the repository from `templates/project/` and verifies it against `harness-invariants` |
 | `i-have-adhd` | user invokes it | Focus aid, never model-invoked |
+| `ponytail` | before the first write of a development; its text is injected into every session | The smallest complete change (CODE-6), adapted from ponytail 5.3.3 (MIT) |
 
 **Gate, mandatory in order**: `lot-test → lot-review → lot-audit → lot-ship`,
 opened by `lot-start` before any development.
@@ -123,6 +125,8 @@ Every blocking invariant is also enforced in CI, which is the only agent-agnosti
 | `plugins/claude-harness/skills/lot-ship/SKILL.md` | Lot delivery skill |
 | `plugins/claude-harness/skills/lot-start/SKILL.md` | Lot start skill: status sync, questions, branch, confirmation (lot 19) |
 | `plugins/claude-harness/skills/lot-test/SKILL.md` | Lot test and coverage skill |
+| `plugins/claude-harness/skills/ponytail/SKILL.md` | Smallest complete change skill, injected into every session (lot 33) |
+| `plugins/claude-harness/skills/ponytail/LICENSE` | MIT notice of the upstream ponytail project the skill adapts |
 | `plugins/claude-harness/rules/deepseek.json` | Imperative rules card for the `deepseek` profile, injected at session start (lot 19) |
 | `plugins/claude-harness/autopilot/autopilot.py` | Autopilot: one lot from `lot-start` to merge, a session and a model per step, stop and notification at the first blocker (lot 27) |
 | `docs/audits/lot-0.md` | Lot 0 report — technical verifications V1 to V7 |
