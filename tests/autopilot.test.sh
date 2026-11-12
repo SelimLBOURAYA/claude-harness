@@ -484,14 +484,18 @@ assert_eq blocked "$(state "$R" status)" "questions make the report stop blocked
 
 # --- the merge, checked by the script -------------------------------------
 R=$(fixture notmerged harness)
+: > "$R.scen/ship.sh"
 assert_eq 1 "$(FAKE_GH_STATE=OPEN pilot "$R")" "a pull request left open stops the run"
 assert_contains "$(state "$R" reason)" "OPEN" "the reason gives the pull request state"
+assert_ok "the lock stays while the pull request is not merged" -- test -e "$R/.claude/current-lot"
 assert_eq ship "$(state "$R" resume)" "the stop resumes at lot-ship"
 
+# The headless ship session cannot remove a file under .claude/: the autopilot
+# does it once the pull request is merged (lot 35).
 R=$(fixture locked harness)
 : > "$R.scen/ship.sh"
-assert_eq 1 "$(pilot "$R")" "a lot lock left after lot-ship stops the run"
-assert_contains "$(state "$R" reason)" "current-lot" "the reason names the lock"
+assert_eq 0 "$(pilot "$R")" "the autopilot removes the lock left after lot-ship"
+assert_ok "and the lock is gone" -- test ! -e "$R/.claude/current-lot"
 
 # --- outside a harnessed repository ---------------------------------------
 mkdir -p "$WORK/plain" && git -C "$WORK/plain" init -q
