@@ -178,6 +178,9 @@ assert_contains "$SECTION" "Steps 1 to 3 are never replayed" "integration-check:
 assert_contains "$SECTION" "Read the log" "integration-check: the log feeds the report"
 assert_contains "$SECTION" "\`Fail\` is forbidden" "integration-check: no Fail on a zero exit code"
 assert_contains "$SECTION" "\`Pass\` is" "integration-check: no Pass on a partial scenario"
+assert_contains "$SECTION" "contract comparison (Step 4) from that log" \
+  "integration-check: the scenario and contract comparison come from the log"
+assert_contains "$SECTION" "Step 6 only" "integration-check: the autopilot session runs Step 6 only"
 assert_contains "$SECTION" "docs: add the integration check report" "integration-check: Step 6 commits the report"
 DESC=$(sed -n '/^description:/,/^metadata:/p' "$SKILLS/integration-check/SKILL.md")
 assert_eq "" "$(grep -i 'manual' <<< "$DESC" || true)" \

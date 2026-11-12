@@ -293,11 +293,20 @@ out=$(cd "$R" && PATH="$FAKEBIN:$PATH" HOME="$FAKEHOME" python3 "$PILOT" --dry-r
 assert_contains "$out" "integration Opus" "--dry-run lists the integration step"
 assert_contains "$out" "<<< /claude-harness:integration-check <integration log>" \
   "--dry-run shows the integration prompt and its log"
+assert_eq "start dev test review audit integration ship" \
+  "$(grep -E '^(start|dev|test|review|audit|integration|ship) ' <<< "$out" \
+     | awk '{print $1}' | paste -sd' ')" \
+  "--dry-run lists the lot's steps, integration between the audit and the ship"
 
 R=$(fixture integrationbackend backend true)
 assert_eq 0 "$(pilot "$R")" "a backend runs even when a command is declared"
 assert_eq "start dev test review audit ship " "$(calls "$R")" \
   "no integration step on a backend"
+out=$(cd "$R" && PATH="$FAKEBIN:$PATH" HOME="$FAKEHOME" python3 "$PILOT" --dry-run)
+assert_eq "start dev test review audit ship" \
+  "$(grep -E '^(start|dev|test|review|audit|integration|ship) ' <<< "$out" \
+     | awk '{print $1}' | paste -sd' ')" \
+  "a backend dry run keeps the current sequence, without integration"
 
 R=$(fixture integrationna frontend n/a)
 cat >> "$R.scen/dev.sh" <<'EOF'
@@ -320,7 +329,17 @@ code=$(cd "$R" && SCEN="$R.scen" PATH="$FAKEBIN:$PATH" HOME="$FAKEHOME" AUTOPILO
   python3 "$PILOT" > "$R.out" 2>&1; echo $?)
 assert_eq 1 "$code" "an Integration command over its timeout stops the run"
 assert_contains "$(state "$R" reason)" "timed out" "the timeout is recorded"
+assert_contains "$(state "$R" reason)" "lot-5-integration.log" \
+  "the timeout reason gives the log path too"
 assert_eq integration "$(state "$R" resume)" "the timed-out integration is the step resumed"
+
+R=$(fixture integrationnoreport frontend true)
+assert_eq 1 "$(pilot "$R")" "an integration session that commits no report stops the run"
+assert_eq "start dev test review audit integration " "$(calls "$R")" \
+  "no ship without the report committed"
+assert_eq integration "$(state "$R" resume)" "the stop resumes at integration"
+assert_contains "$(state "$R" reason)" "lot-0-integration.md is not committed" \
+  "the reason names the uncommitted report"
 
 R=$(fixture integrationstale frontend true)
 mkdir -p "$R/docs/audits" && echo old > "$R/docs/audits/lot-0-integration.md"
