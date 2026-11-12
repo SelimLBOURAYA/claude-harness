@@ -207,6 +207,7 @@ thresholds. Contract:
 | `Migrations directory` | Path checked by `migrations-immutable.yml` | `src/main/resources/db/changelog/changes/` |
 | `Lots file` | Planning file, must start with a `\| Lot \| Branche \| Statut \|` table | `lots.md` |
 | `Frontend backend pair` | For a frontend, the repo it is smoke-tested against | `kreadevis-backend` |
+| `Integration command` | For a frontend, the command that starts the real backend, runs the integration scenario and returns an exit code; `n/a` when absent | `npm run e2e` |
 | `Health path` | Health endpoint used by `image-smoke.yml` | `/actuator/health` |
 | `Dist forbidden pattern` | String that must not appear in a production build | `localhost:8080` |
 | `Image name` | GHCR image published by `image-publish.yml` | `ghcr.io/selimlbouraya/kreadevis-backend` |
@@ -224,7 +225,7 @@ missing line is a drift that `harness-sync` and `harness-invariants.yml` report.
 | `lot-audit` | Security, performance and architecture audit, findings fixed → `docs/audits/lot-N.md` |
 | `lot-ship` | Commits, lot marked ✅, push, PR to `develop`, merge once the CI is green, then stop |
 | `harness-sync` | Detects and fixes drift between docs, skills and reality |
-| `integration-check` | Manual front ↔ real backend smoke → `docs/audits/lot-0-integration.md` |
+| `integration-check` | Front ↔ real backend smoke, by hand or through `Integration command` → `docs/audits/lot-0-integration.md` |
 | `dep-update` | Patch/minor applied, major proposed |
 | `bootstrap-project` | Generates a harnessed repository from `templates/project/` |
 | `i-have-adhd` | Focus aid, user-invoked only |

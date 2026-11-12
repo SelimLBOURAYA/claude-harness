@@ -32,6 +32,7 @@ indistinguishable from an oversight.
 | `Migrations directory` | `{{MIGRATIONS_DIR}}` |
 | `Lots file` | `lots.md` |
 | `Frontend backend pair` | `{{PAIRED_REPO}}` |
+| `Integration command` | `{{INTEGRATION_COMMAND}}` |
 | `Health path` | `{{HEALTH_PATH}}` |
 | `Dist forbidden pattern` | `{{DIST_FORBIDDEN_PATTERN}}` |
 | `Image name` | `{{IMAGE_NAME}}` |
