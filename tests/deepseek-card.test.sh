@@ -13,6 +13,8 @@ trap 'rm -rf "$WORK"' EXIT
 assert_ok "the committed card is its generation from CONVENTIONS.md" -- python3 "$GEN" --check
 assert_eq "OUT-0 OUT-1" "$(jq -r '[.rules[].id | select(startswith("OUT-"))] | join(" ")' "$CARD")" \
   "the completeness floor comes before the length rule"
+assert_contains "$(jq -r '.rules[].id' "$CARD")" "CODE-7" \
+  "the single-command rule is on the card"
 
 # A copy of the tree the generator reads, to break it on purpose.
 tree() {
