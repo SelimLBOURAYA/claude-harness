@@ -213,10 +213,17 @@ def census_only(root, path, base, head="HEAD"):
     A removed or modified line, or an added line that is not such a row, makes
     it false: any other change to the two files still stops the run (lot 36).
     """
-    diff = git(root, "diff", "-U0", "%s..%s" % (base, head), "--", path) or ""
+    diff = git(root, "diff", "--no-color", "--no-ext-diff", "-U0",
+               "%s..%s" % (base, head), "--", path) or ""
     added = 0
+    in_hunk = False
     for line in diff.splitlines():
-        if line.startswith(("---", "+++", "@@", "diff ", "index ", "new file", "deleted file")):
+        # Header lines come before the first hunk only: inside a hunk, a line
+        # starting with "---" or "+++" is a removed or added line.
+        if line.startswith("@@"):
+            in_hunk = True
+            continue
+        if not in_hunk:
             continue
         if line.startswith("-"):
             return False

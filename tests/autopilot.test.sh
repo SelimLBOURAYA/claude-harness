@@ -422,6 +422,19 @@ assert_eq 1 "$(pilot "$R")" "a row naming a document outside docs/audits/ stops 
 assert_eq "start dev test review " "$(calls "$R")" "no lot-audit after a non-census addition"
 assert_contains "$(state "$R" reason)" "CLAUDE.md" "the reason names the file"
 
+# A removed line starting with "--" reads "---" in the diff, like a file header.
+R=$(fixture censusdashes harness)
+printf -- '-- a note\n' >> "$R/CLAUDE.md"
+git -C "$R" commit -qam "chore: seed a dashed line"
+git -C "$R" push -q origin develop
+cat >> "$R.scen/review.sh" <<'EOF'
+sed -i '/^-- a note$/d' CLAUDE.md
+printf '| `docs/audits/lot-5-review.md` | Lot 5 code-review report |\n' >> CLAUDE.md
+git add CLAUDE.md && git commit -qm "docs(5): add the census row"
+EOF
+assert_eq 1 "$(pilot "$R")" "a removed line starting with -- next to a census row stops the run"
+assert_contains "$(state "$R" reason)" "CLAUDE.md" "the reason names the file"
+
 # The real census row goes inside the table, not at the end of the file.
 R=$(fixture censusinsert harness)
 cp "$R/CLAUDE.md" "$R/AGENTS.md"
