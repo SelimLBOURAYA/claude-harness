@@ -119,7 +119,8 @@ Only when `Migrations directory` is not `n/a`:
 
 Fix the findings in this step, without re-running `lot-review`:
 
-1. Apply the fixes, inside the lot's diff and its direct dependencies.
+1. Apply the fixes, inside the lot's diff and its direct dependencies, each the
+   smallest complete change (CODE-6).
 2. `<Validation command>` green.
 3. Commit them:
 

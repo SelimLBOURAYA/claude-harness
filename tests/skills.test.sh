@@ -10,9 +10,9 @@ SKILLS="$REPO_ROOT/plugins/claude-harness/skills"
 # Skills that drive the lot gate. They must read everything from the repo's
 # Gate parameters. dep-update is excluded from the command check: its whole job
 # is to drive a package manager, selected by Stack. i-have-adhd is an output
-# style, generic and unrelated to any gate.
+# style and ponytail a coding rule, both generic and unrelated to any gate.
 GATE_SKILLS="lot-start lot-test lot-review lot-audit lot-ship harness-sync integration-check"
-ALL_SKILLS="$GATE_SKILLS dep-update bootstrap-project i-have-adhd"
+ALL_SKILLS="$GATE_SKILLS dep-update bootstrap-project i-have-adhd ponytail"
 
 assert_eq "$(printf '%s\n' $ALL_SKILLS | sort | tr '\n' ' ')" \
   "$(find "$SKILLS" -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | sort | tr '\n' ' ')" \
@@ -168,6 +168,23 @@ for skill in lot-review lot-audit; do
   done
   assert_contains "$section" "rejected: minor (autopilot)" "$skill: an ignored finding keeps its row"
 done
+
+# --- ponytail, the smallest complete change (lot 33, CODE-6) --------------
+# The text is adapted from an MIT project, whose licence requires its notice.
+PONY="$SKILLS/ponytail"
+assert_ok "ponytail carries the upstream MIT notice" -- grep -q '^MIT License$' "$PONY/LICENSE"
+assert_ok "the notice names the upstream copyright holder" -- \
+  grep -q '^Copyright (c) 2026 DietrichGebert$' "$PONY/LICENSE"
+assert_contains "$(conv_rule CODE-6)" "\`ponytail\` skill" "CODE-6 sends the reader to the ponytail skill"
+for rule in GATE-3 LOT-4 OUT-0; do
+  assert_contains "$(conv_rule CODE-6)" "$rule" "CODE-6 lets $rule win over ponytail"
+done
+# Every step that can write code cites the rule, for an agent that loads no hook.
+for skill in lot-start lot-test lot-review lot-audit; do
+  assert_ok "$skill cites CODE-6 where it writes code" -- grep -q 'CODE-6' "$SKILLS/$skill/SKILL.md"
+done
+assert_eq "" "$(jq -r '.rules[].id' "$REPO_ROOT/plugins/claude-harness/rules/deepseek.json" | grep -x 'CODE-6' || true)" \
+  "CODE-6 stays off the deepseek card: the ponytail hook carries the whole text"
 
 # i-have-adhd stays user-invoked only.
 assert_ok "i-have-adhd is never model-invoked" -- \
