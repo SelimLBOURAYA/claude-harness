@@ -17,23 +17,24 @@ Cross-cutting rules of every project; project-specific rules go to the project's
 - **LOT-5** Implement strictly the lot scope. Anything else becomes a suggestion in the PR description.
 - **GATE-3** Write the lot's tests with the code: one unit test per new or modified public service method, one integration test (§2.5) per new endpoint, in the same commit.
 - **GATE-1** During development, run only the targeted tests of the changed code. Run the full `Validation command` of the project `CLAUDE.md` once, before each commit.
-- **GATE-2** The `Validation command` is green before every commit and before the PR. A red test is fixed, never skipped, disabled (`@Disabled`, `@Ignore`, `test.skip`) or stripped of its assertion.
+- **GATE-2** The `Validation command` is green before every commit and PR. A red test is fixed, never skipped, disabled (`@Disabled`, `@Ignore`, `test.skip`) or stripped of its assertion.
 - **LOT-6** One lot per session. Once `lot-ship` has merged the lot's pull request, stop: never start, prepare or test the next lot.
 - **MEM-1** `docs/memory.md` is the project memory: working notes, not the truth (the code and git are), at most 6000 characters, in four sections: `Code map`, `Decisions`, `Pitfalls`, `Open questions`. `lot-start` reads it before the lot section. The development session amends it at its close (`lot-start` Step B3, or `lot-start close N`), rewriting or deleting the notes the lot touched, and commits `docs(N): update the project memory` only when it changed. `lot-test` reads it, `lot-review` checks it against the code. A note the code contradicts is fixed in the current lot.
 
 ## 2.5 What an integration test is
 
-- **GATE-4** A backend integration test runs on Testcontainers PostgreSQL, the production major version, with the migrations active. A `@SpringBootTest` on H2 with `ddl-auto: create-drop` and migrations disabled is not an integration test.
+- **GATE-4** A backend integration test runs on Testcontainers PostgreSQL, the production major version, migrations active; `@SpringBootTest` on H2 with `ddl-auto: create-drop` and migrations off is not one.
 - **GATE-5** A frontend integration test exercises the component through its real HTTP layer, responses mocked at the transport boundary, never a stubbed service. The real backend is checked by the `integration-check` skill, whose report every frontend PR requires.
 
 ## 3. Forbidden patterns
 
-- **CODE-1** Constructor injection only, never `@Autowired` on a field. No `System.out.println` or `console.log` left in code (use the project logger), no silent `catch` (log with context, ideally rethrow typed), no commented-out code, no hard-coded identifier, key, password or absolute path.
+- **CODE-1** Constructor injection only, never `@Autowired` on a field. No `System.out.println` or `console.log` (use the project logger), no silent `catch` (log with context, ideally rethrow typed), no commented-out code, no hard-coded identifier, key, password or path.
 - **CODE-5** No Lombok `@Data` on an entity with relations: `@Getter @Setter @EqualsAndHashCode(of = "id")`.
+- **CODE-7** One simple command per Bash call: no `$(...)`, no unset `$VAR`, no `&&`/`;`/`|` chain, no redirection outside the repo. A headless session denies what it cannot verify.
 
 ## 4. Ask before doing
 
-- **ASK-1** Ask for explicit confirmation before: adding a dependency absent from `pom.xml` or `package.json`; changing the data model (entity, column, foreign key, migration); adding a top-level package or module; touching files outside the lot scope; any decision with security or data-loss impact; a force-push, a destructive reset or a remote branch deletion.
+- **ASK-1** Ask for explicit confirmation before: adding a dependency absent from `pom.xml` or `package.json`; changing the data model (entity, column, foreign key, migration); adding a top-level package or module; touching files outside the lot scope; any security or data-loss decision; a force-push, a destructive reset or a remote branch deletion.
 - **ASK-2** Pre-authorised, without a prompt: `/home/selim/.local/bin/claude-profile claude` or `deepseek` when the user asks for that profile, and `claude plugin update claude-harness@claude-harness` at any scope. Any other change of model, provider or settings needs confirmation.
 
 ## 5. Secrets and environment
@@ -50,14 +51,14 @@ Cross-cutting rules of every project; project-specific rules go to the project's
 
 ## 7. Branches, commits, pull requests
 
-- **GIT-1** `main` is production; `develop` is integration and the GitHub default branch. Branch from `develop` only (`feat/lot-N-slug`, flat, no `N.M`; `fix/slug`; `chore/slug`) and target `develop` with every PR. Never branch from, push to or open a PR to `main`: the `develop` → `main` promotion is the user's. A project without `develop` gets one from `main`, said to the user.
+- **GIT-1** `main` is production; `develop` is integration and the default branch. Branch from `develop` only (`feat/lot-N-slug`, flat, no `N.M`; `fix/slug`; `chore/slug`), every PR to `develop`. Never branch from, push to or open a PR to `main`: its promotion is the user's. A project without `develop` gets one from `main`, said to the user.
 - **GIT-4** A production hotfix explicitly requested on `main`: branch `fix/slug` from `main`, PR to `main`, and tell the user to replay the fix on `develop`.
 - **GIT-8** CI runs the validation gate on `develop`, `main` and every pull request to them. Images: `main` publishes `latest` and `sha-<short>`, `develop` publishes `dev` and `sha-<short>`; a `dev` tag is never deployed to production.
-- **GIT-2** Commit titles: English, Conventional Commits `<type>(<scope>): <message>`, type one of `feat`, `fix`, `refactor`, `test`, `chore`, `docs`. The scope is the lot number inside a lot (`feat(12): ...`), omitted otherwise (`chore: ...`). No em dash (U+2014). New commits, never an amend unless asked; never `--no-verify`, never a force-push.
+- **GIT-2** Commit titles: English, Conventional Commits `<type>(<scope>): <message>`, type one of `feat`, `fix`, `refactor`, `test`, `chore`, `docs`. The scope is the lot number in a lot (`feat(12): ...`), omitted otherwise (`chore: ...`). No em dash (U+2014). New commits, never an amend unless asked; no `--no-verify`, no force-push.
 - **GIT-5** No repository has branch protection: never merge a pull request whose CI is not green. The sync pull requests (GIT-7) are the one exception.
 - **GIT-6** A lot pull request targets `develop` and is opened by `lot-ship`, which merges it (`gh pr merge --merge`) once every check is green; the git guard denies any other merge. Title in the main commit's format; body `## Summary` then `## Test plan` (`- [ ]` checklist), plus a section only when it adds information (`## DB migration`).
 - **GIT-7** Sync pull requests (`chore/sync-harness-files`) are merged at once by the harness `sync-projects` workflow, without waiting for their checks, only when the pull request is the sync token account's own, touches nothing but the files `projects.json` syncs, and still heads at the commit the workflow pushed; any other is left open and fails the run. No agent merges one by hand.
-- **CODE-3** An applied migration is immutable. Expand then contract: never drop or rename a column or table, or add `NOT NULL`, in the version whose code stops using it; the contract changeset comes in a later version, marked `contract`, its pull request labelled `schema-contract`.
+- **CODE-3** An applied migration is immutable. Expand then contract: never drop or rename a column or table, or add `NOT NULL`, in the version whose code stops using it; the contract changeset comes later, marked `contract`, PR labelled `schema-contract`.
 
 ## 8. Versioned and ignored files
 
@@ -101,7 +102,7 @@ Cross-cutting rules of every project; project-specific rules go to the project's
 ## 14. Review in a new session, under the claude profile
 
 - **PROF-1** Two profiles, switched by `/home/selim/.local/bin/claude-profile`: `claude` (a native Claude model) for review, audit and judgement on produced work; `deepseek` (`ANTHROPIC_BASE_URL=https://api.deepseek.com/anthropic`) for delegated coding. The script rewrites `settings.json`, which only the next session reads: never switch on your own initiative. The autopilot picks each step's model per process, never through `settings.json`.
-- **LOT-7** Development closes with `lot-start` Step B3; `lot-test` follows in a new session, any profile, test files only. The user then runs `claude-profile claude` under `deepseek` and opens a new session for `lot-review`, `lot-audit` and `lot-ship`. `lot-review` reads the profile from `lotfile.py`, never a model's account of its identity.
+- **LOT-7** Development closes with `lot-start` Step B3; `lot-test` follows in a new session, any profile, test files only. Then `claude-profile claude` and a new session for `lot-review`, `lot-audit`, `lot-ship`; `lot-review` reads the profile from `lotfile.py`, never a model's account of its identity.
 
 ## 15. Response shape
 

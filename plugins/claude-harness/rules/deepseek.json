@@ -25,7 +25,7 @@
     },
     {
       "id": "LOT-7",
-      "rule": "Development closes with `lot-start` Step B3; `lot-test` follows in a new session, any profile, test files only. The user then runs `claude-profile claude` under `deepseek` and opens a new session for `lot-review`, `lot-audit` and `lot-ship`. `lot-review` reads the profile from `lotfile.py`, never a model's account of its identity."
+      "rule": "Development closes with `lot-start` Step B3; `lot-test` follows in a new session, any profile, test files only. Then `claude-profile claude` and a new session for `lot-review`, `lot-audit`, `lot-ship`; `lot-review` reads the profile from `lotfile.py`, never a model's account of its identity."
     },
     {
       "id": "CTX-1",
@@ -37,7 +37,7 @@
     },
     {
       "id": "GATE-2",
-      "rule": "The `Validation command` is green before every commit and before the PR. A red test is fixed, never skipped, disabled (`@Disabled`, `@Ignore`, `test.skip`) or stripped of its assertion."
+      "rule": "The `Validation command` is green before every commit and PR. A red test is fixed, never skipped, disabled (`@Disabled`, `@Ignore`, `test.skip`) or stripped of its assertion."
     },
     {
       "id": "GATE-3",
@@ -45,31 +45,35 @@
     },
     {
       "id": "GATE-4",
-      "rule": "A backend integration test runs on Testcontainers PostgreSQL, the production major version, with the migrations active. A `@SpringBootTest` on H2 with `ddl-auto: create-drop` and migrations disabled is not an integration test."
+      "rule": "A backend integration test runs on Testcontainers PostgreSQL, the production major version, migrations active; `@SpringBootTest` on H2 with `ddl-auto: create-drop` and migrations off is not one."
     },
     {
       "id": "GIT-1",
-      "rule": "`main` is production; `develop` is integration and the GitHub default branch. Branch from `develop` only (`feat/lot-N-slug`, flat, no `N.M`; `fix/slug`; `chore/slug`) and target `develop` with every PR. Never branch from, push to or open a PR to `main`: the `develop` → `main` promotion is the user's. A project without `develop` gets one from `main`, said to the user."
+      "rule": "`main` is production; `develop` is integration and the default branch. Branch from `develop` only (`feat/lot-N-slug`, flat, no `N.M`; `fix/slug`; `chore/slug`), every PR to `develop`. Never branch from, push to or open a PR to `main`: its promotion is the user's. A project without `develop` gets one from `main`, said to the user."
     },
     {
       "id": "GIT-2",
-      "rule": "Commit titles: English, Conventional Commits `<type>(<scope>): <message>`, type one of `feat`, `fix`, `refactor`, `test`, `chore`, `docs`. The scope is the lot number inside a lot (`feat(12): ...`), omitted otherwise (`chore: ...`). No em dash (U+2014). New commits, never an amend unless asked; never `--no-verify`, never a force-push."
+      "rule": "Commit titles: English, Conventional Commits `<type>(<scope>): <message>`, type one of `feat`, `fix`, `refactor`, `test`, `chore`, `docs`. The scope is the lot number in a lot (`feat(12): ...`), omitted otherwise (`chore: ...`). No em dash (U+2014). New commits, never an amend unless asked; no `--no-verify`, no force-push."
     },
     {
       "id": "ASK-1",
-      "rule": "Ask for explicit confirmation before: adding a dependency absent from `pom.xml` or `package.json`; changing the data model (entity, column, foreign key, migration); adding a top-level package or module; touching files outside the lot scope; any decision with security or data-loss impact; a force-push, a destructive reset or a remote branch deletion."
+      "rule": "Ask for explicit confirmation before: adding a dependency absent from `pom.xml` or `package.json`; changing the data model (entity, column, foreign key, migration); adding a top-level package or module; touching files outside the lot scope; any security or data-loss decision; a force-push, a destructive reset or a remote branch deletion."
     },
     {
       "id": "CODE-1",
-      "rule": "Constructor injection only, never `@Autowired` on a field. No `System.out.println` or `console.log` left in code (use the project logger), no silent `catch` (log with context, ideally rethrow typed), no commented-out code, no hard-coded identifier, key, password or absolute path."
+      "rule": "Constructor injection only, never `@Autowired` on a field. No `System.out.println` or `console.log` (use the project logger), no silent `catch` (log with context, ideally rethrow typed), no commented-out code, no hard-coded identifier, key, password or path."
     },
     {
       "id": "CODE-3",
-      "rule": "An applied migration is immutable. Expand then contract: never drop or rename a column or table, or add `NOT NULL`, in the version whose code stops using it; the contract changeset comes in a later version, marked `contract`, its pull request labelled `schema-contract`."
+      "rule": "An applied migration is immutable. Expand then contract: never drop or rename a column or table, or add `NOT NULL`, in the version whose code stops using it; the contract changeset comes later, marked `contract`, PR labelled `schema-contract`."
     },
     {
       "id": "CODE-4",
       "rule": "Navigate and check code with the LSP tool (definitions, references, diagnostics) before grep or whole-file reads: `jdtls-lsp` for Java, `typescript-lsp` for TypeScript. If it is missing, ask the user to install it from `claude-plugins-official` and reopen the session."
+    },
+    {
+      "id": "CODE-7",
+      "rule": "One simple command per Bash call: no `$(...)`, no unset `$VAR`, no `&&`/`;`/`|` chain, no redirection outside the repo. A headless session denies what it cannot verify."
     },
     {
       "id": "OUT-0",
