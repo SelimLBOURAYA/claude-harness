@@ -139,6 +139,10 @@ gh pr checks --watch
   rm -f "$(git rev-parse --show-toplevel)/.claude/current-lot"
   ```
 
+  Under the autopilot, a headless session cannot remove a file under
+  `.claude/` (Claude Code guards it and `-p` cannot ask): the autopilot removes
+  the lock itself once the pull request is `MERGED`.
+
 Then report the PR URL and the merge, and **stop** (LOT-6). The `develop` →
 `main` promotion is the user's.
 

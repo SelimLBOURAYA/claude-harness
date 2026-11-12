@@ -604,8 +604,15 @@ class Pilot:
         ).stdout.strip()
         if state != "MERGED":
             raise Stop("ship: the pull request is `%s`, not MERGED" % (state or "unknown"), "ship")
-        if os.path.exists(os.path.join(self.root, lotfile.LOCK_PATH)):
-            raise Stop("ship: the lot lock .claude/current-lot is still present", "ship")
+        lock = os.path.join(self.root, lotfile.LOCK_PATH)
+        if os.path.exists(lock):
+            # The headless ship session cannot remove a file under .claude/
+            # (Claude Code guards it, `-p` cannot ask): once the pull request is
+            # merged, the autopilot removes the lot lock itself (lot 35).
+            try:
+                os.remove(lock)
+            except OSError as error:
+                raise Stop("ship: cannot remove the lot lock: %s" % error, "ship")
 
     def run(self, first):
         order = steps(self.params)
