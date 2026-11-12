@@ -103,14 +103,19 @@ merge_pr() {
 }
 
 pr_body() {
+  local bt=$'\x60' files_md="" perm_line="" f
+  for f in "${files[@]}"; do files_md+="${bt}${f}${bt} "; done
+  if [ -n "$perm_target" ]; then
+    perm_line="- Sets the ${bt}permissions${bt} key of ${bt}${perm_target}${bt} from ${bt}${perm_source}${bt}; the rest of that file stays this project's"
+  fi
   cat <<EOF
 ## Summary
-- Re-copies the harness-managed files from \`claude-harness@${source_sha:0:7}\` (\`main\`): $(printf '\x60%s\x60 ' "${files[@]}")
-${perm_target:+- Sets the \`permissions\` key of \`$perm_target\` from \`$perm_source\`; the rest of that file stays this project's}
-- Opened by the \`sync-projects\` workflow of \`claude-harness\`; the files are never hand-edited here (CONVENTIONS.md section 12)
+- Re-copies the harness-managed files from ${bt}claude-harness@${source_sha:0:7}${bt} (${bt}main${bt}): ${files_md}
+${perm_line}
+- Opened by the ${bt}sync-projects${bt} workflow of ${bt}claude-harness${bt}; the files are never hand-edited here (CONVENTIONS.md section 12)
 
 ## Test plan
-- [ ] \`harness-invariants\` green on this pull request
+- [ ] ${bt}harness-invariants${bt} green on this pull request
 - [ ] Validation gate green on this pull request
 EOF
 }
