@@ -38,7 +38,7 @@
   read `CONVENTIONS.md`, the plugin version and the memory template from
   `origin/main` (lot 24).
 - Skills and docs cite a rule by ID, never restate it (lot 24).
-- `CONVENTIONS.md` stays within 15225 bytes (15124 after lot 37), English, no
+- `CONVENTIONS.md` stays within 15225 bytes (15158 after lot 37), English, no
   dated story; a new ID prefix goes in the citation regex of its test.
 - Every lot bumps the plugin version in its own commit, in `plugin.json` and
   both fields of `.claude-plugin/marketplace.json`.
@@ -66,8 +66,8 @@
 
 ## Pitfalls
 
-- The deepseek card has an 18-char margin (lot 37): a new carded rule needs its
-  text cut elsewhere; the autopilot denies `python3 .github/scripts/*`, so edit
+- The deepseek card has a 9-char margin (lot 37): a new carded rule needs its
+  text cut elsewhere, never a clause that says who acts; the autopilot denies `python3 .github/scripts/*`, so edit
   the card by hand and let `deepseek-card.test.sh` prove it.
 - The session runs the installed plugin, not the branch: a fix acts only after
   promotion and update.
