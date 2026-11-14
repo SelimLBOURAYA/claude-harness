@@ -35,6 +35,7 @@ import re
 import signal
 import subprocess
 import sys
+import time
 
 HERE = os.path.dirname(os.path.realpath(__file__))
 # The import below must leave no __pycache__ in the marketplace clone.
@@ -719,7 +720,8 @@ def start_watch(root):
     if not sys.stdout or not sys.stdout.isatty():
         return None
     try:
-        return subprocess.Popen([sys.executable, WATCH, root])
+        # One second back: a log's mtime comes from the kernel's coarse clock.
+        return subprocess.Popen([sys.executable, WATCH, root, "%d" % (time.time() - 1)])
     except OSError as error:
         print("autopilot: watch unavailable: %s" % error, file=sys.stderr)
         return None
