@@ -77,20 +77,28 @@ Second body.
 
 A level-3 heading never ends the section.
 
+## Annex — a level-2 heading that is not a lot section
+
+Tail.
+
 ## LOT 6b — A sub-lot
 
 Sub-lot body.
 EOF
 lot1_line=$(grep -n '^## Lot 01 ' "$REPO/lots.md" | cut -d: -f1)
 lot2_line=$(grep -n '^## LOT 2 ' "$REPO/lots.md" | cut -d: -f1)
+annex_line=$(grep -n '^## Annex ' "$REPO/lots.md" | cut -d: -f1)
 lot6b_line=$(grep -n '^## LOT 6b ' "$REPO/lots.md" | cut -d: -f1)
 total_lines=$(wc -l < "$REPO/lots.md")
-assert_eq "lots.md:$lot2_line-$((lot6b_line - 1))" "$(python3 "$LOTFILE" section "$REPO" 2)" \
-  "section: a level-2 heading ends the previous section"
+assert_eq "lots.md:$lot2_line-$((annex_line - 1))" "$(python3 "$LOTFILE" section "$REPO" 2)" \
+  "section: any level-2 heading, lot or not, ends the section"
 assert_eq "lots.md:$lot1_line-$((lot2_line - 1))" "$(python3 "$LOTFILE" section "$REPO" 001)" \
   "section: leading zeros are ignored"
 assert_eq "lots.md:$lot6b_line-$total_lines" "$(python3 "$LOTFILE" section "$REPO" 6b)" \
   "section: the last section runs to the end of the file"
+out=$(python3 "$LOTFILE" section "$REPO" 6); rc=$?
+assert_eq 1 "$rc" "section: a sub-lot heading is not its parent lot's"
+assert_eq "" "$out" "section: the parent lot of a sub-lot prints nothing"
 out=$(python3 "$LOTFILE" section "$REPO" 99); rc=$?
 assert_eq 1 "$rc" "section: no heading for the lot exits 1"
 assert_eq "" "$out" "section: no heading prints nothing"
@@ -103,7 +111,7 @@ assert_eq 1 "$rc" "section: several headings for the lot exit 1"
 assert_eq "" "$out" "section: several headings print nothing"
 
 body=$(text "$(context startup "$REPO")")
-assert_contains "$body" "Current lot section: lots.md:$lot2_line-$((lot6b_line - 1)) (read this range only)" \
+assert_contains "$body" "Current lot section: lots.md:$lot2_line-$((annex_line - 1)) (read this range only)" \
   "lot branch: the current lot section line carries the range"
 table_at=$(printf '%s\n' "$body" | grep -n '## Status table of' | cut -d: -f1)
 section_at=$(printf '%s\n' "$body" | grep -n 'Current lot section:' | cut -d: -f1)
@@ -209,6 +217,8 @@ rm "$REPO/lots.md"
 out=$(context startup "$REPO"); rc=$?
 assert_eq 0 "$rc" "no lots file: exit 0"
 assert_contains "$(text "$out")" "no lots file or no status table found" "no lots file: said so"
+assert_eq "" "$(printf '%s\n' "$(text "$out")" | grep '^Current lot section:' || true)" \
+  "no lots file: no section line"
 out=$(context startup "$WORK"); rc=$?
 assert_eq 0 "$rc" "not a repository: exit 0"
 assert_contains "$(text "$out")" "not a git repository" "not a repository: said so"
