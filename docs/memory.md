@@ -23,7 +23,8 @@
   hint come from `TARGETED_TESTS` (lot 37); `watch.py` starts from a terminal
   (lot 34).
 - `autopilot/watch.py`: reads the newest `~/.claude/autopilot/<project>/*.jsonl`
-  written since the run's start, complete lines only (lot 34).
+  written since the run's start, complete lines only (lot 34); started only when
+  stdout is a terminal, never for `--dry-run`.
 - `tests/run.sh` runs every suite at once, buffers each output, prints them in
   file order (lot 37); `tests/autopilot-lib.sh` holds the fakes, the `fixture`
   and the helpers of the nine `tests/autopilot-*.test.sh`.
@@ -47,7 +48,6 @@
 - Autopilot (lots 27-35): the script checks each step itself; `HARNESS_AUTOPILOT=1`
   denies what a guard would ask; allow and deny lists go per process; answers go
   into the stopped session, not the lots file.
-- Watch (lot 34): started only when stdout is a terminal, never for `--dry-run`.
 - Integration (lot 32): the backend is local; `autopilot.py` runs the command
   itself, 20 min at most, for a frontend with a command, between `audit` and
   `ship`; the report must be in `develop...HEAD`.
@@ -61,9 +61,9 @@
   Stack's targeted form.
 - `git-guard.py` sees through shell keywords and groupings; backticks, `eval`
   and a command name in a variable stay out by decision (lots 25, 33).
-- A lot section (lot 38): the level-2 heading `## LOT <id>`, case and leading
-  zeros ignored, sub-lot suffix kept, up to the next level-2 heading; none or
-  several means no range.
+- A lot section (lot 38): `## LOT <id>` at level 2, case and leading zeros
+  ignored, sub-lot suffix kept, to the next level-2 heading; none or several
+  means no range. Six of the 8 lots files have one.
 - Claude Code caps a hook's context at 10,000 characters: `ponytail` has its
   own hook instead of a share of `CAP` (lot 33).
 
