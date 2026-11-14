@@ -291,7 +291,7 @@ autopilot --resume --answer "..."   # the answers to a blocked lot-start or dev
   the script starts `autopilot/watch.py` as a child process in the same
   terminal: one line per tool call, text, denial and step result, each with the
   time, the step and the model (`↳` before a sub-agent), `~HH:MM` for the
-  history replayed when a step starts. The child stops with the run, whatever
+  history replayed when a step starts; a log older than the run is not followed. The child stops with the run, whatever
   ends it. A redirected output starts no watcher.
 - **`--answer TEXT`**: only after a stop `blocked` at `lot-start` (Part A) or
   during the development, and only with `--resume`. The script resumes the

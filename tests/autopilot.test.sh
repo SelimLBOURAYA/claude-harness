@@ -962,7 +962,7 @@ assert_ok "the script leaves no __pycache__ in the plugin" -- \
 # --- the live watch (lot 34) ----------------------------------------------
 WATCH="$REPO_ROOT/plugins/claude-harness/autopilot/watch.py"
 
-# watch_case <tool|subagent|result> : prints what watch.py renders for one event.
+# watch_case <tool|subagent|result|text|denied|clock> : prints what watch.py renders for one event.
 watch_case() {
   python3 - "$WATCH" "$1" <<'EOF'
 import importlib.util
@@ -1044,6 +1044,17 @@ assert_contains "$out" "== lot-5-dev.jsonl ==" "the watch names the step's log"
 assert_eq 1 "$(grep -cE '^~[0-9]{2}:[0-9]{2} +dev ' <<< "$out")" \
   "a backlog line is stamped ~HH:MM and carries the step"
 assert_contains "$out" "Bonjour" "the backlog replays the step's text"
+
+# A log older than the run's start is a previous run, never shown as live; a
+# half-written last line waits for its end instead of being lost.
+touch -d '2 hours ago' "$H/.claude/autopilot/history/lot-5-dev.jsonl"
+printf '%s\n%s' '{"type":"assistant","message":{"content":[{"type":"text","text":"Complet"}]}}' \
+  '{"type":"assistant","message":{"content":[{"type":"text","text":"Moi' \
+  > "$H/.claude/autopilot/history/lot-6-start.jsonl"
+out=$(cd "$H" && HOME="$H" timeout 2 python3 "$WATCH" "$H" "$(date -d '1 hour ago' +%s)" 2>&1; true)
+assert_eq "" "$(grep -o 'lot-5-dev' <<< "$out" || true)" "the watch skips a log older than its start"
+assert_contains "$out" "Complet" "the watch follows the run's own log"
+assert_eq "" "$(grep -o 'Moi' <<< "$out" || true)" "a half-written line is not shown before its end"
 
 # A terminal starts the watch; a dry run never does (lot 34). `script` gives
 # the autopilot a pseudo-terminal, as a user's shell does.
