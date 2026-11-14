@@ -959,4 +959,60 @@ assert_eq "" "$(calls "$R")" "--dry-run N runs no session"
 assert_ok "the script leaves no __pycache__ in the plugin" -- \
   test ! -e "$REPO_ROOT/plugins/claude-harness/hooks/__pycache__"
 
+# --- the live watch (lot 34) ----------------------------------------------
+WATCH="$REPO_ROOT/plugins/claude-harness/autopilot/watch.py"
+
+# watch_case <tool|subagent|result> : prints what watch.py renders for one event.
+watch_case() {
+  python3 - "$WATCH" "$1" <<'EOF'
+import importlib.util
+import sys
+
+sys.dont_write_bytecode = True
+spec = importlib.util.spec_from_file_location("watch", sys.argv[1])
+watch = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(watch)
+
+
+def emit(*events):
+    for event in events:
+        for line in watch.lines(event, "dev", "12:34:56"):
+            print(line)
+
+
+case = sys.argv[2]
+if case == "tool":
+    emit({"type": "system", "subtype": "init", "model": "deepseek-v4[1m]"},
+         {"type": "assistant", "message": {"model": "deepseek-v4[1m]", "content": [
+             {"type": "tool_use", "name": "Read", "input": {"file_path": "docs/memory.md"}}]}})
+elif case == "subagent":
+    emit({"type": "system", "subtype": "init", "model": "claude-opus-5-5"},
+         {"type": "assistant", "parent_tool_use_id": "tu_1",
+          "message": {"model": "claude-haiku-5-5", "content": [
+              {"type": "tool_use", "name": "Task", "input": {"description": "explore"}}]}})
+elif case == "result":
+    emit({"type": "system", "subtype": "init", "model": "claude-opus-5-5"},
+         {"type": "result", "structured_output": {"status": "ok", "reason": "done"}})
+EOF
+}
+
+out=$(watch_case tool)
+assert_contains "$out" "12:34:56" "a watch line carries the time"
+assert_contains "$out" "dev" "a watch line carries the step"
+assert_contains "$out" "deepseek-v4" "a watch line carries the model"
+assert_contains "$out" "Read" "a watch line carries the tool"
+assert_contains "$out" "docs/memory.md" "a watch line carries the tool's detail"
+
+out=$(watch_case subagent)
+assert_contains "$out" "↳claude-haiku" "a sub-agent's line is marked with ↳"
+
+out=$(watch_case result)
+assert_contains "$out" "claude-opus-5-5" "a result line falls back to the init event's model"
+assert_contains "$out" "✔ fin d'étape: ok done" "a result line carries the step's verdict"
+
+R=$(fixture watchoff harness)
+assert_eq 0 "$(pilot "$R")" "the run is green with its output redirected"
+assert_eq "" "$(grep -o 'autopilot-watch' "$R.out" || true)" \
+  "a redirected output starts no watch process"
+
 finish

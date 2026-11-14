@@ -20,6 +20,10 @@ Usage, from the root of a harnessed repository:
 
 Exit status: 0 merged (or dry run), 1 stopped, 2 refused to start.
 
+From a terminal, it starts `watch.py` beside this file as a child process: one
+line per tool call, text, denial and step result, to follow the run live (lot
+34). A redirected standard output, or a dry run, starts none.
+
 Standard library only (V6).
 """
 
@@ -40,6 +44,7 @@ import lotfile  # noqa: E402
 
 SYNC_STATUS = os.path.join(HERE, "..", "skills", "lot-start", "sync-status.py")
 STATE_PATH = os.path.join(".claude", "autopilot-state.json")
+WATCH = os.path.join(HERE, "watch.py")
 # lot-start Step A0, run verbatim so that the allowlist entry matches it.
 PLUGIN_UPDATE = "claude plugin update claude-harness@claude-harness --scope project --json"
 
@@ -709,6 +714,29 @@ def notify(message):
         print("autopilot: notify-send unavailable", file=sys.stderr)
 
 
+def start_watch(root):
+    """The live watch, in this terminal only, never for a dry run (lot 34)."""
+    if not sys.stdout or not sys.stdout.isatty():
+        return None
+    try:
+        return subprocess.Popen([sys.executable, WATCH, root])
+    except OSError as error:
+        print("autopilot: watch unavailable: %s" % error, file=sys.stderr)
+        return None
+
+
+def stop_watch(watch):
+    """The watch goes with the run, whatever ends it: merge, stop or Ctrl-C."""
+    if watch is None:
+        return
+    try:
+        watch.terminate()
+        watch.wait(timeout=5)
+    except subprocess.TimeoutExpired:
+        watch.kill()
+        watch.wait()
+
+
 def summary(root, lot, outcome):
     fixed, ignored, deferred = findings(root, lot) if lot else (0, 0, 0)
     return "%s. Findings: %d fixed, %d ignored, %d deferred." % (outcome, fixed, ignored, deferred)
@@ -801,26 +829,30 @@ def main(argv=None):
                   expected_lot=state.get("expected_lot"),
                   answer_step=first if args.answer is not None else None,
                   answer_text=args.answer)
+    watch = start_watch(root)
     try:
-        pilot.run(first)
-    except Stop as stop:
-        state.update(resume=stop.resume, reason=stop.reason, status=stop.status,
-                     questions=stop.questions,
-                     stopped=datetime.datetime.now().isoformat(timespec="seconds"))
-        write_state(root, state)
-        message = summary(root, state.get("lot"), "Lot %s stopped: %s" % (state.get("lot") or "?", stop.reason))
-        message += answer_hint(stop)
+        try:
+            pilot.run(first)
+        except Stop as stop:
+            state.update(resume=stop.resume, reason=stop.reason, status=stop.status,
+                         questions=stop.questions,
+                         stopped=datetime.datetime.now().isoformat(timespec="seconds"))
+            write_state(root, state)
+            message = summary(root, state.get("lot"), "Lot %s stopped: %s" % (state.get("lot") or "?", stop.reason))
+            message += answer_hint(stop)
+            notify(message)
+            print("autopilot: " + message)
+            return 1
+        try:
+            os.remove(os.path.join(root, STATE_PATH))
+        except OSError:
+            pass
+        message = summary(root, state.get("lot"), "Lot %s merged" % state.get("lot"))
         notify(message)
         print("autopilot: " + message)
-        return 1
-    try:
-        os.remove(os.path.join(root, STATE_PATH))
-    except OSError:
-        pass
-    message = summary(root, state.get("lot"), "Lot %s merged" % state.get("lot"))
-    notify(message)
-    print("autopilot: " + message)
-    return 0
+        return 0
+    finally:
+        stop_watch(watch)
 
 
 if __name__ == "__main__":
