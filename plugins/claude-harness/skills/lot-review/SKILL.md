@@ -117,7 +117,7 @@ Then, yourself, once `code-review` has returned:
 Read what `--fix` changed before committing it.
 
 ```bash
-<Validation command>          # from Gate parameters, green before committing
+<Validation command>          # from Gate parameters, once on the tree the fixes leave (GATE-1)
 git -C "$REVIEW_REPO" diff --stat
 git -C "$REVIEW_REPO" add -- <the paths listed above, docs/memory.md excepted>
 git -C "$REVIEW_REPO" commit -m "fix(N): apply the lot review findings"
@@ -162,7 +162,9 @@ Empty output (an agent that loads no plugin) → the version `main` declares:
 
 ## Step 5 — Commit the deliverable
 
-1. `<Validation command>` green.
+1. The tree is green: Step 3 ran the gate. This commit adds only the report and
+   its census rows, so it does not rerun it (GATE-2); `cmp CLAUDE.md AGENTS.md`
+   is silent (DOC-1).
 2. A new report enters the `## Project documents` census of `CLAUDE.md`, copied
    to `AGENTS.md` (DOC-1).
 3. Commit the report and the census, nothing else (GATE-8):

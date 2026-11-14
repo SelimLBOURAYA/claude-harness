@@ -209,5 +209,6 @@ Any document added to this repo is added to this census **in the same commit**.
 ./tests/run.sh
 ```
 
-Runs every `tests/*.test.sh`. It must be green before any commit, and the reusable
-workflows must be green on the PR.
+Runs every `tests/*.test.sh` at once and prints each suite's buffered output in
+file order (lot 37). It must be green on the tree before any commit (GATE-1,
+GATE-2), and the reusable workflows must be green on the PR.
