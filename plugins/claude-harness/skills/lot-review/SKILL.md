@@ -69,7 +69,9 @@ rtk proxy git -C "$REVIEW_REPO" log --first-parent origin/develop..HEAD --onelin
 
 A PR already open (a lot re-reviewed after `lot-ship`) is said in the report;
 the review is still of the local diff. Read the lot's section in the
-`Lots file`: the review is against the lot's stated scope.
+`Lots file`: the review is against the lot's stated scope. The SessionStart hook
+prints its `Current lot section` range; without that line, get the range from
+`python3 <this skill's base directory>/../../hooks/lotfile.py section "$REVIEW_REPO" N`, then one `Read` of it.
 
 ## Step 2 — Run the review
 

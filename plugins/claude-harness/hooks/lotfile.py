@@ -12,6 +12,10 @@ CLI, for the shell hooks:
   lotfile.py root <path>            repository toplevel, empty when none
   lotfile.py lots-file <root>       absolute path of the lots file, empty when none
   lotfile.py table <root>           status table, done rows folded into one line
+  lotfile.py section <root> <lot>   `<file>:<start>-<end>`, the 1-based inclusive
+                                    range of the lot's section; nothing, exit 1
+                                    when no heading carries that lot or several
+                                    do. <lot> may be the lot's branch (lot 38).
   lotfile.py lock <root>            the lock, one key=value per line, empty when none
   lotfile.py profile [<base url>]   `claude` or `deepseek`, from the URL or from
                                     ANTHROPIC_BASE_URL when none is given
@@ -39,6 +43,13 @@ STATUSES = (DONE, TODO, IN_PROGRESS, PAUSED, FROZEN)
 # A lot branch: feat/lot-19-slug, feat/lot-6b-slug. Sub-lots share the flat
 # branch of their parent (CONVENTIONS.md section 7: no N.M in branch names).
 LOT_BRANCH = re.compile(r"^feat/lot-([0-9]+[a-z]?)(?:-|$)")
+# A level-2 lot section heading: `## LOT 38 — ...`, `## Lot 0N — ...`, the
+# suffix of a sub-lot kept (`## LOT 6b`). The negative lookahead rejects a
+# longer identifier (`## LOT 2.1` is not lot 2), not the dash or colon that
+# usually follows it.
+LOT_HEADING = re.compile(r"^##[ \t]+lot[ \t]+([0-9]+[a-z]?)(?![0-9a-z]|\.[0-9])", re.I)
+# What ends a lot section: the next heading of level 1 or 2.
+SECTION_END = re.compile(r"^#{1,2}[ \t]")
 # Any lot-shaped branch, whatever its type prefix.
 ANY_LOT_BRANCH = re.compile(r"^(?:feat|fix|chore)/lot-([0-9]+[a-z]?)(?:-|$)")
 
@@ -224,6 +235,42 @@ def lot_base(lot_id):
     return lot_id.split(".", 1)[0].lower()
 
 
+def normalize_lot(lot_id):
+    """`01` -> `1`: lot IDs compare without leading zeros, sub-lot suffixes kept."""
+    match = re.match(r"^0*([0-9]+)([a-z]?)$", lot_id.strip().lower())
+    return match.group(1) + match.group(2) if match else lot_id.strip().lower()
+
+
+def lot_section(lines, lot_id):
+    """The 1-based inclusive (start, end) of a lot's section, None if not one.
+
+    The section runs from its level-2 heading to the line before the next
+    level-1 or level-2 heading, or the end of the file; a `#` line inside a
+    fenced code block is not a heading. None when no heading carries that
+    lot, or when several do: an ambiguous range is never guessed.
+    """
+    if lines and lines[-1] == "":
+        lines = lines[:-1]
+    wanted = normalize_lot(lot_id)
+    headings = []
+    fenced = False
+    for index, line in enumerate(lines):
+        if line.lstrip().startswith(("```", "~~~")):
+            fenced = not fenced
+        elif not fenced and SECTION_END.match(line):
+            headings.append(index)
+    matches = []
+    for index in headings:
+        match = LOT_HEADING.match(lines[index])
+        if match and normalize_lot(match.group(1)) == wanted:
+            matches.append(index)
+    if len(matches) != 1:
+        return None
+    start = matches[0]
+    end = next((index for index in headings if index > start), len(lines))
+    return start + 1, end
+
+
 def read_lock(root):
     try:
         with open(os.path.join(root, LOCK_PATH), encoding="utf-8") as handle:
@@ -277,10 +324,27 @@ def cli_table(root):
     return 0
 
 
+def cli_section(root, lot):
+    path = lots_file(root)
+    if path is None:
+        return 1
+    from_branch = LOT_BRANCH.match(lot)
+    span = lot_section(read_lines(path), from_branch.group(1) if from_branch else lot)
+    if span is None:
+        return 1
+    print("%s:%d-%d" % (os.path.relpath(path, root), span[0], span[1]))
+    return 0
+
+
 def main(argv):
     if argv[1:2] == ["profile"]:
         print(profile(argv[2] if len(argv) > 2 else os.environ.get("ANTHROPIC_BASE_URL", "")))
         return 0
+    if argv[1:2] == ["section"]:
+        if len(argv) < 4:
+            print(__doc__, file=sys.stderr)
+            return 2
+        return cli_section(argv[2], argv[3])
     if len(argv) < 3:
         print(__doc__, file=sys.stderr)
         return 2
