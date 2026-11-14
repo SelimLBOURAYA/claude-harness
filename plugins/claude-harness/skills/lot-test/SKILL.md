@@ -154,6 +154,11 @@ Rows that recur and are easy to forget:
 
 ### 3.1 Run the gate
 
+After a red test, rerun that test alone in the Stack's targeted form (a suite
+file under `tests/` for `harness`, one test class or filter for a backend or
+frontend), then the full command once on the final tree: its green run covers
+the commit (GATE-1, GATE-2).
+
 ```bash
 <Validation command>
 ```

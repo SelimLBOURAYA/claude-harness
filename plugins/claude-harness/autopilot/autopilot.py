@@ -155,6 +155,63 @@ TEST_FILES = {
     "harness": lambda path: path.startswith("tests/"),
 }
 
+# The targeted test form of a Stack (lot 37): one suite or one class instead of
+# the whole Validation command, the form the session is told to use, and the
+# allowlist entries that permit it, from the same table. The harness suites are
+# listed one by one at the step's launch, never by wildcard; the other stacks
+# use a wildcard of the same level as `<Validation command> *`.
+TARGETED_TESTS = {
+    "harness": ("`bash tests/<suite>.test.sh`, one of the suites present when the step starts",
+                None),
+    "backend": ("`./mvnw test -Dtest=<Class>`", ("./mvnw test -Dtest=*",)),
+    "frontend": ("`npm test -- <filter>` (`--filter` under Vitest, `--include` under Karma)",
+                 ("npm test -- *",)),
+}
+
+
+def harness_suites(root):
+    """The tests/*.test.sh present at the step's launch, relative and absolute."""
+    directory = os.path.join(root, "tests")
+    try:
+        names = sorted(name for name in os.listdir(directory)
+                       if name.endswith(".test.sh")
+                       and os.path.isfile(os.path.join(directory, name)))
+    except OSError:
+        return []
+    return [entry for name in names
+            for entry in ("Bash(bash tests/%s)" % name,
+                          "Bash(bash %s)" % os.path.join(directory, name))]
+
+
+def targeted_tools(params, root):
+    """The allowlist entries of the Stack's targeted test form (lot 37)."""
+    stack = params.get("Stack", "")
+    if stack == "harness":
+        return harness_suites(root)
+    entries = TARGETED_TESTS.get(stack, (None, None))[1] or ()
+    return ["Bash(%s)" % entry for entry in entries]
+
+
+def commands_hint(params):
+    """The command discipline of the step's Stack, from the table above (lot 37)."""
+    form = TARGETED_TESTS.get(params.get("Stack", ""))
+    if form:
+        tests = ("tests: run the `Validation command` of CLAUDE.md, or the targeted form "
+                 "of this project's Stack, %s; after a red test, rerun the corrected test "
+                 "alone, then the full gate once before the commit" % form[0])
+    else:
+        tests = ("tests: run the `Validation command` of CLAUDE.md; this Stack has no "
+                 "targeted form, and a red test is fixed before the command runs again")
+    return ("Commands: " + tests + ". A file outside the repository is read with the Read "
+            "tool, never `cat`, `jq`, `cmp` or `sha256sum`. One simple command per Bash call "
+            "(CODE-7). No binary that launches another command (`script`, `xargs`, `env`, "
+            "`bash -c`). A denied command is not retried in another form.")
+
+
+def system_prompt(params):
+    """The system prompt of every step: the run's shape, then this Stack's commands."""
+    return SYSTEM_PROMPT + "\n" + commands_hint(params)
+
 # A gate report's census row is an addition to CLAUDE.md and AGENTS.md that
 # GATE-8 and DOC-1 require, not a change to the lot's scope (lot 36).
 CENSUS_FILES = ("CLAUDE.md", "AGENTS.md")
@@ -273,7 +330,7 @@ def write_state(root, state):
 # sessions
 
 
-def command(step, home, session=None):
+def command(step, home, params, session=None):
     label, model, profile = MODELS[step]
     cmd = ["claude", "-p", *model, "--settings", os.path.join(home, ".claude", PROFILES[profile])]
     if session:
@@ -282,24 +339,26 @@ def command(step, home, session=None):
         "--permission-mode", "acceptEdits",
         "--output-format", "stream-json", "--verbose",
         "--json-schema", json.dumps(SCHEMA),
-        "--append-system-prompt", SYSTEM_PROMPT,
+        "--append-system-prompt", system_prompt(params),
     ]
     return cmd
 
 
-def allowed_tools(params, home):
+def allowed_tools(params, home, root):
     """Per-process allowlist and deny list, on top of the profile's: nothing committed in the project.
 
     python3 is limited to the plugin's own scripts: `python3 -c` would run any
     git command out of the git guard's sight. The two printenv are the profile
     guard and the Autopilot section of lot-review and lot-audit; the plugin
     update is Step A0 of lot-start, exact command, no wildcard: a headless
-    session denies what it cannot ask. The deny list is DENIED_TOOLS.
+    session denies what it cannot ask. The Stack's targeted test form is added
+    from TARGETED_TESTS (lot 37). The deny list is DENIED_TOOLS.
     """
     plugin = os.path.join(home, ".claude", "plugins", "cache", "claude-harness")
     tools = ["Bash(printenv ANTHROPIC_BASE_URL)", "Bash(printenv HARNESS_AUTOPILOT)",
              "Bash(%s)" % PLUGIN_UPDATE,
              "Bash(gh pr *)", "Bash(gh run *)", "Bash(python3 %s/*)" % plugin, "Bash(jq *)"]
+    tools[:0] = targeted_tools(params, root)
     validation = validation_command(params)
     if validation:
         tools[:0] = ["Bash(%s)" % validation, "Bash(%s *)" % validation]
@@ -383,7 +442,8 @@ class Pilot:
 
     def session(self, step, resume=None, prompt=None):
         """Run one step's session; returns its structured answer, or stops."""
-        cmd = command(step, self.home, resume) + allowed_tools(self.params, self.home)
+        cmd = command(step, self.home, self.params, resume) + allowed_tools(
+            self.params, self.home, self.root)
         if prompt is None:
             prompt = PROMPTS[step].format(
                 lot=self.lot, log=self.state.get("integration_log") or self.integration_log())
@@ -793,13 +853,14 @@ def main(argv=None):
         )
 
     if args.dry_run:
-        long_values = {json.dumps(SCHEMA): "<schema>", SYSTEM_PROMPT: "<system prompt>"}
-        print("<schema> = %s\n<system prompt> = %s\n" % (json.dumps(SCHEMA), SYSTEM_PROMPT))
+        long_values = {json.dumps(SCHEMA): "<schema>"}
+        print("<schema> = %s\n" % json.dumps(SCHEMA))
         order = steps(params)
         order.insert(order.index("test") + 1, "fix")
         for step in order:
             session = "<lot-start session>" if step == "dev" else None
-            cmd = [long_values.get(arg, arg) for arg in command(step, home, session) + allowed_tools(params, home)]
+            cmd = [long_values.get(arg, arg) for arg in
+                   command(step, home, params, session) + allowed_tools(params, home, root)]
             prompt = start_prompt(args.lot) if step == "start" else \
                 PROMPTS[step].format(lot="<N>", log="<integration log>")
             print("%-6s %-8s %s <<< %s" % (step, MODELS[step][0], " ".join(cmd), prompt))

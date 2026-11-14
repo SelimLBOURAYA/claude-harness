@@ -53,7 +53,7 @@ Rédigé en français (§11 des conventions) ; identifiants techniques en anglai
 | 34 | `feat/lot-34-autopilot-watch` | A – Harness | Autopilot : suivi en direct dans le terminal, une ligne par appel d'outil avec l'heure, l'étape et le modèle, lancé avec l'autopilot | claude-harness, les 8 repos (via `main`) | ✅ |
 | 35 | `feat/lot-35-headless-ship` | A – Harness | Autopilot : le verrou de lot retiré par l'autopilot après le merge, et une règle « une commande simple par appel Bash » portée par la carte deepseek | claude-harness, les 8 repos (via `main` et la PR de synchro) | ✅ |
 | 36 | `feat/lot-36-census-guard-unfreeze` | A – Harness | Autopilot : la ligne de recensement d'un rapport de gate n'arrête plus le run ; `dev-plan.md` allégé et actualisé | claude-harness, les 8 repos (via `main`) | ✅ |
-| 37 | `feat/lot-37-gate-cost` | A – Harness | Coût de la gate en autopilot : une exécution par arbre au lieu d'une par commit, suites du harnais en parallèle et suite `autopilot` découpée, tests ciblés autorisés par stack et consigne de commandes | claude-harness, les 8 repos (via `main` et la PR de synchro) | ⬜ |
+| 37 | `feat/lot-37-gate-cost` | A – Harness | Coût de la gate en autopilot : une exécution par arbre au lieu d'une par commit, suites du harnais en parallèle et suite `autopilot` découpée, tests ciblés autorisés par stack et consigne de commandes | claude-harness, les 8 repos (via `main` et la PR de synchro) | ✅ |
 
 Légende des statuts : ⬜ à faire · 🔄 en cours (livré sur la branche, PR non
 mergée) · ✅ mergé sur `develop` · ⏸️ planifié mais dormant · ❄️ dormant
@@ -417,7 +417,7 @@ lot 35 (≈ 22 min de sessions, plus ≈ 2 min d'arrêt) :
 
 ---
 
-## LOT 37 — Coût de la gate en autopilot ⬜
+## LOT 37 — Coût de la gate en autopilot ✅
 
 Branche `feat/lot-37-gate-cost`, depuis `develop`. Repo touché :
 `claude-harness`. Les 8 repos héritent des conventions par la PR de synchro et
@@ -537,6 +537,14 @@ cas (le découpage du livrable 3 remplace un filtre par section).
   ciblés de la `Stack` du projet et la consigne.
 - Carte `deepseek` régénérée ; `cmp CLAUDE.md AGENTS.md` silencieux.
 - Version du plugin bumpée (job `plugin-version`).
+
+### Mesures (2026-11-14, session de développement)
+
+- Gate complète : 80 s avant (16 suites séquentielles), 13 s après (24 suites
+  lancées en parallèle, sortie rendue dans l'ordre des fichiers).
+- Suites `autopilot` : 45 s avant, découpées en 9 suites de 1 à 11 s sous la
+  charge du lancement parallèle ; `git-guard` 13 s, `session-context` 10 s.
+- Assertions `autopilot` : 330 avant, 342 après (12 cas de stacks ciblées).
 
 ### Hors périmètre
 

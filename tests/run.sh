@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # Validation gate of claude-harness.
-# Runs every tests/*.test.sh and reports a single pass/fail verdict.
+# Runs every tests/*.test.sh at once and reports a single pass/fail verdict.
+# Each suite's output is buffered, then printed in file order (lot 37): the
+# suites are independent, so their order does not change the verdict.
 # Dependencies are deliberately limited to bash, python3 and jq.
 set -uo pipefail
 
@@ -24,16 +26,39 @@ if [ -n "$missing" ]; then
   exit 2
 fi
 
+shopt -s nullglob
+suite_list=("$root"/tests/*.test.sh)
+shopt -u nullglob
+if [ "${#suite_list[@]}" -eq 0 ]; then
+  echo "${red}no test suite found in tests/${off}" >&2
+  exit 2
+fi
+
+buffers=$(mktemp -d)
+pids=()
+trap 'rm -rf "$buffers"' EXIT
+# Background jobs of a non-interactive shell ignore SIGINT: an interrupted gate
+# stops its suites itself instead of leaving them running.
+trap '[ "${#pids[@]}" -gt 0 ] && kill "${pids[@]}" 2>/dev/null; exit 130' INT TERM
+
+for suite in "${suite_list[@]}"; do
+  name=$(basename "$suite" .test.sh)
+  bash "$suite" > "$buffers/$name.out" 2>&1 &
+  pids+=("$!")
+done
+
 suites=0
 failed=0
 failed_names=""
-
-shopt -s nullglob
-for suite in "$root"/tests/*.test.sh; do
+for i in "${!suite_list[@]}"; do
+  suite=${suite_list[$i]}
   name=$(basename "$suite" .test.sh)
   suites=$((suites + 1))
+  wait "${pids[$i]}"
+  code=$?
   printf '%s>> %s%s\n' "$dim" "$name" "$off"
-  if bash "$suite"; then
+  cat "$buffers/$name.out"
+  if [ "$code" -eq 0 ]; then
     printf '%s   ok  %s%s\n' "$green" "$name" "$off"
   else
     printf '%s   FAIL %s%s\n' "$red" "$name" "$off"
@@ -41,14 +66,8 @@ for suite in "$root"/tests/*.test.sh; do
     failed_names="$failed_names $name"
   fi
 done
-shopt -u nullglob
 
 echo
-if [ "$suites" -eq 0 ]; then
-  echo "${red}no test suite found in tests/${off}" >&2
-  exit 2
-fi
-
 if [ "$failed" -ne 0 ]; then
   echo "${red}${failed}/${suites} suite(s) failed:${failed_names}${off}" >&2
   exit 1

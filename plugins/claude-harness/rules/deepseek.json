@@ -5,7 +5,7 @@
   "rules": [
     {
       "id": "LOT-1",
-      "rule": "Start every lot with the `lot-start` skill, never by inferring \"the next lot\" yourself. It syncs the status table with `develop` (first commit of the lot branch, `docs: sync lots file status`), creates `feat/lot-N-slug` from `develop`, and waits for `lot-start confirm N`, from the user or their autopilot, before any file is written."
+      "rule": "Start every lot with the `lot-start` skill, never by inferring \"the next lot\" yourself. It syncs the status table with `develop`, creates `feat/lot-N-slug` from `develop`, and waits for `lot-start confirm N`, from the user or their autopilot, before any file is written."
     },
     {
       "id": "LOT-3",
@@ -21,11 +21,11 @@
     },
     {
       "id": "LOT-6",
-      "rule": "One lot per session. Once `lot-ship` has merged the lot's pull request, stop: never start, prepare or test the next lot."
+      "rule": "One lot per session. Once `lot-ship` merged the lot's pull request, stop: never start, prepare or test the next lot."
     },
     {
       "id": "LOT-7",
-      "rule": "Development closes with `lot-start` Step B3; `lot-test` follows in a new session, any profile, test files only. Then the user runs `claude-profile claude`, opens a new session for `lot-review`, `lot-audit`, `lot-ship`; `lot-review` reads the profile from `lotfile.py`, never a model's account of its identity."
+      "rule": "Development closes with `lot-start` Step B3; `lot-test` follows in a new session, any profile, test files only. Then the user's `claude-profile claude` and a new session for `lot-review`, `lot-audit`, `lot-ship`; `lot-review` reads the profile from `lotfile.py`, never a model's own claim."
     },
     {
       "id": "CTX-1",
@@ -33,11 +33,11 @@
     },
     {
       "id": "GATE-1",
-      "rule": "During development, run only the targeted tests of the changed code. Run the full `Validation command` of `CLAUDE.md` once, before each commit."
+      "rule": "During development, run only the targeted tests of the changed code, or the Stack's targeted form. Run the full `Validation command` once per tree: one green run covers every commit cut in it, and `lot-ship` runs it once before the push."
     },
     {
       "id": "GATE-2",
-      "rule": "The `Validation command` is green before every commit and PR. A red test is fixed, never skipped, disabled (`@Disabled`, `@Ignore`, `test.skip`) or stripped of its assertion."
+      "rule": "The `Validation command` is green on the tree before every commit and PR; a gate deliverable (GATE-8) added to a green tree does not rerun it. A red test is fixed, never skipped, disabled or stripped of its assertion."
     },
     {
       "id": "GATE-3",
@@ -45,11 +45,11 @@
     },
     {
       "id": "GATE-4",
-      "rule": "A backend integration test runs on Testcontainers PostgreSQL, the production major version, migrations active; `@SpringBootTest` on H2 with `ddl-auto: create-drop` and migrations off is not one."
+      "rule": "A backend integration test runs on Testcontainers PostgreSQL, the production major version, migrations active; H2 with `ddl-auto: create-drop` and migrations off is not one."
     },
     {
       "id": "GIT-1",
-      "rule": "`main` is production; `develop` is integration and the default branch. Branch from `develop` only (`feat/lot-N-slug`, flat, no `N.M`; `fix/slug`; `chore/slug`), every PR to `develop`. Never branch from, push to or open a PR to `main`: its promotion is the user's. A project without `develop` gets one from `main`, said to the user."
+      "rule": "`main` is production; `develop` is integration and the default branch. Branch from `develop` only (`feat/lot-N-slug`, flat, no `N.M`; `fix/slug`; `chore/slug`), every PR to `develop`. Never branch from, push to or open a PR to `main`: its promotion is the user's. A project without `develop` gets one from `main`."
     },
     {
       "id": "GIT-2",
@@ -69,7 +69,7 @@
     },
     {
       "id": "CODE-4",
-      "rule": "Navigate and check code with the LSP tool (definitions, references, diagnostics) before grep or whole-file reads: `jdtls-lsp` for Java, `typescript-lsp` for TypeScript. If missing, ask the user to install it from `claude-plugins-official` and reopen the session."
+      "rule": "Navigate and check code with the LSP tool (definitions, references, diagnostics) before grep or whole-file reads: `jdtls-lsp` for Java, `typescript-lsp` for TypeScript; if missing, the user installs it from `claude-plugins-official` and reopens the session."
     },
     {
       "id": "CODE-7",
