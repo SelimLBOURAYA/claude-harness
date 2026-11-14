@@ -23,7 +23,8 @@
   `MERGED` (lot 35); gate checks accept census rows (lot 36); from a terminal
   it starts `autopilot/watch.py` and stops it with the run (lot 34).
 - `autopilot/watch.py`: the live watch (lot 34), copied from the personal
-  `autopilot-run` skill; reads the newest `~/.claude/autopilot/<project>/*.jsonl`.
+  `autopilot-run` skill; reads the newest `~/.claude/autopilot/<project>/*.jsonl`
+  written since the run's start (its `since` argument), complete lines only.
 - `tests/autopilot.test.sh` fakes `claude`, `gh`, `notify-send`.
 - `templates/project/`: skeleton for `bootstrap-project`, holding the master
   permission rules in its `.claude/settings.json` (lot 33).
@@ -95,8 +96,6 @@
 - Untested against a real `claude`: `--answer --resume`, `--disallowedTools`
   and `SessionStart` in `claude -p`. A permission ask in `-p` is a deny: a
   step's commands must be in `allowed_tools()` (lots 28-33).
-- The watch's positive launch (stdout a terminal) has no automated test; the
-  suite proves the redirected case (lot 34).
 - The 8 projects' skill tables lack the `ponytail` row (lot 33).
 - `Integration command` reaches `harness-invariants.yml` only in a later lot,
   once the 8 repos declare the row, not at this promotion (lot 32).
