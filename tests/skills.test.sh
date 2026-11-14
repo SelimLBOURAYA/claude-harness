@@ -170,6 +170,32 @@ done
 assert_ok "lot-ship finds the lot heading in the Current lot section range" -- \
   grep -qF '`Current lot section`' "$SKILLS/lot-ship/SKILL.md"
 
+# Lot 39, what each deliverable owes beyond its name: the trim before the add,
+# the missing deliverable left unfixed, the manual verification carried from
+# the feat commit, and the lot heading read from the hook's range.
+b2=$(sed -n '/^### Step B2/,/^### Step B3/p' "$START_SKILL")
+assert_contains "$b2" "run once, in this session" \
+  "lot-start step B2 runs the lot's manual verification once"
+assert_contains "$b2" 'body of the `feat(N)` commit' \
+  "lot-start step B2 records the command and result in the feat commit"
+assert_contains "$b3" "removing notes before adding" \
+  "lot-start step B3 removes memory notes before adding any"
+lr=$(cat "$SKILLS/lot-review/SKILL.md")
+assert_contains "$lr" "Do not create or fix it" \
+  "lot-review never creates a file the lot's section names and the diff misses"
+assert_contains "$lr" "**Exception** that ends the turn" \
+  "under the autopilot the missing deliverable ends the turn blocked"
+ship3=$(sed -n '/^## 3\./,/^## 4\./p' "$SKILLS/lot-ship/SKILL.md" | tr '\n' ' ')
+assert_contains "$ship3" "first line is the one to update" \
+  "lot-ship section 3 marks the heading that opens the Current lot section range"
+assert_contains "$ship3" "single search of the branch name" \
+  "lot-ship section 3 finds the status row with one branch-name search"
+ship4=$(sed -n '/^## 4\./,/^## 5\./p' "$SKILLS/lot-ship/SKILL.md")
+assert_contains "$ship4" 'manual verification: <command and result from the `feat(N)` commit' \
+  "lot-ship section 4 fills the PR's manual verification from the feat commit"
+assert_contains "$ship4" "never run it again here" \
+  "lot-ship section 4 never reruns the manual verification"
+
 # --- the autopilot (lot 27) ------------------------------------------------
 # lot-review and lot-audit sort every finding into three classes under the
 # autopilot's signal; the script reads the outcome they write.

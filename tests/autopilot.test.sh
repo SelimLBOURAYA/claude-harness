@@ -53,6 +53,9 @@ assert_contains "$(grep '^dev ' "$R.scen/calls.log")" \
 assert_contains "$(grep '^dev ' "$R.scen/calls.log")" \
   "runs only from the plugin cache" \
   "the session's system prompt carries the python3 hint (lot 39)"
+assert_contains "$(grep '^dev ' "$R.scen/calls.log")" \
+  "a script of the repository is exercised through its tests" \
+  "the system prompt says how to exercise a repository script (lot 39)"
 
 # --- no confirmation on questions -----------------------------------------
 R=$(fixture questions harness)
