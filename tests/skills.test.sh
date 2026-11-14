@@ -11,8 +11,9 @@ SKILLS="$REPO_ROOT/plugins/claude-harness/skills"
 # Gate parameters. dep-update is excluded from the command check: its whole job
 # is to drive a package manager, selected by Stack. i-have-adhd is an output
 # style and ponytail a coding rule, both generic and unrelated to any gate.
+# merge-commands only prints the merges the guards leave to the user.
 GATE_SKILLS="lot-start lot-test lot-review lot-audit lot-ship harness-sync integration-check"
-ALL_SKILLS="$GATE_SKILLS dep-update bootstrap-project i-have-adhd ponytail"
+ALL_SKILLS="$GATE_SKILLS dep-update bootstrap-project i-have-adhd ponytail merge-commands"
 
 assert_eq "$(printf '%s\n' $ALL_SKILLS | sort | tr '\n' ' ')" \
   "$(find "$SKILLS" -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | sort | tr '\n' ' ')" \
