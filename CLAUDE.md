@@ -180,6 +180,7 @@ Every blocking invariant is also enforced in CI, which is the only agent-agnosti
 | `docs/audits/lot-33-review.md` | Lot 33 code-review report |
 | `docs/audits/lot-33.md` | Lot 33 audit report — security, performance, architecture |
 | `docs/audits/lot-34-review.md` | Lot 34 code-review report |
+| `docs/audits/lot-34.md` | Lot 34 audit report — security, performance, architecture |
 | `docs/audits/lot-35-friction.md` | Lot 35 friction record — what each gate skill's own run cost |
 | `docs/audits/lot-35-review.md` | Lot 35 code-review report |
 | `docs/audits/lot-35.md` | Lot 35 audit report — security, performance, architecture |
