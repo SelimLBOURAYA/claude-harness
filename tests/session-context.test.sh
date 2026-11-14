@@ -109,6 +109,11 @@ printf '## LOT 3\n\nOne.\n\n## Lot 03\n\nTwo.\n' > "$DUP/lots.md"
 out=$(python3 "$LOTFILE" section "$DUP" 3); rc=$?
 assert_eq 1 "$rc" "section: several headings for the lot exit 1"
 assert_eq "" "$out" "section: several headings print nothing"
+printf '## LOT 4\n\n```\n## not a heading\n```\n\n# Annex\n\n## LOT 5.1\n\nDotted.\n' > "$DUP/lots.md"
+assert_eq "lots.md:1-6" "$(python3 "$LOTFILE" section "$DUP" 4)" \
+  "section: a fenced line is no heading, a level-1 heading ends the section"
+out=$(python3 "$LOTFILE" section "$DUP" 5); rc=$?
+assert_eq 1 "$rc" "section: a dotted sub-lot heading is not its parent lot's"
 
 body=$(text "$(context startup "$REPO")")
 assert_contains "$body" "Current lot section: lots.md:$lot2_line-$((annex_line - 1)) (read this range only)" \
