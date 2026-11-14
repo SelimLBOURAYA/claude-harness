@@ -55,7 +55,7 @@ Rédigé en français (§11 des conventions) ; identifiants techniques en anglai
 | 36 | `feat/lot-36-census-guard-unfreeze` | A – Harness | Autopilot : la ligne de recensement d'un rapport de gate n'arrête plus le run ; `dev-plan.md` allégé et actualisé | claude-harness, les 8 repos (via `main`) | ✅ |
 | 37 | `feat/lot-37-gate-cost` | A – Harness | Coût de la gate en autopilot : une exécution par arbre au lieu d'une par commit, suites du harnais en parallèle et suite `autopilot` découpée, tests ciblés autorisés par stack et consigne de commandes | claude-harness, les 8 repos (via `main` et la PR de synchro) | ✅ |
 | 38 | `feat/lot-38-lot-section-pointer` | A – Harness | Section du lot localisée : le hook de démarrage donne la plage de lignes de la section du lot courant, `lotfile.py section` pour le candidat de `lot-start` | claude-harness, les 8 repos (via `main`) | ✅ |
-| 39 | `feat/lot-39-gate-friction` | A – Harness | Frictions mesurées sur les runs du lot 38 : marge de la mémoire de projet, livrable manqué vu par `lot-review` sans revue rejouée, preuve d'une vérification manuelle portée de `dev` à `ship`, consigne `python3` de l'autopilot, `lot-ship` renvoyé à la plage du hook | claude-harness, les 8 repos (via `main`) | ⬜ |
+| 39 | `feat/lot-39-gate-friction` | A – Harness | Frictions mesurées sur les runs du lot 38 : marge de la mémoire de projet, livrable manqué vu par `lot-review` sans revue rejouée, preuve d'une vérification manuelle portée de `dev` à `ship`, consigne `python3` de l'autopilot, `lot-ship` renvoyé à la plage du hook | claude-harness, les 8 repos (via `main`) | 🔄 |
 
 Légende des statuts : ⬜ à faire · 🔄 en cours (livré sur la branche, PR non
 mergée) · ✅ mergé sur `develop` · ⏸️ planifié mais dormant · ❄️ dormant
@@ -295,10 +295,13 @@ Rapports : `docs/audits/lot-37-review.md`, `docs/audits/lot-37.md`.
 Fait : `lotfile.py section <root> <lot>` rend la plage de lignes de la section d'un lot (titre de niveau 2, hors bloc de code) ; le hook de démarrage l'injecte sur une branche de lot (`Current lot section`) ; `lot-start`, `lot-test`, `lot-review` et `lot-audit` lisent cette plage. `lot-ship` n'y renvoie pas encore (lot 39).
 Rapports : `docs/audits/lot-38-review.md`, `docs/audits/lot-38.md`.
 
-## LOT 39 — Frictions de la gate mesurées sur le lot 38 ⬜
+## LOT 39 — Frictions de la gate mesurées sur le lot 38 🔄
 
 Branche `feat/lot-39-gate-friction`, depuis `develop`. Repo touché :
 `claude-harness`. Les 8 repos en héritent à la promotion `develop` → `main`.
+
+Note : le merge `f3b5bf7` (`chore/lot-39-version-3`) ne pose que la cible de
+version 3.0.0 ; il ne livre pas le lot, qui reste à faire.
 
 ### Origine
 
