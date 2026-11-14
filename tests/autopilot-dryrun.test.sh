@@ -41,13 +41,29 @@ R=$(fixture stackharness harness)
 mkdir -p "$R/tests"
 printf 'exit 0\n' > "$R/tests/probe.test.sh"
 printf 'exit 0\n' > "$R/tests/other.test.sh"
+printf 'exit 0\n' > "$R/tests/helper.sh"
 out=$(cd "$R" && PATH="$FAKEBIN:$PATH" HOME="$FAKEHOME" python3 "$PILOT" --dry-run)
 assert_contains "$out" "Bash(bash tests/probe.test.sh)" "a harness session may run one suite"
 assert_contains "$out" "Bash(bash $R/tests/probe.test.sh)" "and the same suite by absolute path"
 assert_contains "$out" "Bash(bash tests/other.test.sh)" "every suite present at the launch is listed"
 assert_eq "" "$(grep -o 'Bash(bash tests/\*)' <<< "$out" || true)" \
   "no wildcard covers the harness suites"
+assert_eq "" "$(grep -o 'helper[.]sh' <<< "$out" || true)" \
+  "a sourced helper is not a suite"
 assert_contains "$out" "bash tests/<suite>.test.sh" "the command hint cites the harness form"
+assert_contains "$out" "A file outside the repository is read with the Read tool" \
+  "the hint sends an out-of-repo file to the Read tool"
+assert_contains "$out" "No binary that launches another command" \
+  "the hint forbids a command that launches another"
+assert_contains "$out" "A denied command is not retried in another form" \
+  "the hint forbids retrying a denied command in another form"
+
+# A harness project without a tests directory lists no suite and does not crash.
+R=$(fixture stackempty harness)
+out=$(cd "$R" && PATH="$FAKEBIN:$PATH" HOME="$FAKEHOME" python3 "$PILOT" --dry-run)
+assert_eq 0 "$?" "a harness project without tests/ still starts"
+assert_eq "" "$(grep -o 'Bash(bash' <<< "$out" || true)" \
+  "and gets no targeted test entry"
 
 R=$(fixture stackbackend backend)
 out=$(cd "$R" && PATH="$FAKEBIN:$PATH" HOME="$FAKEHOME" python3 "$PILOT" --dry-run)

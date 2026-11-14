@@ -30,10 +30,14 @@ out=$(HARNESS_AUTOPILOT=1 ANTHROPIC_BASE_URL=https://api.deepseek.com/anthropic 
   _ "$REPO_ROOT")
 assert_eq "unset unset" "$out" "a suite run alone does not inherit them either"
 
-# --- a red suite still turns the gate red -----------------------------------
-printf 'exit 1\n' > "$WORK/tests/red.test.sh"
+# --- a red suite still turns the gate red, with its own output -------------
+cat > "$WORK/tests/red.test.sh" <<'EOF'
+echo OUT-red
+exit 1
+EOF
 HARNESS_AUTOPILOT=1 bash "$WORK/tests/run.sh" > "$WORK/red.out" 2>&1
 assert_eq 1 "$?" "a red suite still turns the gate red"
+assert_contains "$(cat "$WORK/red.out")" "OUT-red" "the red suite's own output is still shown"
 assert_contains "$(cat "$WORK/red.out")" "1/2 suite(s) failed: red" "the red suite is named"
 
 # --- the output keeps the file order (lot 37) ------------------------------
@@ -67,5 +71,15 @@ done
 BARRIER="$PAR/barrier" bash "$PAR/tests/run.sh" > "$PAR/out" 2>&1
 assert_eq 0 "$?" "the suites run in parallel: each one finds the other's marker"
 assert_contains "$(cat "$PAR/out")" "2/2 suite(s) passed" "the two suites are green"
+
+# --- a gate that runs nothing is an error (lot 37) -------------------------
+# The suites are launched before the verdict now; an empty tests/ directory must
+# still stop the gate instead of passing it with nothing run.
+EMPTY="$WORK/empty"
+mkdir -p "$EMPTY/tests"
+cp "$REPO_ROOT/tests/run.sh" "$EMPTY/tests/run.sh"
+out=$(bash "$EMPTY/tests/run.sh" 2>&1)
+assert_eq 2 "$?" "a gate with no suite fails"
+assert_contains "$out" "no test suite found" "and says that no suite was found"
 
 finish
