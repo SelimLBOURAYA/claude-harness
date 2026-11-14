@@ -11,6 +11,7 @@ import collections
 import glob
 import json
 import os
+import re
 import sys
 import time
 
@@ -52,9 +53,16 @@ def detail(args):
 
 
 MODEL = {"name": "?"}
+# C0 and C1 controls: a model's text or a tool input must not drive the terminal (escape sequences).
+CONTROL = re.compile("[\x00-\x1f\x7f-\x9f]")
 
 
 def lines(event, step, stamp=None):
+    for line in render(event, step, stamp):
+        yield CONTROL.sub("?", line)
+
+
+def render(event, step, stamp=None):
     stamp = stamp or time.strftime("%H:%M:%S")
     kind, sub = event.get("type"), event.get("subtype")
     if kind == "system" and sub == "init" and event.get("model"):

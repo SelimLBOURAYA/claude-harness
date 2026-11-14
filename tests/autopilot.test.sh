@@ -1000,6 +1000,9 @@ elif case == "text":
 elif case == "denied":
     emit({"type": "system", "subtype": "permission_denied", "tool_name": "Bash",
           "message": "refused by the permission rules"})
+elif case == "escape":
+    emit({"type": "assistant", "message": {"model": "deepseek-v4", "content": [
+        {"type": "text", "text": "\x1b]52;c;cGF5bG9hZA==\x07done \x9b2J"}]}})
 elif case == "clock":
     for line in watch.lines({"type": "assistant", "message": {
             "model": "deepseek-v4", "content": [
@@ -1028,6 +1031,11 @@ assert_contains "$out" "» Je vérifie les tests." "a text line shows the text"
 
 out=$(watch_case denied)
 assert_contains "$out" "✗ refusé Bash" "a denial gets one line carrying the tool"
+
+out=$(watch_case escape)
+assert_eq "" "$(tr -d '\n' <<< "$out" | grep -P '[\x00-\x1f\x7f]' || true)" \
+  "a watch line carries no control character from the log"
+assert_contains "$out" "done" "a watch line keeps the text around a neutralised control"
 
 out=$(watch_case clock)
 assert_eq 1 "$(grep -cE '^[0-9]{2}:[0-9]{2}:[0-9]{2} ' <<< "$out")" \
