@@ -287,6 +287,12 @@ autopilot --resume --answer "..."   # the answers to a blocked lot-start or dev
 - **`N`**: `lot-start` receives `/claude-harness:lot-start N`, and the run
   stops if the lot it answers is not `N`. Refused with `--resume`, whose lot
   comes from the state, and for a value that is not a lot ID.
+- **Watch**: when its standard output is a terminal and it is not a dry run,
+  the script starts `autopilot/watch.py` as a child process in the same
+  terminal: one line per tool call, text, denial and step result, each with the
+  time, the step and the model (`↳` before a sub-agent), `~HH:MM` for the
+  history replayed when a step starts. The child stops with the run, whatever
+  ends it. A redirected output starts no watcher.
 - **`--answer TEXT`**: only after a stop `blocked` at `lot-start` (Part A) or
   during the development, and only with `--resume`. The script resumes the
   stopped session itself, with `TEXT` after a fixed

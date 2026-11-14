@@ -54,6 +54,7 @@ plugins/claude-harness/
   skills/<name>/SKILL.md             generic skills shared by every repo
   skills/lot-start/sync-status.py    status table sync with develop
   autopilot/autopilot.py             runs one lot from lot-start to merge, a headless session per step
+  autopilot/watch.py                 live watch of a run, child of autopilot.py in a terminal (lot 34)
 .github/workflows/*.yml              reusable workflows called by every repo
 .github/scripts/deepseek-card.py     generates rules/deepseek.json from CONVENTIONS.md
 templates/                           project skeleton, CI caller, dependabot
@@ -124,6 +125,7 @@ Every blocking invariant is also enforced in CI, which is the only agent-agnosti
 | `plugins/claude-harness/skills/ponytail/LICENSE` | MIT notice of the upstream ponytail project the skill adapts |
 | `plugins/claude-harness/rules/deepseek.json` | Imperative rules card for the `deepseek` profile, injected at session start (lot 19) |
 | `plugins/claude-harness/autopilot/autopilot.py` | Autopilot: one lot from `lot-start` to merge, a session and a model per step, stop and notification at the first blocker (lot 27) |
+| `plugins/claude-harness/autopilot/watch.py` | Live watch of an autopilot run, started by `autopilot.py` in a terminal (lot 34) |
 | `docs/audits/lot-0.md` | Lot 0 report — technical verifications V1 to V7 |
 | `docs/audits/lot-1.md` | Lot 1 report — hooks |
 | `docs/audits/lot-2.md` | Lot 2 report — generic skills |
