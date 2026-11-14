@@ -15,8 +15,8 @@
 - `autopilot/autopilot.py` (one `claude -p` per step): `integration` runs the
   repo's command then writes the report (32); `step_ship` removes the lock once
   merged (35); census rows accepted (36); an out-of-diff stop resumes at the
-  following step when the report is committed (39); `TARGETED_TESTS` and
-  `commands_hint` carry the Stack's commands (37).
+  next step if the step did not fail and its report is committed (39);
+  `TARGETED_TESTS` and `commands_hint` carry the Stack's commands (37).
 - `autopilot/watch.py`: newest run jsonl, complete lines, terminal only (34).
 - `tests/autopilot-lib.sh` holds the fakes and the `fixture` (37).
 - `templates/project/.claude/settings.json` holds the master permission rules
