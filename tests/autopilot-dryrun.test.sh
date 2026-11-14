@@ -34,4 +34,42 @@ assert_eq "" "$(calls "$R")" "--dry-run N runs no session"
 assert_ok "the script leaves no __pycache__ in the plugin" -- \
   test ! -e "$REPO_ROOT/plugins/claude-harness/hooks/__pycache__"
 
+# --- the targeted test form of each Stack (lot 37) -------------------------
+# harness: one exact entry per suite present at the launch, relative and
+# absolute, never a wildcard.
+R=$(fixture stackharness harness)
+mkdir -p "$R/tests"
+printf 'exit 0\n' > "$R/tests/probe.test.sh"
+printf 'exit 0\n' > "$R/tests/other.test.sh"
+out=$(cd "$R" && PATH="$FAKEBIN:$PATH" HOME="$FAKEHOME" python3 "$PILOT" --dry-run)
+assert_contains "$out" "Bash(bash tests/probe.test.sh)" "a harness session may run one suite"
+assert_contains "$out" "Bash(bash $R/tests/probe.test.sh)" "and the same suite by absolute path"
+assert_contains "$out" "Bash(bash tests/other.test.sh)" "every suite present at the launch is listed"
+assert_eq "" "$(grep -o 'Bash(bash tests/\*)' <<< "$out" || true)" \
+  "no wildcard covers the harness suites"
+assert_contains "$out" "bash tests/<suite>.test.sh" "the command hint cites the harness form"
+
+R=$(fixture stackbackend backend)
+out=$(cd "$R" && PATH="$FAKEBIN:$PATH" HOME="$FAKEHOME" python3 "$PILOT" --dry-run)
+assert_contains "$out" "Bash(./mvnw test -Dtest=*)" "a backend session may run one test class"
+assert_contains "$out" "./mvnw test -Dtest=<Class>" "the command hint cites the backend form"
+
+R=$(fixture stackfrontend frontend)
+out=$(cd "$R" && PATH="$FAKEBIN:$PATH" HOME="$FAKEHOME" python3 "$PILOT" --dry-run)
+assert_contains "$out" "Bash(npm test -- *)" "a frontend session may filter its tests"
+assert_contains "$out" "npm test -- <filter>" "the command hint cites the frontend form"
+
+R=$(fixture stackother other)
+out=$(cd "$R" && PATH="$FAKEBIN:$PATH" HOME="$FAKEHOME" python3 "$PILOT" --dry-run)
+assert_eq "" "$(grep -oE 'Bash\((\./mvnw test|npm test --|bash tests/)' <<< "$out" || true)" \
+  "another Stack gets no targeted test entry"
+assert_contains "$out" "this Stack has no targeted form" "the command hint says so"
+
+# One hint per step, inside each step's command.
+R=$(fixture hints harness)
+out=$(cd "$R" && PATH="$FAKEBIN:$PATH" HOME="$FAKEHOME" python3 "$PILOT" --dry-run)
+steps=$(grep -cE '^(start|dev|test|fix|review|audit|ship) ' <<< "$out")
+assert_eq "$steps" "$(grep -o 'One simple command per Bash call' <<< "$out" | wc -l | tr -d ' ')" \
+  "each step's command carries the command hint"
+
 finish
