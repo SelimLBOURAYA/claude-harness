@@ -35,26 +35,29 @@ if [ "${#suite_list[@]}" -eq 0 ]; then
 fi
 
 buffers=$(mktemp -d)
+pids=()
 trap 'rm -rf "$buffers"' EXIT
+# Background jobs of a non-interactive shell ignore SIGINT: an interrupted gate
+# stops its suites itself instead of leaving them running.
+trap '[ "${#pids[@]}" -gt 0 ] && kill "${pids[@]}" 2>/dev/null; exit 130' INT TERM
 
 for suite in "${suite_list[@]}"; do
   name=$(basename "$suite" .test.sh)
-  (
-    bash "$suite" > "$buffers/$name.out" 2>&1
-    printf '%s\n' "$?" > "$buffers/$name.code"
-  ) &
+  bash "$suite" > "$buffers/$name.out" 2>&1 &
+  pids+=("$!")
 done
-wait
 
 suites=0
 failed=0
 failed_names=""
-for suite in "${suite_list[@]}"; do
+for i in "${!suite_list[@]}"; do
+  suite=${suite_list[$i]}
   name=$(basename "$suite" .test.sh)
   suites=$((suites + 1))
+  wait "${pids[$i]}"
+  code=$?
   printf '%s>> %s%s\n' "$dim" "$name" "$off"
-  cat "$buffers/$name.out" 2>/dev/null
-  code=$(cat "$buffers/$name.code" 2>/dev/null || echo 1)
+  cat "$buffers/$name.out"
   if [ "$code" -eq 0 ]; then
     printf '%s   ok  %s%s\n' "$green" "$name" "$off"
   else
