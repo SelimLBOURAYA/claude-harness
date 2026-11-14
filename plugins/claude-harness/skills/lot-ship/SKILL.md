@@ -76,10 +76,11 @@ git commit -m "feat(N): <description>"
 
 ## 3. Mark the lot done, before the push
 
-Set the lot's status to ✅ in the `Lots file`: its row of the status table, and
-its section heading when the heading carries a status. `develop` then carries ✅
-exactly when the PR is merged. A status row added to a green tree does not
-rerun the gate (GATE-2).
+Set the lot's status to ✅ in the `Lots file`: its section heading and its row
+of the status table. The `Current lot section` range starts at that heading, so
+its first line is the one to update; find the row with a single search of the
+branch name. `develop` then carries ✅ exactly when the PR is merged. A status
+row added to a green tree does not rerun the gate (GATE-2).
 
 ```bash
 git add <Lots file>
@@ -106,6 +107,7 @@ gh pr create \
 
 ## Test plan
 - [ ] `<Validation command>` green
+- [ ] manual verification: <command and result from the `feat(N)` commit, or why it could not run>
 - [ ] lot-review executed, fixes applied
 - [ ] lot-audit executed, findings fixed, no unresolved Critical
 - [ ] No secret committed
@@ -115,7 +117,9 @@ EOF
 
 `--base develop` is mandatory; the guard denies `gh pr create` without it (GIT-1).
 The body has `## Summary` then `## Test plan`, and a third section only when it
-adds real information (`## DB migration` for a changeset) (GIT-6).
+adds real information (`## DB migration` for a changeset) (GIT-6). The manual
+verification line copies the command and result, or the reason it could not
+run, from the body of the `feat(N)` commit; never run it again here.
 
 ## 5. Watch the CI, merge, stop
 

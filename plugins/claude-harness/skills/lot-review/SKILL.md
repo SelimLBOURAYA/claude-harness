@@ -90,6 +90,10 @@ It may run as a forked agent writing the tree while this session reads it:
   file (`git -C "$REVIEW_REPO" restore <path>`) and record its finding as
   deferred. The lot's status line in the `Lots file` and `docs/memory.md` are
   the exceptions.
+- **A file the lot's section names and the diff does not contain is out of the
+  lot's diff.** Do not create or fix it: it is an open finding, the owner
+  decides; under the autopilot it is an **Exception** that ends the turn
+  `blocked`.
 - **Findings that need a decision** (an authorization model, a deviation from
   the lot's specification, a schema change): ask the owner, all in one batch,
   then apply the answers before Step 3. Under the autopilot, see
@@ -192,11 +196,13 @@ present, so nothing is asked; every finding falls in one of three classes:
 |---|---|---|
 | **Fixed**, without a question | Every bug (wrong behaviour), and every finding with a security, performance or maintainability impact | Fixed inside the lot's diff, `Validation command` green, committed as in Step 3 |
 | **Ignored** | Minor findings with no added value: style or naming preference, comments, micro-optimisations with no measurable effect, opportunistic refactorings | Neither fixed nor turned into a candidate lot; the report keeps the row, outcome `rejected: minor (autopilot)` |
-| **Exception**, which stops the run | The fix needs a data model change or a migration (ASK-1, CODE-3), a new dependency (ASK-1), an authorization model change, or a deviation from the lot's specification | Not fixed, outcome `open: owner decision (autopilot)`; commit the report (Steps 4 and 5), then end the turn `blocked`, one question per exception |
+| **Exception**, which stops the run | The fix needs a data model change or a migration (ASK-1, CODE-3), a new dependency (ASK-1), an authorization model change, a deviation from the lot's specification, or a deliverable the lot's section names that the diff does not contain | Not fixed, outcome `open: owner decision (autopilot)`; commit the report (Steps 4 and 5), then end the turn `blocked`, one question per exception |
 
 - A finding outside the lot's diff is not fixed (LOT-5): with a security,
   performance or maintainability impact it becomes a candidate lot (Step 4); a
-  Critical one ends the turn `blocked`.
+  Critical one ends the turn `blocked`. A file the lot's section names and the
+  diff does not contain is out of the lot's diff: never created here, and an
+  Exception.
 - A fix the `Validation command` still rejects at the second attempt is reverted
   (`git -C "$REVIEW_REPO" restore <path>`) and deferred; a Critical one ends the
   turn `blocked`.

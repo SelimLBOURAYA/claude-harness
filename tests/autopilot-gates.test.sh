@@ -5,23 +5,37 @@
 # tests/autopilot-lib.sh.
 . "$(dirname "$0")/autopilot-lib.sh"
 
-# --- a review fix outside the lot's diff ----------------------------------
+# --- a review fix outside the lot's diff (lot 39) -------------------------
+# The committed report proves the step's work landed: --resume goes on with the
+# following step instead of replaying a whole review that has nothing to do.
 R=$(fixture outside harness)
 cat >> "$R.scen/review.sh" <<'EOF'
 echo x > other.txt && git add other.txt && git commit -qm "fix(5): apply the lot review findings"
 EOF
 assert_eq 1 "$(pilot "$R")" "a fix outside the diff stops the run"
+assert_eq audit "$(state "$R" resume)" "a committed report resumes at the following step"
+assert_contains "$(state "$R" reason)" "other.txt" "the reason names the file"
 
+# Without its report, --resume runs the step again, so the commit is checked.
+R=$(fixture outsidenoreport harness)
+: > "$R.scen/review.sh"
+cat >> "$R.scen/review.sh" <<'EOF'
+echo x > other.txt && git add other.txt && git commit -qm "feat(5): extend the lot"
+EOF
+assert_eq 1 "$(pilot "$R")" "a commit outside the diff without the report stops the run"
+assert_eq review "$(state "$R" resume)" "without its report the stop resumes at the step"
+assert_contains "$(state "$R" reason)" "other.txt" "the reason names the file"
+
+# A blocked review with its report committed follows the same rule.
 R=$(fixture outsideblocked harness)
 cat >> "$R.scen/review.sh" <<'EOF'
 echo x > other.txt && git add other.txt && git commit -qm "feat(5): extend the lot"
 EOF
 echo blocked > "$R.scen/review.status"
 assert_eq 1 "$(pilot "$R")" "a blocked lot-review with a commit outside the diff stops the run"
-assert_eq review "$(state "$R" resume)" "the out-of-diff commit is not skipped by resuming at lot-audit"
+assert_eq audit "$(state "$R" resume)" "the committed report sends --resume to the following step"
 assert_contains "$(state "$R" reason)" "other.txt" "any commit type outside the diff is named"
 assert_eq "start dev test review " "$(calls "$R")" "the stop comes right after lot-review"
-assert_contains "$(state "$R" reason)" "other.txt" "the reason names the file"
 
 # --- the census rows of a gate report (lot 36) ----------------------------
 R=$(fixture censusreview harness)
