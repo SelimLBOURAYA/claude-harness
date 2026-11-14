@@ -11,7 +11,7 @@
 - `plugins/claude-harness/hooks/`: `git-guard.py` (git/gh rules, merge only by
   `lot-ship`), `lot-lock-guard.py` + `lot-confirm.sh` (write lock),
   `session-context.sh` (state, `CAP`/`TABLE_CAP`), `ponytail-context.sh`
-  (CODE-6), `lotfile.py` (parameters, table, lock, `profile`),
+  (CODE-6), `lotfile.py` (parameters, table, lock, `profile`, `section`),
   `plugin-currency.py`, `mirror-sync.sh`.
 - `plugins/claude-harness/skills/<name>/SKILL.md`; `lot-start/sync-status.py`
   maps develop merges to status rows; `.github/scripts/deepseek-card.py`
@@ -61,6 +61,9 @@
   Stack's targeted form.
 - `git-guard.py` sees through shell keywords and groupings; backticks, `eval`
   and a command name in a variable stay out by decision (lots 25, 33).
+- A lot section (lot 38): the level-2 heading `## LOT <id>`, case and leading
+  zeros ignored, sub-lot suffix kept, up to the next level-2 heading; none or
+  several means no range.
 - Claude Code caps a hook's context at 10,000 characters: `ponytail` has its
   own hook instead of a share of `CAP` (lot 33).
 
@@ -86,6 +89,8 @@
   (lot 34).
 - `WebFetch` fails while the small model is a deepseek one: `curl` the `.md`
   pages of the Claude Code docs instead (lot 33).
+- Under autopilot, `python3` runs only from the plugin cache: exercise the
+  repo's `lotfile.py` through `./tests/run.sh` (lot 38).
 
 ## Open questions
 
