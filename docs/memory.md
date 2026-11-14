@@ -62,8 +62,8 @@
 - `git-guard.py` sees through shell keywords and groupings; backticks, `eval`
   and a command name in a variable stay out by decision (lots 25, 33).
 - A lot section (lot 38): `## LOT <id>` at level 2, case and leading zeros
-  ignored, sub-lot suffix kept, to the next level-2 heading; none or several
-  means no range. Six of the 8 lots files have one.
+  ignored, sub-lot suffix kept, to the next `#`/`##` heading outside a fence;
+  none or several means no range. Six of the 8 lots files have one.
 - Claude Code caps a hook's context at 10,000 characters: `ponytail` has its
   own hook instead of a share of `CAP` (lot 33).
 
