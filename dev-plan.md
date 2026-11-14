@@ -538,6 +538,14 @@ cas (le découpage du livrable 3 remplace un filtre par section).
 - Carte `deepseek` régénérée ; `cmp CLAUDE.md AGENTS.md` silencieux.
 - Version du plugin bumpée (job `plugin-version`).
 
+### Mesures (2026-11-14, session de développement)
+
+- Gate complète : 80 s avant (16 suites séquentielles), 13 s après (24 suites
+  lancées en parallèle, sortie rendue dans l'ordre des fichiers).
+- Suites `autopilot` : 45 s avant, découpées en 9 suites de 1 à 11 s sous la
+  charge du lancement parallèle ; `git-guard` 13 s, `session-context` 10 s.
+- Assertions `autopilot` : 330 avant, 342 après (12 cas de stacks ciblées).
+
 ### Hors périmètre
 
 - Une forme ciblée pour la stack `other`.
