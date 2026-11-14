@@ -188,7 +188,7 @@ def targeted_tools(params, root):
     stack = params.get("Stack", "")
     if stack == "harness":
         return harness_suites(root)
-    entries = (TARGETED_TESTS.get(stack) or ("", ()))[1] or ()
+    entries = TARGETED_TESTS.get(stack, (None, None))[1] or ()
     return ["Bash(%s)" % entry for entry in entries]
 
 
