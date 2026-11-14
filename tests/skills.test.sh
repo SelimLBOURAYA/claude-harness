@@ -162,7 +162,7 @@ assert_contains "$(conv_rule MEM-1)" "6000 characters" "MEM-1 states the cap"
 b3=$(sed -n '/^### Step B3/,/^## Rules/p' "$START_SKILL")
 assert_contains "$b3" "5000 characters" "lot-start step B3 leaves the memory under 5000 characters"
 assert_ok "lot-review treats a deliverable the diff misses as out of the diff" -- \
-  grep -qF "the lot's section names and the diff does not contain" "$SKILLS/lot-review/SKILL.md"
+  grep -qF "the lot's section names and the diff does" "$SKILLS/lot-review/SKILL.md"
 for skill in lot-start lot-ship; do
   assert_ok "$skill names the manual verification" -- \
     grep -qF 'manual verification' "$SKILLS/$skill/SKILL.md"

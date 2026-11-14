@@ -90,8 +90,9 @@ It may run as a forked agent writing the tree while this session reads it:
   file (`git -C "$REVIEW_REPO" restore <path>`) and record its finding as
   deferred. The lot's status line in the `Lots file` and `docs/memory.md` are
   the exceptions.
-- **A file the lot's section names and the diff does not contain is out of the
-  lot's diff.** Do not create or fix it: it is an open finding, the owner
+- **A file to create or change that the lot's section names and the diff does
+  not contain is out of the lot's diff** (a file the section only cites is no
+  deliverable). Do not create or fix it: it is an open finding, the owner
   decides; under the autopilot it is an **Exception** that ends the turn
   `blocked`.
 - **Findings that need a decision** (an authorization model, a deviation from
@@ -200,9 +201,7 @@ present, so nothing is asked; every finding falls in one of three classes:
 
 - A finding outside the lot's diff is not fixed (LOT-5): with a security,
   performance or maintainability impact it becomes a candidate lot (Step 4); a
-  Critical one ends the turn `blocked`. A file the lot's section names and the
-  diff does not contain is out of the lot's diff: never created here, and an
-  Exception.
+  Critical one ends the turn `blocked`.
 - A fix the `Validation command` still rejects at the second attempt is reverted
   (`git -C "$REVIEW_REPO" restore <path>`) and deferred; a Critical one ends the
   turn `blocked`.

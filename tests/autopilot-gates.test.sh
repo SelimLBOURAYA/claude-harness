@@ -37,6 +37,15 @@ assert_eq audit "$(state "$R" resume)" "the committed report sends --resume to t
 assert_contains "$(state "$R" reason)" "other.txt" "any commit type outside the diff is named"
 assert_eq "start dev test review " "$(calls "$R")" "the stop comes right after lot-review"
 
+# A failed review is replayed even with its report committed.
+R=$(fixture outsidefailed harness)
+cat >> "$R.scen/review.sh" <<'EOF'
+echo x > other.txt && git add other.txt && git commit -qm "feat(5): extend the lot"
+EOF
+echo failed > "$R.scen/review.status"
+assert_eq 1 "$(pilot "$R")" "a failed lot-review with a commit outside the diff stops the run"
+assert_eq review "$(state "$R" resume)" "a failed step resumes at the step, report or not"
+
 # --- the census rows of a gate report (lot 36) ----------------------------
 R=$(fixture censusreview harness)
 cat >> "$R.scen/review.sh" <<'EOF'

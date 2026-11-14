@@ -625,12 +625,17 @@ class Pilot:
             and not (path in CENSUS_FILES and census_only(self.root, path, before))
         ]
         if outside:
-            # The committed report proves the step's work landed: resume at the
-            # following step instead of replaying a whole review (lot 39). Its
-            # absence sends --resume back to the step, which checks the commit.
-            resume = following if committed(self.root, report) else step
+            # A step that ended ok or blocked with its report committed did its
+            # work: resume at the following step instead of replaying a whole
+            # review (lot 39); a failed step, or no report, resumes at the step.
+            # Either way the commit stays on the branch and joins the next
+            # step's diff: this stop is its one check, the owner reverts it.
+            # The step's questions travel with the stop, so none is lost.
+            questions = answer.get("questions") or []
+            landed = answer.get("status") in ("ok", "blocked") and committed(self.root, report)
             raise Stop("%s: a commit touches files outside the lot's diff: %s"
-                       % (step, ", ".join(outside)), resume)
+                       % (step, ", ".join(outside)), following if landed else step,
+                       questions=questions)
         if answer.get("status") in ("ok", "blocked") and not committed(self.root, report):
             # The step's own questions often say why the report is not committed;
             # questions are a block whatever the status says, as in expect_ok.
