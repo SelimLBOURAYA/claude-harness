@@ -376,14 +376,14 @@ n'est à modifier.
      rapport → reprise à l'étape.
    - La suite `tests/autopilot-*.test.sh` qui couvre le prompt système : la
      phrase `python3` y figure.
-7. **Version du plugin** bumpée : `plugin.json` et les deux champs de
-   `.claude-plugin/marketplace.json`.
+7. **Version du plugin** bumpée à `3.0.0` (choix de l'utilisateur, majeure) :
+   `plugin.json` et les deux champs de `.claude-plugin/marketplace.json`.
 
 ### Critères de validation
 
 - `./tests/run.sh` vert, nouveaux cas inclus.
 - `wc -m docs/memory.md` rend 4 500 au plus à la clôture du développement.
-- Version du plugin bumpée (job `plugin-version`).
+- Version du plugin à `3.0.0` (job `plugin-version`).
 - Mesure au premier run autopilot d'un lot neuf, après la promotion : appels
   consacrés à `docs/memory.md` (14 pour `dev` et 11 pour `lot-review` au
   rejeu), refus `python3`, aucune seconde session `review`.
