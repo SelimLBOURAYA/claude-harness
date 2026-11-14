@@ -36,6 +36,21 @@ assert_contains "$(cat "$R.out")" "1 fixed, 1 ignored, 0 deferred" "the summary 
 review_logs=("$FAKEHOME/.claude/autopilot/happy/"*lot-5-review.jsonl)
 assert_ok "each step has its own log" -- test -e "${review_logs[0]}"
 
+# --- the Stack's targeted test form reaches a real session (lot 37) -------
+# The dry run proves the table; this proves the command a session actually runs.
+R=$(fixture targeted harness)
+mkdir -p "$R/tests"
+printf 'exit 0\n' > "$R/tests/probe.test.sh"
+git -C "$R" add tests
+git -C "$R" commit -qm "chore: seed a suite"
+git -C "$R" push -q origin develop
+assert_eq 0 "$(pilot "$R")" "a harness lot runs with its targeted suite present"
+assert_contains "$(grep '^dev ' "$R.scen/calls.log")" "Bash(bash tests/probe.test.sh)" \
+  "the session's allowlist carries the suite present at its launch"
+assert_contains "$(grep '^dev ' "$R.scen/calls.log")" \
+  "A file outside the repository is read with the Read tool" \
+  "the session's system prompt carries the command hint"
+
 # --- no confirmation on questions -----------------------------------------
 R=$(fixture questions harness)
 echo '["Which lot?"]' > "$R.scen/start.questions"
