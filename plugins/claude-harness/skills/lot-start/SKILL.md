@@ -212,10 +212,12 @@ stop.
 ### Step B3 — Close the development
 
 Run it on your own as soon as the lot's code and its tests (GATE-3) are complete
-and the `Validation command` is green. `lot-start close N` (the prompt, or this
-skill invoked with `close N`) is its explicit entry point. This session is the
-only one that still holds the lot's reasoning: `lot-test` opens in a new
-session, under any profile, and starts from the memory and the lots file.
+and the `Validation command` is green on the tree (GATE-1): one green run
+covers the code, the bump and the memory commits cut from that tree.
+`lot-start close N` (the prompt, or this skill invoked with `close N`) is its
+explicit entry point. This session is the only one that still holds the lot's
+reasoning: `lot-test` opens in a new session, under any profile, and starts
+from the memory and the lots file.
 
 1. `docs/memory.md` missing → create it from the harness template, header kept
    verbatim, and add it to the `## Project documents` census of `CLAUDE.md`,
@@ -239,8 +241,9 @@ session, under any profile, and starts from the memory and the lots file.
    Rewrite or delete the notes the lot made wrong or obsolete; never append a
    lot journal. The header stays as is, and the file stays within 6000
    characters (`wc -m`): over the cap, merge or drop the least useful notes.
-3. The file changed → `Validation command` green, then commit it alone, with
-   its census entry when it is new:
+3. The file changed → commit it alone, with its census entry when it is new.
+   The tree is the one the gate left green; a memory-only change does not
+   rerun the `Validation command` (GATE-2):
 
    ```bash
    git -C "$LOT_REPO" add docs/memory.md   # plus CLAUDE.md AGENTS.md when new

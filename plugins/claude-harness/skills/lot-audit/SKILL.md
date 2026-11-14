@@ -211,7 +211,9 @@ commit of its own.
 
 ### Step 9 — Commit the deliverable
 
-1. `<Validation command>` green.
+1. The tree is green: Step 7 ran the gate. This commit adds only the report and
+   its census rows, so it does not rerun it (GATE-2); `cmp CLAUDE.md AGENTS.md`
+   is silent (DOC-1).
 2. A new report enters the `## Project documents` census of `CLAUDE.md`, copied
    to `AGENTS.md` (DOC-1).
 3. Commit the report and the census, nothing else (GATE-8):

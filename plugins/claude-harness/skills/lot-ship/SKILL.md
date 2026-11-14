@@ -50,11 +50,13 @@ docs: sync lots file status
 | `feat(lot-12): …` | `feat(12): …` |
 | Several logical changes mixed | One commit per logical change |
 
-## 2. Pre-commit gate
+## 2. The final gate, once
 
-Check the staged diff against GIT-3, and:
+The earlier steps left the tree green. Run the `Validation command` once on the
+final tree, before the push: with the PR's CI, it is the proof of the whole lot
+(GATE-1). Check the staged diff against GIT-3, and:
 
-- [ ] `<Validation command>` green
+- [ ] `<Validation command>` green once on the final tree
 - [ ] No secret, password, token or absolute user path staged
 - [ ] One logical change in this commit
 - [ ] `docs/audits/lot-N-review.md` and `docs/audits/lot-N.md` committed, the
@@ -76,7 +78,8 @@ git commit -m "feat(N): <description>"
 
 Set the lot's status to ✅ in the `Lots file`: its row of the status table, and
 its section heading when the heading carries a status. `develop` then carries ✅
-exactly when the PR is merged.
+exactly when the PR is merged. A status row added to a green tree does not
+rerun the gate (GATE-2).
 
 ```bash
 git add <Lots file>
@@ -120,7 +123,8 @@ adds real information (`## DB migration` for a changeset) (GIT-6).
 gh pr checks --watch
 ```
 
-- A check red → report which one, fix it on the branch, push again, watch again.
+- A check red → report which one, fix it on the branch, run the `Validation
+  command` once on the fixed tree (GATE-2), push again, watch again.
 - Every check green → merge, pinned to the commit that was checked:
 
   ```bash
@@ -149,6 +153,7 @@ Then report the PR URL and the merge, and **stop** (LOT-6). The `develop` →
 ## Rules
 
 - Never commit on `main` or `develop`; never push to `main`.
-- `<Validation command>` green before every commit; never `--no-verify`.
+- `<Validation command>` green once on the final tree before the push (GATE-1);
+  never `--no-verify`.
 - No merge while a check is not green.
 - History reads through `rtk proxy git log`.

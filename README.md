@@ -313,14 +313,35 @@ autopilot --resume --answer "..."   # the answers to a blocked lot-start or dev
   committed, their commits inside the lot's diff, `docs/audits/`, the `Lots file`
   and `docs/memory.md`, even when the step ends `blocked`; the pull request
   `MERGED` and the lock removed after `lot-ship`.
+- **Gate cost**: one green `Validation command` per tree (GATE-1). The green
+  run covers every commit cut in the tree it verified; a commit that only adds
+  a gate deliverable (`docs/audits/*.md`, `docs/memory.md`, a status row, a
+  census row) to a green tree does not rerun it; no step reruns it on entry
+  over a clean tree; `lot-ship` runs it once on the final tree before the push,
+  and the PR's CI is the proof of the whole lot.
 - **Permissions**: `--permission-mode acceptEdits` and a per-process allowlist
-  (`Validation command`, `gh pr`, `gh run`, `jq`, `printenv ANTHROPIC_BASE_URL`
-  and `printenv HARNESS_AUTOPILOT` for the `lot-review` and `lot-audit` guards,
-  and `python3` on the plugin's own scripts under
-  `~/.claude/plugins/cache/claude-harness/`) on top of the profile's; never `--dangerously-skip-permissions`. A refused command stops the
+  (`Validation command`, the Stack's targeted test form below, `gh pr`,
+  `gh run`, `jq`, `printenv ANTHROPIC_BASE_URL` and `printenv HARNESS_AUTOPILOT`
+  for the `lot-review` and `lot-audit` guards, and `python3` on the plugin's own
+  scripts under `~/.claude/plugins/cache/claude-harness/`) on top of the
+  profile's; never `--dangerously-skip-permissions`. A refused command stops the
   step. The skeleton's permission rules go per process too, as
   `--disallowedTools`, its `ask` rules among them since nobody can answer: a
   run is covered before its project carries them.
+
+  | `Stack` | Targeted test form, allowed and told to every step |
+  |---|---|
+  | `harness` | `bash tests/<suite>.test.sh`, one exact entry per `tests/*.test.sh` present at the step's launch, relative and absolute, no wildcard |
+  | `backend` | `./mvnw test -Dtest=*` |
+  | `frontend` | `npm test -- *` |
+  | `other` | none: the `Validation command` only |
+
+  Every step's system prompt carries the matching instruction: the targeted
+  form, rerun the corrected test alone after a red one then the full gate once,
+  read a file outside the repository with the Read tool (never `cat`, `jq`,
+  `cmp`, `sha256sum`), one simple command per Bash call (CODE-7), no binary
+  that launches another (`script`, `xargs`, `env`, `bash -c`), and never retry
+  a denied command in another form. `--dry-run` prints it for each step.
 - **Stop**: at the first `blocked`, `failed`, failed check or step over 30
   minutes, the state (reason, status, questions, step) goes to
   `.claude/autopilot-state.json` (kept out of git through `.git/info/exclude`),
