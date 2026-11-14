@@ -209,6 +209,11 @@ up to date »), the first development step. Then start that step in the same
 turn. Development follows LOT-5, GATE-1 to GATE-3 and CODE-6 (the smallest
 complete change, the `ponytail` skill), and ends with Step B3.
 
+A criterion the lot says to verify by hand is run once, in this session: the
+command and its result go into the body of the `feat(N)` commit, or the reason
+it could not be run. `lot-ship` reuses that result in the pull request; it
+never runs the manual verification again.
+
 The one exception is a question the confirmation did not settle: ask it, and
 stop.
 
@@ -242,8 +247,9 @@ from the memory and the lots file.
    | `## Open questions` | What the lot left unsettled |
 
    Rewrite or delete the notes the lot made wrong or obsolete; never append a
-   lot journal. The header stays as is, and the file stays within 6000
-   characters (`wc -m`): over the cap, merge or drop the least useful notes.
+   lot journal. The header stays as is, and the close leaves the file within
+   5000 characters (`wc -m`), removing notes before adding any: the
+   6000-character cap of MEM-1 keeps the margin for the `lot-review` fixes.
 3. The file changed → commit it alone, with its census entry when it is new.
    The tree is the one the gate left green; a memory-only change does not
    rerun the `Validation command` (GATE-2):
