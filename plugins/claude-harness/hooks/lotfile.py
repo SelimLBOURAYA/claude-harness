@@ -45,8 +45,11 @@ STATUSES = (DONE, TODO, IN_PROGRESS, PAUSED, FROZEN)
 LOT_BRANCH = re.compile(r"^feat/lot-([0-9]+[a-z]?)(?:-|$)")
 # A level-2 lot section heading: `## LOT 38 — ...`, `## Lot 0N — ...`, the
 # suffix of a sub-lot kept (`## LOT 6b`). The negative lookahead rejects a
-# longer identifier, not the dash or colon that usually follows it.
-LOT_HEADING = re.compile(r"^##[ \t]+lot[ \t]+([0-9]+[a-z]?)(?![0-9a-z])", re.I)
+# longer identifier (`## LOT 2.1` is not lot 2), not the dash or colon that
+# usually follows it.
+LOT_HEADING = re.compile(r"^##[ \t]+lot[ \t]+([0-9]+[a-z]?)(?![0-9a-z]|\.[0-9])", re.I)
+# What ends a lot section: the next heading of level 1 or 2.
+SECTION_END = re.compile(r"^#{1,2}[ \t]")
 # Any lot-shaped branch, whatever its type prefix.
 ANY_LOT_BRANCH = re.compile(r"^(?:feat|fix|chore)/lot-([0-9]+[a-z]?)(?:-|$)")
 
@@ -242,13 +245,20 @@ def lot_section(lines, lot_id):
     """The 1-based inclusive (start, end) of a lot's section, None if not one.
 
     The section runs from its level-2 heading to the line before the next
-    level-2 heading, or the end of the file. None when no heading carries that
+    level-1 or level-2 heading, or the end of the file; a `#` line inside a
+    fenced code block is not a heading. None when no heading carries that
     lot, or when several do: an ambiguous range is never guessed.
     """
     if lines and lines[-1] == "":
         lines = lines[:-1]
     wanted = normalize_lot(lot_id)
-    headings = [index for index, line in enumerate(lines) if line.startswith("## ")]
+    headings = []
+    fenced = False
+    for index, line in enumerate(lines):
+        if line.lstrip().startswith(("```", "~~~")):
+            fenced = not fenced
+        elif not fenced and SECTION_END.match(line):
+            headings.append(index)
     matches = []
     for index in headings:
         match = LOT_HEADING.match(lines[index])

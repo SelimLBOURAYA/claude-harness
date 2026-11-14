@@ -55,8 +55,9 @@ to a development session.
 
 Then read `docs/memory.md` (MEM-1), if it exists, and the lot's section in the
 `Lots file`: one `Read` of the `Current lot section` range the SessionStart hook
-printed, or of the range `lotfile.py section <root> <lot>` gives when it printed
-none.
+printed, or of the range
+`python3 <this skill's base directory>/../../hooks/lotfile.py section <root> <lot>`
+gives when it printed none.
 
 You write **test files only**, chosen by `Stack`:
 

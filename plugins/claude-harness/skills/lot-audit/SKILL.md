@@ -72,7 +72,8 @@ The diff is against the fetched `origin/develop`, never the local `develop`.
 Read the lot's section in the `Lots file` for its specific risks (credentials,
 authorisation, export, file paths, payment, migrations): one `Read` of the
 `Current lot section` range the SessionStart hook printed, or of the range
-`lotfile.py section "$AUDIT_REPO" N` gives when it printed none. Then only the
+`python3 <this skill's base directory>/../../hooks/lotfile.py section "$AUDIT_REPO" N`
+gives when it printed none. Then only the
 files the lot touched and their direct dependencies.
 
 ### Step 2 — Security audit
