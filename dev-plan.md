@@ -54,6 +54,7 @@ Rédigé en français (§11 des conventions) ; identifiants techniques en anglai
 | 35 | `feat/lot-35-headless-ship` | A – Harness | Autopilot : le verrou de lot retiré par l'autopilot après le merge, et une règle « une commande simple par appel Bash » portée par la carte deepseek | claude-harness, les 8 repos (via `main` et la PR de synchro) | ✅ |
 | 36 | `feat/lot-36-census-guard-unfreeze` | A – Harness | Autopilot : la ligne de recensement d'un rapport de gate n'arrête plus le run ; `dev-plan.md` allégé et actualisé | claude-harness, les 8 repos (via `main`) | ✅ |
 | 37 | `feat/lot-37-gate-cost` | A – Harness | Coût de la gate en autopilot : une exécution par arbre au lieu d'une par commit, suites du harnais en parallèle et suite `autopilot` découpée, tests ciblés autorisés par stack et consigne de commandes | claude-harness, les 8 repos (via `main` et la PR de synchro) | ✅ |
+| 38 | `feat/lot-38-lot-section-pointer` | A – Harness | Section du lot localisée : le hook de démarrage donne la plage de lignes de la section du lot courant, `lotfile.py section` pour le candidat de `lot-start` | claude-harness, les 8 repos (via `main`) | ⬜ |
 
 Légende des statuts : ⬜ à faire · 🔄 en cours (livré sur la branche, PR non
 mergée) · ✅ mergé sur `develop` · ⏸️ planifié mais dormant · ❄️ dormant
@@ -270,62 +271,8 @@ Rapports : `docs/audits/lot-33-review.md`, `docs/audits/lot-33.md`.
 
 ## LOT 34 — Autopilot : suivi en direct dans le terminal ✅
 
-Branche `feat/lot-34-autopilot-watch`, depuis `develop`. Repo touché :
-`claude-harness`. Les 8 repos en héritent à la promotion `develop` → `main`.
-
-### Origine
-
-Demande de l'utilisateur du 2026-11-12.
-Pendant un run, l'onglet de l'autopilot n'affiche qu'une ligne par étape
-(`autopilot: ship (DeepSeek), log ...`). Le suivi détaillé vient d'un script
-local hors dépôt, `~/.claude/skills/autopilot-run/watch.py`, lancé à la main
-dans un second onglet : il lit le `.jsonl` de l'étape en cours et affiche une
-ligne par appel d'outil, texte, refus et fin d'étape. Le 2026-11-12, l'heure a
-été ajoutée à chaque ligne de l'historique et le modèle à chaque ligne (`↳`
-devant un sous-agent). L'utilisateur ne veut plus de copie locale.
-
-### Livrables
-
-1. **`plugins/claude-harness/autopilot/watch.py`** : le script local, repris
-   tel quel (bibliothèque standard seule, V6). Chaque ligne porte l'heure
-   (`HH:MM:SS` en direct, `~HH:MM` pour l'historique, faute d'heure par
-   événement dans le journal), l'étape, le modèle (`message.model`, sinon
-   celui de l'événement `init`, `↳` devant un sous-agent) et l'outil ou le
-   texte.
-2. **`autopilot.py` le lance** en processus enfant, dans le même terminal,
-   seulement quand sa sortie standard est un terminal (`isatty`) et hors
-   `--dry-run` ; l'enfant est arrêté à la sortie de l'autopilot, quelle
-   qu'elle soit (merge, arrêt, Ctrl-C).
-3. **Tests** : `tests/autopilot.test.sh` : format d'une ligne (heure, étape,
-   modèle, outil), `↳` sur un sous-agent, modèle de l'`init` sur une ligne de
-   résultat, aucun enfant lancé quand la sortie n'est pas un terminal.
-4. **Documentation** : `README.md` (section autopilot), recensement de
-   `CLAUDE.md` et de son miroir `AGENTS.md`, `docs/memory.md`.
-
-### Arbitrages (2026-11-12, utilisateur)
-
-| Sujet | Décision |
-|---|---|
-| Déroulé | PR de plan, puis développement dans une session ; `lot-test`, `lot-review`, `lot-audit`, `lot-ship` chacun dans une nouvelle session (GATE-7, LOT-7) |
-| Emplacement | À côté d'`autopilot.py` |
-| Lancement | Même terminal, processus enfant de l'autopilot, pas de fenêtre séparée |
-| Copie locale | Supprimée ; le skill perso `autopilot-run` (hors dépôt) pointe vers le plugin après la promotion `develop` → `main` |
-
-### Critères de validation
-
-- `./tests/run.sh` vert, nouveaux cas inclus.
-- Lancé depuis un terminal, `autopilot.py` affiche les lignes de suivi de
-  l'étape en cours sans second onglet ; redirigé vers un fichier, il n'en
-  affiche aucune.
-- Version du plugin bumpée (job `plugin-version`).
-
-### Hors périmètre
-
-- L'heure sur les lignes propres d'`autopilot.py`.
-- Une option pour désactiver le suivi.
-- La mise à jour du skill perso `autopilot-run`, hors dépôt.
-
----
+Fait : `autopilot/watch.py` dans le plugin, lancé par `autopilot.py` en processus enfant quand la sortie est un terminal ; une ligne par appel d'outil avec l'heure, l'étape et le modèle.
+Rapports : `docs/audits/lot-34-review.md`, `docs/audits/lot-34.md`.
 
 ## LOT 35 — Autopilot : `ship` sans blocage en headless ✅
 
@@ -334,229 +281,85 @@ Rapports : `docs/audits/lot-35-review.md`, `docs/audits/lot-35.md` (friction : `
 
 ## LOT 36 — Garde du recensement et `dev-plan.md` allégé ✅
 
-Branche `feat/lot-36-census-guard-unfreeze`, depuis `develop`. Repo touché :
-`claude-harness`. Les 8 repos héritent du correctif de l'autopilot à la
-promotion `develop` → `main`.
+Fait : `gate_step` et `check_test_files` acceptent un commit qui n'ajoute que des lignes de recensement de `docs/audits/` à `CLAUDE.md` et `AGENTS.md` ; fin de la restriction du lot 24 ; `dev-plan.md` ramené sous 600 lignes, lots livrés résumés.
+Rapports : `docs/audits/lot-36-review.md`, `docs/audits/lot-36.md`.
+
+## LOT 37 — Coût de la gate en autopilot ✅
+
+Fait : une gate par arbre au lieu d'une par commit (GATE-1, GATE-2, GATE-8, GIT-3) ; `tests/run.sh` en parallèle (80 s → 13 s) et suite `autopilot` découpée en 9 ; tests ciblés autorisés par `Stack` et consigne de commandes dans chaque étape.
+Rapports : `docs/audits/lot-37-review.md`, `docs/audits/lot-37.md`.
+
+## LOT 38 — Section du lot localisée ⬜
+
+Branche `feat/lot-38-lot-section-pointer`, depuis `develop`. Repo touché :
+`claude-harness`. Les 8 repos en héritent à la promotion `develop` → `main`.
 
 ### Origine
 
-Demande de l'utilisateur du 2026-11-12, après l'analyse du run autopilot du
-lot 35 (≈ 22 min de sessions, plus ≈ 2 min d'arrêt) :
+Demande de l'utilisateur du 2026-11-14, après l'évaluation du coût en tokens
+des runs autopilot (lots 28 à 37 et elya-frontend 7). Le coût suit les lectures
+en cache, c'est-à-dire le nombre de tours multiplié par la taille du contexte.
 
-1. **Faux positif du garde de l'autopilot** : après une review réussie
-   (`73db6a3`), `gate_step` (`autopilot.py`) s'arrête sur « a commit touches
-   files outside the lot's diff: AGENTS.md, CLAUDE.md ». Ces deux fichiers n'ont
-   reçu que la ligne de recensement du rapport, qu'exigent GATE-8 et DOC-1.
-   Coût : un arrêt et une reprise à la main
-   (`docs/audits/lot-35-friction.md`). Il se redéclenchera à chaque lot qui ne
-   touche pas déjà `CLAUDE.md`. `check_test_files` a le même défaut pour la
-   ligne de recensement d'un rapport de friction écrit par `lot-test`.
-2. **La restriction du lot 24 est levée** : chaque lot depuis le 26 l'a
-   contournée (« exception », « demande explicite ») ; elle n'a plus d'objet.
-3. **`dev-plan.md` fait 3 125 lignes** : `lot-start` et `lot-ship` tâtonnent
-   avec `grep` et `sed` pour retrouver la section du lot (au lot 35, `start` :
-   43 tours, 19 lectures de fichiers).
+1. **Le lot 36 a déjà allégé `dev-plan.md`** (3 125 → ≈ 570 lignes) : la
+   lecture complète du fichier a disparu.
+2. **Chaque étape cherche encore la section de son lot à tâtons.** Runs des
+   lots 34 et 37, les seuls après l'allègement : ≈ 18 appels de repérage pour
+   les deux lots (`grep "37"`, `grep "Lot 37"`, qui échoue parce que le titre
+   est `## LOT 37`, `wc -l`), plus des lectures à côté de la section
+   (`start` du lot 37 : lignes 1 à 419 en trois `Read`, ≈ 34 k octets ;
+   `test` du lot 34 : le fichier entier, 35 k octets ; `ship` du lot 34 :
+   quatre fenêtres de 60 lignes). Soit ≈ 9 appels par lot, chacun payant une
+   relecture du contexte entier (50 à 90 k tokens).
+3. **Le hook de démarrage connaît déjà le lot** (branche `feat/lot-N-*`) et le
+   fichier de lots, mais n'injecte que le tableau de statut.
 
 ### Livrables
 
-1. **`autopilot.py`** : `gate_step` et `check_test_files` acceptent un commit
-   qui ne fait qu'ajouter à `CLAUDE.md` et `AGENTS.md` des lignes de
-   recensement d'un fichier de `docs/audits/` (ligne de tableau
-   `` | `docs/audits/… `), sans ligne retirée ni modifiée. Toute autre
-   modification de ces deux fichiers hors du diff du lot arrête toujours le run.
-2. **Fin de la restriction du lot 24** : section `## Freeze` retirée de
-   `CLAUDE.md` (= `AGENTS.md`), note retirée de `docs/memory.md`, encadré de
-   tête et toutes les mentions de cette restriction retirées de `dev-plan.md` ;
-   titre et ligne du lot 24 réécrits sur ce qu'il a livré. Le lot 16 reste ❄️,
-   motif réécrit sans renvoi à la restriction (livrable manuel d'abord, CI
-   ensuite). Restent tels quels : les rapports `docs/audits/` (archives), le nom
-   de branche `feat/lot-24-harness-freeze`, et le statut ❄️ du contrat des
-   fichiers de lots (`lotfile.FROZEN`).
-3. **`dev-plan.md` allégé et actualisé**, moins de 600 lignes :
-   - en-tête réécrit sur l'état actuel (harnais central adopté par les 8 repos,
-     autopilot) au lieu du plan de remédiation de septembre ;
-   - tableau `## Vue d'ensemble` gardé ligne par ligne (contrat P6-D10, lu par
-     `sync-status.py`), statuts inchangés ; paragraphes périmés retirés (ordre
-     strict, priorité avant les premières images, branche unique des lots
-     0 à 6) ;
-   - `## Décisions` ramené aux décisions en vigueur, sans les marques
-     d'historique (*(réécrit au lot 24)*, *(P5-#n)*, *(P6-Dn)*) ;
-   - chaque lot ✅ réduit à son titre et 2 à 4 lignes : ce qu'il a livré et le
-     lien vers son rapport d'audit ; le texte complet reste dans l'historique
-     git ;
-   - sections closes retirées : `Règles transverses du plan` sans objet,
-     `Prérequis`, matrices constats → lots, `Points ouverts` tranchés ;
-     `Risques` réduits à ceux encore vrais ;
-   - lots ⬜ et ❄️ (16, 34, 36) gardés en entier.
-   Les en-têtes de `tests/git-guard.test.sh` et `tests/lot-lock-guard.test.sh`,
-   qui renvoient aux cas listés dans `dev-plan.md`, sont réécrits pour ne plus
-   dépendre d'un texte retiré.
-4. **Tests** : `tests/autopilot.test.sh` : review qui ajoute seulement une
-   ligne de recensement à `CLAUDE.md` et `AGENTS.md` → l'étape passe ; review
-   qui modifie une autre ligne de `CLAUDE.md` → arrêt ; même paire pour
-   `lot-test` et un rapport de friction.
-5. **Documentation** : `docs/memory.md` amendé, version du plugin bumpée.
+1. **`lotfile.py`** : une fonction qui rend la plage de lignes (1-based,
+   bornes incluses) de la section d'un lot dans le fichier de lots, et la
+   commande `lotfile.py section <root> <lot>` qui l'affiche sous la forme
+   `<fichier>:<début>-<fin>`. Règle de reconnaissance, calée sur les 8
+   fichiers de lots du portefeuille :
+   - titre de niveau 2, `## LOT <id>` ou `## Lot <id>`, casse ignorée ;
+   - identifiant comparé sans les zéros de tête (`## Lot 01` = lot `1`),
+     suffixe de sous-lot gardé (`8b` ≠ `8`) ;
+   - fin de section : la ligne avant le titre de niveau 2 suivant, ou la fin
+     du fichier ;
+   - aucun titre trouvé, ou plusieurs : rien affiché, code de sortie 1.
+2. **`session-context.sh`** : sur une branche de lot (`LOT_BRANCH`), une ligne
+   `Current lot section: <fichier>:<début>-<fin> (read this range only)` après
+   le tableau de statut, et la consigne 1 de « Before any write » qui y
+   renvoie. Rien d'ajouté hors d'une branche de lot ou quand la section est
+   introuvable. Le plafond `CAP` reste.
+3. **`lot-start` Step A4** : la section du candidat se lit par
+   `lotfile.py section`, puis un seul `Read` de cette plage. Même consigne
+   dans `lot-test`, `lot-review`, `lot-audit` et `lot-ship` là où elles
+   disent de lire la section du lot : la plage donnée par le hook.
+4. **Tests** : `tests/session-context.test.sh` : plage juste pour `## LOT N`,
+   `## Lot 0N` et un sous-lot `Nb` ; dernière section du fichier ; titre
+   absent → aucune ligne ; branche hors lot → aucune ligne ; consigne 1
+   présente avec la plage.
+5. **Documentation** : `docs/memory.md`, version du plugin bumpée.
 
 ### Critères de validation
 
 - `./tests/run.sh` vert, nouveaux cas inclus.
-- Plus aucune mention de la restriction du lot 24 dans `CLAUDE.md`, `AGENTS.md`,
-  `docs/memory.md` et `dev-plan.md`, hors du nom de branche du lot 24.
-- `dev-plan.md` sous 600 lignes ; `sync-status.py` relit le tableau sans
-  écart.
-- `cmp CLAUDE.md AGENTS.md` silencieux.
+- `lotfile.py section` donne la bonne plage sur les fichiers de lots réels des
+  8 repos pour leur dernier lot (vérification manuelle, consignée dans la PR).
 - Version du plugin bumpée (job `plugin-version`).
+- Mesure au premier run autopilot qui suit : appels de repérage du fichier de
+  lots par étape, à comparer aux ≈ 9 par lot de l'origine.
 
 ### Hors périmètre
 
-- Le filtre rtk qui masque des sorties (sessions qui relancent leurs commandes
-  en `rtk proxy` : 36 fois en `dev`, 27 en `start` au lot 35).
-- `./tests/run.sh` lancé 8 fois en `review` au lot 35 (GATE-1 non tenu par les
-  commits de correction successifs).
-- Les rapports `docs/audits/` qui citent la restriction du lot 24.
-
----
-
-## LOT 37 — Coût de la gate en autopilot ✅
-
-Branche `feat/lot-37-gate-cost`, depuis `develop`. Repo touché :
-`claude-harness`. Les 8 repos héritent des conventions par la PR de synchro et
-du reste à la promotion `develop` → `main`.
-
-### Origine
-
-Demande de l'utilisateur du 2026-11-14, après l'analyse du run autopilot du
-lot 34 (PR #86) : ≈ 35 min du premier appel au dernier commit et ≈ 250 appels
-d'outils, pour 233 lignes livrées.
-
-1. **16 exécutions de `./tests/run.sh`**, ≈ 80 s chacune, soit ≈ 21 min 30 et
-   62 % du run : `dev` 5, contrôle de l'autopilot après `dev` 1, `test` 2,
-   `review` 4, `audit` 2, `ship` 2. GATE-1, GATE-2, GATE-8 et GIT-3 demandent
-   une exécution par commit, et le lot fait 11 commits, dont 7 sans code.
-   9 exécutions ne vérifiaient aucun code nouveau depuis la précédente ; 3
-   tournaient sur un arbre identique à un arbre déjà vert (contrôle de
-   l'autopilot, entrée de `lot-test`, entrée de `lot-ship`). Déjà relevé au
-   lot 35 (8 exécutions en `review`), laissé hors périmètre du lot 36.
-2. **La gate est séquentielle** : 16 suites, 80 s, dont `autopilot` 45 s,
-   `git-guard` 11 s, `session-context` 7 s et les 13 autres 17 s (mesure du
-   2026-11-14).
-3. **12 commandes refusées** : 4 fois `bash tests/autopilot.test.sh` (`dev`,
-   `test`, `review`, `audit`), parce qu'`allowed_tools()` n'autorise que la
-   `Validation command` ; 4 lectures hors dépôt par le shell (`jq`, `cmp`,
-   `sha256sum` sur `~/.claude/`) ; 3 appels de `script` ; 1 commande git
-   composée. Le même manque existe dans les projets : les journaux
-   d'elya-frontend montrent des sessions qui tentent
-   `npx ng test --no-watch --filter`.
-4. **Un test rouge relance tout** : en `dev`, deux corrections de test ont
-   chacune relancé la gate complète, la suite ciblée ayant été refusée. Une
-   suite est un script linéaire : sa plus petite unité relançable est le
-   fichier, et `tests/autopilot.test.sh` (1 092 lignes, une trentaine de
-   sections) pèse à elle seule plus de la moitié de la gate.
-
-### Livrables
-
-1. **Une gate par arbre, pas par commit** : GATE-1, GATE-2, GATE-8 et GIT-3
-   réécrits dans `CONVENTIONS.md`, carte `deepseek` régénérée, et les skills
-   `lot-start` (Step B3), `lot-test`, `lot-review`, `lot-audit`, `lot-ship`
-   alignés :
-   - une exécution verte couvre tous les commits découpés dans l'arbre qu'elle
-     a vérifié (en `dev` : code, bump et mémoire, une seule exécution) ;
-   - un commit qui n'ajoute à un arbre vert qu'un livrable documentaire de la
-     gate ne la relance pas : `docs/audits/*.md`, `docs/memory.md`, la ligne de
-     statut du fichier de lots, les lignes de recensement de `CLAUDE.md` et
-     `AGENTS.md`. Ses contrôles sont `cmp CLAUDE.md AGENTS.md` (DOC-1) et le
-     plafond de la mémoire (MEM-1) ;
-   - aucune exécution à l'entrée d'une étape sur un arbre propre : l'étape
-     précédente l'a laissé vert ;
-   - `lot-ship` lance la gate une fois, sur l'arbre final, avant le push : avec
-     la CI de la PR, c'est la preuve du lot entier.
-   Le contrôle de l'autopilot après `dev` (`validation_green`) reste : c'est le
-   seul qui ne dépend pas de la parole d'un modèle. Effet attendu sur un lot
-   comme le 34 : 6 exécutions complètes au lieu de 16.
-2. **`tests/run.sh` lance les suites en parallèle** (`&` et `wait`, aucune
-   dépendance ajoutée) : sortie de chaque suite mise en tampon et affichée dans
-   l'ordre actuel, verdict et code de sortie inchangés. Une suite qui partage
-   un état avec une autre (fichier hors de son `mktemp`, port) est corrigée.
-3. **`tests/autopilot.test.sh` découpée** en suites thématiques, fakes et
-   fixtures dans un fichier sourcé commun. La durée par section est mesurée
-   d'abord ; le découpage vise qu'aucune suite ne dépasse 15 s. Aucune
-   assertion perdue.
-4. **Tests ciblés autorisés, par `Stack`** : `allowed_tools()` ajoute les
-   entrées d'une table indexée par `Stack`, à côté de `TEST_FILES` :
-
-   | `Stack` | Forme ciblée | Entrée d'autorisation |
-   |---|---|---|
-   | `harness` | `bash tests/<suite>.test.sh` | Une entrée exacte par fichier `tests/*.test.sh` présent au lancement de l'étape, chemin relatif et absolu, sans joker |
-   | `backend` | `./mvnw test -Dtest=<Classe>` | `./mvnw test -Dtest=*` |
-   | `frontend` | `npm test -- <filtre>` (`--filter` sous Vitest, `--include` sous Karma) | `npm test -- *` |
-   | `other` | Aucune : la `Validation command` | Aucune |
-
-   Les jokers de `backend` et `frontend` sont du même niveau que
-   `<Validation command> *`, déjà autorisé.
-5. **Consigne de commandes** ajoutée au `SYSTEM_PROMPT` de chaque étape,
-   générée depuis la même liste que l'autorisation :
-   - tests : la `Validation command` ou la forme ciblée de la `Stack` du
-     projet, telle qu'autorisée ; après un test rouge, relancer le test
-     corrigé seul, et la gate complète une fois avant le commit ;
-   - fichier hors du dépôt : l'outil Read, jamais `cat`, `jq`, `cmp` ni
-     `sha256sum` ;
-   - une commande simple par appel (CODE-7) ;
-   - aucun binaire qui lance une autre commande (`script`, `xargs`, `env`,
-     `bash -c`) ;
-   - une commande refusée n'est pas retentée sous une autre forme.
-6. **Tests** : `tests/run-gate.test.sh` (une suite rouge parmi des vertes
-   donne le code 1 et son nom, sortie dans l'ordre) ; suites `autopilot` (les
-   entrées de chacune des quatre stacks, aucune entrée pour `other`, consigne
-   présente dans la commande de chaque étape et citant la forme ciblée de la
-   stack) ; les cas de `skills` et `conventions` que la réécriture des
-   règles touche.
-7. **Documentation** : `README.md` (section autopilot), `CLAUDE.md` et son
-   miroir `AGENTS.md`, `docs/memory.md`, version du plugin bumpée.
-
-### Arbitrages (2026-11-14, utilisateur)
-
-| Sujet | Décision |
-|---|---|
-| Réécriture de GATE-1, GATE-2, GATE-8 et GIT-3 | Oui ; les 8 PR de synchro qu'elle entraîne sont acceptées |
-| Cache de gate par empreinte d'arbre | Refusé |
-| Tests ciblés des stacks `backend` et `frontend` | Oui, par les deux entrées à joker du livrable 4 (ASK-1) |
-| Stack `other` (deployment, summerize-youtube) | Aucune forme ciblée : leurs sessions relancent la `Validation command` |
-
-Deux choix du rédacteur, non tranchés par l'utilisateur : le contrôle de
-l'autopilot après `dev` est gardé, bien qu'il tourne sur un arbre que la
-session dit vert ; dans ce repo la relance se fait au fichier de suite, pas au
-cas (le découpage du livrable 3 remplace un filtre par section).
-
-### Critères de validation
-
-- `./tests/run.sh` vert, nouveaux cas inclus ; le total des assertions des
-  suites `autopilot` est celui d'avant le découpage, plus les cas ajoutés.
-- Durée de la gate et de chaque suite, avant et après, dans la description de
-  la PR.
-- `autopilot.py --dry-run` affiche pour chaque étape les entrées de tests
-  ciblés de la `Stack` du projet et la consigne.
-- Carte `deepseek` régénérée ; `cmp CLAUDE.md AGENTS.md` silencieux.
-- Version du plugin bumpée (job `plugin-version`).
-
-### Mesures (2026-11-14, session de développement)
-
-- Gate complète : 80 s avant (16 suites séquentielles), 13 s après (24 suites
-  lancées en parallèle, sortie rendue dans l'ordre des fichiers).
-- Suites `autopilot` : 45 s avant, découpées en 9 suites de 1 à 11 s sous la
-  charge du lancement parallèle ; `git-guard` 13 s, `session-context` 10 s.
-- Assertions `autopilot` : 330 avant, 342 après (12 cas de stacks ciblées).
-
-### Hors périmètre
-
-- Une forme ciblée pour la stack `other`.
-- Un paramètre de gate par projet pour la commande ciblée.
-- La durée des gates `./mvnw verify` et `npm run build && npm test` : les
-  livrables 2 et 3 ne concernent que la suite de ce repo.
-- La relance d'un seul cas à l'intérieur d'une suite de ce repo.
-- Un cache de gate par empreinte d'arbre.
-- Le nombre d'appels dû à une session neuve par étape et à CODE-7.
-- Le bloc affiché deux fois par `watch.py` dans le journal du lot 34, non
-  diagnostiqué.
+- Injecter le texte de la section dans le contexte (il dépasse `CAP` : ≈ 9 k
+  caractères pour le lot 37).
+- Replier ou archiver les lots livrés : avec le pointeur, la taille du fichier
+  de lots ne coûte plus de tokens. La garde des 600 lignes de `manifests`
+  reste ; quand elle casse, le lot en cours replie à la main les lots livrés
+  les plus anciens.
+- Les autres leviers de l'évaluation : le coût de la review Opus, le respect
+  de CTX-2 par le profil `deepseek`.
 
 ---
 
