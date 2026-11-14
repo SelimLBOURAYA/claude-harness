@@ -54,7 +54,7 @@ Rédigé en français (§11 des conventions) ; identifiants techniques en anglai
 | 35 | `feat/lot-35-headless-ship` | A – Harness | Autopilot : le verrou de lot retiré par l'autopilot après le merge, et une règle « une commande simple par appel Bash » portée par la carte deepseek | claude-harness, les 8 repos (via `main` et la PR de synchro) | ✅ |
 | 36 | `feat/lot-36-census-guard-unfreeze` | A – Harness | Autopilot : la ligne de recensement d'un rapport de gate n'arrête plus le run ; `dev-plan.md` allégé et actualisé | claude-harness, les 8 repos (via `main`) | ✅ |
 | 37 | `feat/lot-37-gate-cost` | A – Harness | Coût de la gate en autopilot : une exécution par arbre au lieu d'une par commit, suites du harnais en parallèle et suite `autopilot` découpée, tests ciblés autorisés par stack et consigne de commandes | claude-harness, les 8 repos (via `main` et la PR de synchro) | ✅ |
-| 38 | `feat/lot-38-lot-section-pointer` | A – Harness | Section du lot localisée : le hook de démarrage donne la plage de lignes de la section du lot courant, `lotfile.py section` pour le candidat de `lot-start` | claude-harness, les 8 repos (via `main`) | 🔄 |
+| 38 | `feat/lot-38-lot-section-pointer` | A – Harness | Section du lot localisée : le hook de démarrage donne la plage de lignes de la section du lot courant, `lotfile.py section` pour le candidat de `lot-start` | claude-harness, les 8 repos (via `main`) | ✅ |
 
 Légende des statuts : ⬜ à faire · 🔄 en cours (livré sur la branche, PR non
 mergée) · ✅ mergé sur `develop` · ⏸️ planifié mais dormant · ❄️ dormant
@@ -289,7 +289,7 @@ Rapports : `docs/audits/lot-36-review.md`, `docs/audits/lot-36.md`.
 Fait : une gate par arbre au lieu d'une par commit (GATE-1, GATE-2, GATE-8, GIT-3) ; `tests/run.sh` en parallèle (80 s → 13 s) et suite `autopilot` découpée en 9 ; tests ciblés autorisés par `Stack` et consigne de commandes dans chaque étape.
 Rapports : `docs/audits/lot-37-review.md`, `docs/audits/lot-37.md`.
 
-## LOT 38 — Section du lot localisée 🔄
+## LOT 38 — Section du lot localisée ✅
 
 Branche `feat/lot-38-lot-section-pointer`, depuis `develop`. Repo touché :
 `claude-harness`. Les 8 repos en héritent à la promotion `develop` → `main`.
