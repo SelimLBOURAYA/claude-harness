@@ -25,7 +25,7 @@
     },
     {
       "id": "LOT-7",
-      "rule": "Development closes with `lot-start` Step B3; `lot-test` follows in a new session, any profile, test files only. Then `claude-profile claude` and a new session for `lot-review`, `lot-audit`, `lot-ship`; `lot-review` reads the profile from `lotfile.py`, never a model's account of its identity."
+      "rule": "Development closes with `lot-start` Step B3; `lot-test` follows in a new session, any profile, test files only. Then the user's `claude-profile claude` and a new session for `lot-review`, `lot-audit`, `lot-ship`; `lot-review` reads the profile from `lotfile.py`, never a model's own claim."
     },
     {
       "id": "CTX-1",
@@ -69,7 +69,7 @@
     },
     {
       "id": "CODE-4",
-      "rule": "Navigate and check code with the LSP tool (definitions, references, diagnostics) before grep or whole-file reads: `jdtls-lsp` for Java, `typescript-lsp` for TypeScript; install a missing one from `claude-plugins-official` and reopen the session."
+      "rule": "Navigate and check code with the LSP tool (definitions, references, diagnostics) before grep or whole-file reads: `jdtls-lsp` for Java, `typescript-lsp` for TypeScript; if missing, the user installs it from `claude-plugins-official` and reopens the session."
     },
     {
       "id": "CODE-7",

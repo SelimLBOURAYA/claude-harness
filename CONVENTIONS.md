@@ -72,7 +72,7 @@ Cross-cutting rules of every project; project-specific rules go to the project's
 - **CTX-1** A compaction summary is not a source of truth: re-anchor on the hook output (or START-2) and re-read the current lot section before the next write.
 - **CTX-2** Read files by targeted range (offset and limit, grep), once; never re-read a whole unchanged file.
 - **CTX-3** Before debugging a framework error, check the dependency versions in `pom.xml` or `package.json`.
-- **CODE-4** Navigate and check code with the LSP tool (definitions, references, diagnostics) before grep or whole-file reads: `jdtls-lsp` for Java, `typescript-lsp` for TypeScript; install a missing one from `claude-plugins-official` and reopen the session.
+- **CODE-4** Navigate and check code with the LSP tool (definitions, references, diagnostics) before grep or whole-file reads: `jdtls-lsp` for Java, `typescript-lsp` for TypeScript; if missing, the user installs it from `claude-plugins-official` and reopens the session.
 - **PLUG-1** A stale plugin stops lot work: the `SessionStart` warning that the installed version is not the one `main` declares, an unknown `claude-harness:` skill, or a `lot-start confirm N` that writes no lock. Run `claude plugin update claude-harness@claude-harness --scope user`, then `--scope project` per project, and ask the user to reopen the session. Never fall back to the local clone's `SKILL.md` files.
 
 ## 10. Pre-commit gate
@@ -94,7 +94,7 @@ Cross-cutting rules of every project; project-specific rules go to the project's
 ## 13. Skills and the lot gate
 
 - **GATE-6** Invoke a skill with the `Skill` tool when its trigger is met, before doing the work it covers. Its procedure overrides your default approach.
-- **GATE-7** The lot gate runs once per lot, in order: `lot-start` → development → its close (MEM-1) → `lot-test` → `lot-review` → `lot-audit` → `lot-ship`, with `integration-check` before `lot-ship` on a frontend, run by the autopilot when set. Each step is invoked explicitly, except the close, which the development session runs on its own; never skip one, never run two from one invocation.
+- **GATE-7** The lot gate runs once per lot, in order: `lot-start` → development → its close (MEM-1) → `lot-test` → `lot-review` → `lot-audit` → `lot-ship`, with `integration-check` before `lot-ship` on a frontend, run by the autopilot when `Integration command` is set. Each step is invoked explicitly, except the close, which the development session runs on its own; never skip one, never run two from one invocation.
 - **GATE-8** A gate skill commits its deliverable alone before it reports back, on the tree its step left green (GATE-1, GATE-2), and adds it to the census when new: `docs/audits/lot-N-review.md` (`docs(N): add the lot review report`), `docs/audits/lot-N.md` (`docs(N): add the lot audit report`), `docs/audits/lot-0-integration.md` (`docs: add the integration check report`). Adding such a deliverable, `docs/memory.md`, a lots-file status row or a census row to a green tree does not rerun the gate: `cmp CLAUDE.md AGENTS.md` (DOC-1) and the memory cap (MEM-1) are its checks. `lot-deliverables.yml` blocks a pull request without them.
 - **GATE-9** When a gate skill fails or wastes work in its own run, record it in `docs/audits/lot-N-friction.md` under `## <skill>`, each entry opening with the key `` `<skill> / <step>` ``. The lot's own bugs are `lot-review` findings, not friction. No check requires the file.
 - **CODE-6** Smallest complete change: the `ponytail` skill, loaded before the first write of a development; GATE-3, LOT-4 and OUT-0 win over it.
@@ -102,7 +102,7 @@ Cross-cutting rules of every project; project-specific rules go to the project's
 ## 14. Review in a new session, under the claude profile
 
 - **PROF-1** Two profiles, switched by `/home/selim/.local/bin/claude-profile`: `claude` (a native Claude model) for review, audit and judgement on produced work; `deepseek` (`ANTHROPIC_BASE_URL=https://api.deepseek.com/anthropic`) for delegated coding. The script rewrites `settings.json`, which only the next session reads: never switch on your own initiative. The autopilot picks each step's model per process, never through `settings.json`.
-- **LOT-7** Development closes with `lot-start` Step B3; `lot-test` follows in a new session, any profile, test files only. Then `claude-profile claude` and a new session for `lot-review`, `lot-audit`, `lot-ship`; `lot-review` reads the profile from `lotfile.py`, never a model's account of its identity.
+- **LOT-7** Development closes with `lot-start` Step B3; `lot-test` follows in a new session, any profile, test files only. Then the user's `claude-profile claude` and a new session for `lot-review`, `lot-audit`, `lot-ship`; `lot-review` reads the profile from `lotfile.py`, never a model's own claim.
 
 ## 15. Response shape
 
