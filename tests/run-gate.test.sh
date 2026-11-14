@@ -36,4 +36,36 @@ HARNESS_AUTOPILOT=1 bash "$WORK/tests/run.sh" > "$WORK/red.out" 2>&1
 assert_eq 1 "$?" "a red suite still turns the gate red"
 assert_contains "$(cat "$WORK/red.out")" "1/2 suite(s) failed: red" "the red suite is named"
 
+# --- the output keeps the file order (lot 37) ------------------------------
+# alpha finishes last but prints first: the suites are buffered, then shown in
+# the order the glob gives, so a reader sees the same layout as before.
+ORDER="$WORK/order"
+mkdir -p "$ORDER/tests"
+cp "$REPO_ROOT/tests/run.sh" "$ORDER/tests/run.sh"
+printf 'sleep 0.3\nprintf "OUT-alpha\\n"\n' > "$ORDER/tests/alpha.test.sh"
+printf 'printf "OUT-beta\\n"\n' > "$ORDER/tests/beta.test.sh"
+out=$(bash "$ORDER/tests/run.sh" 2>&1)
+assert_eq 0 "$?" "two green suites pass"
+assert_contains "$out" $'>> alpha\nOUT-alpha\n   ok  alpha\n>> beta\nOUT-beta\n   ok  beta' \
+  "each suite's output is printed under its name, in file order"
+assert_contains "$out" "2/2 suite(s) passed" "the verdict is unchanged"
+
+# --- the suites run at once (lot 37) ---------------------------------------
+# Each suite waits for the other's marker: sequential execution would time out.
+PAR="$WORK/par"
+mkdir -p "$PAR/tests" "$PAR/barrier"
+cp "$REPO_ROOT/tests/run.sh" "$PAR/tests/run.sh"
+for pair in "a b" "b a"; do
+  set -- $pair
+  cat > "$PAR/tests/$1.test.sh" <<EOF
+touch "\$BARRIER/$1"
+n=0
+while [ ! -e "\$BARRIER/$2" ] && [ \$n -lt 50 ]; do sleep 0.1; n=\$((n + 1)); done
+[ -e "\$BARRIER/$2" ]
+EOF
+done
+BARRIER="$PAR/barrier" bash "$PAR/tests/run.sh" > "$PAR/out" 2>&1
+assert_eq 0 "$?" "the suites run in parallel: each one finds the other's marker"
+assert_contains "$(cat "$PAR/out")" "2/2 suite(s) passed" "the two suites are green"
+
 finish
