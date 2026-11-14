@@ -41,7 +41,7 @@ for arg in "$@"; do
   previous="$arg"
 done
 printf '%s autopilot=%s prompt=%s args=%s\n' "$step" "${HARNESS_AUTOPILOT:-}" \
-  "${prompt//$'\n'/\\n}" "$*" >> "$SCEN/calls.log"
+  "${prompt//$'\n'/\\n}" "${*//$'\n'/\\n}" >> "$SCEN/calls.log"
 [ -f "$SCEN/$step.sh" ] && bash "$SCEN/$step.sh" >/dev/null 2>&1
 [ -f "$SCEN/$step.sleep" ] && sleep "$(cat "$SCEN/$step.sleep")"
 status=ok
