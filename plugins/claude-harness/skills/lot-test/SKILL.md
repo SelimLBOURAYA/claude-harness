@@ -54,7 +54,9 @@ previous run left a test revealing a bug (section 1, step 6), whose fix belongs
 to a development session.
 
 Then read `docs/memory.md` (MEM-1), if it exists, and the lot's section in the
-`Lots file`.
+`Lots file`: one `Read` of the `Current lot section` range the SessionStart hook
+printed, or of the range `lotfile.py section <root> <lot>` gives when it printed
+none.
 
 You write **test files only**, chosen by `Stack`:
 

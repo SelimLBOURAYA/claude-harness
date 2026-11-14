@@ -5,6 +5,7 @@ set -uo pipefail
 
 HOOK="$REPO_ROOT/plugins/claude-harness/hooks/session-context.sh"
 HOOKS_JSON="$REPO_ROOT/plugins/claude-harness/hooks/hooks.json"
+LOTFILE="$REPO_ROOT/plugins/claude-harness/hooks/lotfile.py"
 WORK=$(mktemp -d)
 trap 'rm -rf "$WORK"' EXIT
 
@@ -57,6 +58,75 @@ body=$(text "$(context startup "$REPO")")
 assert_eq "" "$(printf '%s' "$body" | grep 'not a source of truth' || true)" \
   "startup: no compaction warning"
 
+# --- the current lot section, a range instead of a hunt (lot 38) -----------
+cat >> "$REPO/lots.md" <<'EOF'
+
+## LOT 0 — The foundation
+
+Folded row.
+
+## Lot 01 — The first lot
+
+Its body.
+
+## LOT 2 — The second lot
+
+Second body.
+
+### Note
+
+A level-3 heading never ends the section.
+
+## LOT 6b — A sub-lot
+
+Sub-lot body.
+EOF
+lot1_line=$(grep -n '^## Lot 01 ' "$REPO/lots.md" | cut -d: -f1)
+lot2_line=$(grep -n '^## LOT 2 ' "$REPO/lots.md" | cut -d: -f1)
+lot6b_line=$(grep -n '^## LOT 6b ' "$REPO/lots.md" | cut -d: -f1)
+total_lines=$(wc -l < "$REPO/lots.md")
+assert_eq "lots.md:$lot2_line-$((lot6b_line - 1))" "$(python3 "$LOTFILE" section "$REPO" 2)" \
+  "section: a level-2 heading ends the previous section"
+assert_eq "lots.md:$lot1_line-$((lot2_line - 1))" "$(python3 "$LOTFILE" section "$REPO" 001)" \
+  "section: leading zeros are ignored"
+assert_eq "lots.md:$lot6b_line-$total_lines" "$(python3 "$LOTFILE" section "$REPO" 6b)" \
+  "section: the last section runs to the end of the file"
+out=$(python3 "$LOTFILE" section "$REPO" 99); rc=$?
+assert_eq 1 "$rc" "section: no heading for the lot exits 1"
+assert_eq "" "$out" "section: no heading prints nothing"
+DUP="$WORK/dup"
+mkdir -p "$DUP"
+printf '## Gate parameters\n\n| Parameter | Value |\n|---|---|\n| `Lots file` | `lots.md` |\n' > "$DUP/CLAUDE.md"
+printf '## LOT 3\n\nOne.\n\n## Lot 03\n\nTwo.\n' > "$DUP/lots.md"
+out=$(python3 "$LOTFILE" section "$DUP" 3); rc=$?
+assert_eq 1 "$rc" "section: several headings for the lot exit 1"
+assert_eq "" "$out" "section: several headings print nothing"
+
+body=$(text "$(context startup "$REPO")")
+assert_contains "$body" "Current lot section: lots.md:$lot2_line-$((lot6b_line - 1)) (read this range only)" \
+  "lot branch: the current lot section line carries the range"
+table_at=$(printf '%s\n' "$body" | grep -n '## Status table of' | cut -d: -f1)
+section_at=$(printf '%s\n' "$body" | grep -n 'Current lot section:' | cut -d: -f1)
+assert_ok "lot branch: the section line comes after the status table" -- \
+  test "$section_at" -gt "$table_at"
+assert_contains "$(printf '%s\n' "$body" | grep -m1 '^1\. Read CLAUDE.md')" "Current lot section" \
+  "consigne 1 points at the range"
+git -C "$REPO" switch -q develop
+body=$(text "$(context startup "$REPO")")
+assert_eq "" "$(printf '%s\n' "$body" | grep '^Current lot section:' || true)" \
+  "non-lot branch: no section line"
+git -C "$REPO" switch -q feat/lot-2-b
+git -C "$REPO" switch -qc feat/lot-9-missing
+body=$(text "$(context startup "$REPO")")
+assert_eq "" "$(printf '%s\n' "$body" | grep '^Current lot section:' || true)" \
+  "lot branch without a section: no section line"
+git -C "$REPO" switch -q feat/lot-2-b
+git -C "$REPO" switch -qc feat/lot-6b-sub
+body=$(text "$(context startup "$REPO")")
+assert_contains "$body" "Current lot section: lots.md:$lot6b_line-$total_lines (read this range only)" \
+  "sub-lot branch: the sub-lot section, to the end of the file"
+git -C "$REPO" switch -q feat/lot-2-b
+
 # --- the lock, once written, is reported ----------------------------------
 mkdir -p "$REPO/.claude"
 printf 'lot=2\nbranch=feat/lot-2-b\nconfirmed=2026-09-21T00:00:00Z\n' > "$REPO/.claude/current-lot"
@@ -89,7 +159,6 @@ body=$(text "$(context startup "$REPO" https://api.anthropic.com)")
 assert_eq "" "$(printf '%s' "$body" | grep 'LOT-1' || true)" "the native API URL: no deepseek rules"
 
 # --- the profile signal, one definition (lot 33) ---------------------------
-LOTFILE="$REPO_ROOT/plugins/claude-harness/hooks/lotfile.py"
 for case in "|claude" "https://api.anthropic.com|claude" "https://API.anthropic.com/|claude" \
             "api.anthropic.com|claude" "https://api.deepseek.com/anthropic|deepseek" \
             "https://api.anthropic.com.evil.example|deepseek" "https://[bad|deepseek"; do
