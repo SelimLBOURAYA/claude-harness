@@ -993,6 +993,18 @@ elif case == "subagent":
 elif case == "result":
     emit({"type": "system", "subtype": "init", "model": "claude-opus-5-5"},
          {"type": "result", "structured_output": {"status": "ok", "reason": "done"}})
+elif case == "text":
+    emit({"type": "system", "subtype": "init", "model": "deepseek-v4[1m]"},
+         {"type": "assistant", "message": {"model": "deepseek-v4[1m]", "content": [
+             {"type": "text", "text": "Je vérifie les tests.\nDeuxième ligne."}]}})
+elif case == "denied":
+    emit({"type": "system", "subtype": "permission_denied", "tool_name": "Bash",
+          "message": "refused by the permission rules"})
+elif case == "clock":
+    for line in watch.lines({"type": "assistant", "message": {
+            "model": "deepseek-v4", "content": [
+                {"type": "tool_use", "name": "Read", "input": {}}]}}, "dev"):
+        print(line)
 EOF
 }
 
@@ -1009,6 +1021,49 @@ assert_contains "$out" "↳claude-haiku" "a sub-agent's line is marked with ↳"
 out=$(watch_case result)
 assert_contains "$out" "claude-opus-5-5" "a result line falls back to the init event's model"
 assert_contains "$out" "✔ fin d'étape: ok done" "a result line carries the step's verdict"
+
+out=$(watch_case text)
+assert_eq 1 "$(wc -l <<< "$out")" "a text block gets one line"
+assert_contains "$out" "» Je vérifie les tests." "a text line shows the text"
+
+out=$(watch_case denied)
+assert_contains "$out" "✗ refusé Bash" "a denial gets one line carrying the tool"
+
+out=$(watch_case clock)
+assert_eq 1 "$(grep -cE '^[0-9]{2}:[0-9]{2}:[0-9]{2} ' <<< "$out")" \
+  "a live line defaults to an HH:MM:SS stamp"
+
+# The history replayed from the newest log when a step starts (lot 34).
+H="$WORK/history"
+mkdir -p "$H/.claude/autopilot/history"
+printf '%s\n' '{"type":"assistant","message":{"model":"deepseek-v4[1m]","content":[{"type":"text","text":"Bonjour"}]}}' \
+  > "$H/.claude/autopilot/history/lot-5-dev.jsonl"
+out=$(cd "$H" && HOME="$H" timeout 2 python3 "$WATCH" "$H" 2>&1; true)
+assert_contains "$out" "autopilot-watch:" "the watch announces the log folder it follows"
+assert_contains "$out" "== lot-5-dev.jsonl ==" "the watch names the step's log"
+assert_eq 1 "$(grep -cE '^~[0-9]{2}:[0-9]{2} +dev ' <<< "$out")" \
+  "a backlog line is stamped ~HH:MM and carries the step"
+assert_contains "$out" "Bonjour" "the backlog replays the step's text"
+
+# A terminal starts the watch; a dry run never does (lot 34). `script` gives
+# the autopilot a pseudo-terminal, as a user's shell does.
+if command -v script >/dev/null 2>&1 && command -v pgrep >/dev/null 2>&1; then
+  R=$(fixture watchon harness)
+  echo 1 > "$R.scen/dev.sleep"
+  out=$(cd "$R" && SCEN="$R.scen" PATH="$FAKEBIN:$PATH" HOME="$FAKEHOME" \
+    script -qec "python3 $PILOT" /dev/null < /dev/null 2>&1)
+  assert_contains "$out" "autopilot-watch:" "a terminal starts the live watch"
+  assert_contains "$out" "autopilot: Lot 5 merged" "the run ends with its watch in the terminal"
+  assert_eq 0 "$(pgrep -fc "watch.py $R" || true)" "the watch is stopped with the run"
+
+  out=$(cd "$R" && SCEN="$R.scen" PATH="$FAKEBIN:$PATH" HOME="$FAKEHOME" \
+    script -qec "python3 $PILOT --dry-run" /dev/null < /dev/null 2>&1)
+  assert_contains "$out" "review Opus" "the dry run prints in the terminal"
+  assert_eq "" "$(grep -o 'autopilot-watch' <<< "$out" || true)" \
+    "a dry run starts no watch, even in a terminal"
+else
+  echo "  (skipped: script or pgrep not installed, the terminal watch is not exercised)"
+fi
 
 R=$(fixture watchoff harness)
 assert_eq 0 "$(pilot "$R")" "the run is green with its output redirected"
