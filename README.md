@@ -230,6 +230,7 @@ missing line is a drift that `harness-sync` and `harness-invariants.yml` report.
 | `bootstrap-project` | Generates a harnessed repository from `templates/project/` |
 | `i-have-adhd` | Focus aid, user-invoked only |
 | `ponytail` | The smallest complete change (CODE-6), adapted from ponytail 5.3.3 (MIT); its text reaches every session through a `SessionStart` hook |
+| `merge-commands` | One line per PR, then a ready-to-paste block that merges them in order once each CI is green, for the merges the guards leave to the user |
 
 Gate, mandatory in order: `lot-test → lot-review → lot-audit → lot-ship`, opened by
 `lot-start` before any development.

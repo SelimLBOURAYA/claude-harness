@@ -88,6 +88,7 @@ with the plugin enabled they are announced as `claude-harness:<name>`.
 | `bootstrap-project` | new repo, or a repo joining the harness | Generates the repository from `templates/project/` and verifies it against `harness-invariants` |
 | `i-have-adhd` | user invokes it | Focus aid, never model-invoked |
 | `ponytail` | before the first write of a development; its text is injected into every session | The smallest complete change (CODE-6), adapted from ponytail 5.3.3 (MIT) |
+| `merge-commands` | a guard denies a merge, or PRs are left for the user to merge | One line per PR, then a ready-to-paste block that merges them in order once each CI is green |
 
 **Gate, mandatory in order**: `lot-test → lot-review → lot-audit → lot-ship`,
 opened by `lot-start` before any development.
@@ -114,6 +115,7 @@ Every blocking invariant is also enforced in CI, which is the only agent-agnosti
 | `plugins/claude-harness/skills/harness-sync/SKILL.md` | Harness drift detection skill |
 | `plugins/claude-harness/skills/i-have-adhd/SKILL.md` | Focus aid skill |
 | `plugins/claude-harness/skills/integration-check/SKILL.md` | Front ↔ backend smoke skill |
+| `plugins/claude-harness/skills/merge-commands/SKILL.md` | Ordered merge command skill, for the merges the guards leave to the user |
 | `plugins/claude-harness/skills/lot-audit/SKILL.md` | Lot audit skill |
 | `plugins/claude-harness/skills/lot-audit/checklists.md` | Detailed audit checklists |
 | `plugins/claude-harness/skills/lot-review/SKILL.md` | Lot code-review skill |
