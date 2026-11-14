@@ -18,14 +18,15 @@
 - `CONVENTIONS.md`: master of the rules; `.github/scripts/deepseek-card.py`
   generates `rules/deepseek.json` from it, by rule ID.
 - `plugins/claude-harness/autopilot/autopilot.py`: one lot, a `claude -p`
-  session per step; the `integration` step runs the repo's `Integration
-  command` itself, the session then writes the report from its log (lot 32);
-  `step_ship` removes the lot lock once the PR is `MERGED` (lot 35: headless
-  cannot write `.claude/`); gate checks accept census-only additions to
-  `CLAUDE.md`/`AGENTS.md` (lot 36); `tests/autopilot.test.sh` fakes `claude`,
-  `gh`, `notify-send`.
-- `templates/project/`: skeleton for `bootstrap-project`; its
-  `.claude/settings.json` holds the master permission rules (lot 33).
+  session per step; `integration` runs the repo's command and its session
+  writes the report (lot 32); `step_ship` removes the lot lock once the PR is
+  `MERGED` (lot 35); gate checks accept census rows (lot 36); from a terminal
+  it starts `autopilot/watch.py` and stops it with the run (lot 34).
+- `autopilot/watch.py`: the live watch (lot 34), copied from the personal
+  `autopilot-run` skill; reads the newest `~/.claude/autopilot/<project>/*.jsonl`.
+- `tests/autopilot.test.sh` fakes `claude`, `gh`, `notify-send`.
+- `templates/project/`: skeleton for `bootstrap-project`, holding the master
+  permission rules in its `.claude/settings.json` (lot 33).
 - `.github/workflows/`: reusable workflows; `sync-projects.yml` pushes the
   `synced_files` and the `permissions` key (`synced_permissions`) to the 8 repos.
 
@@ -33,8 +34,8 @@
 
 - Consumers run `main`: nothing reaches the 8 repos before the user promotes
   `develop` → `main`. Skills read `CONVENTIONS.md`, the plugin version and the
-  memory template from `origin/main`, never the working tree (lot 24);
-  `bootstrap-project` copies `templates/project/` from it.
+  memory template from `origin/main` (lot 24); `bootstrap-project` copies
+  `templates/project/` from it.
 - Skills and docs cite a rule by ID, never restate it (lot 24).
 - `CONVENTIONS.md` stays within 15225 bytes (15134 after lot 35), English,
   no dated story; a new ID prefix goes in the citation regex of its test.
@@ -44,22 +45,22 @@
 - Lot branches are created `--no-track`: one tracking `develop` sends a bare
   `git push` there (lot 22).
 - `lot-test` writes test files only; the dev session writes the memory (lot 26).
-- Autopilot (lots 27-35): the script checks each step itself, never trusts the
-  model's status; `HARNESS_AUTOPILOT=1` turns a guard ask into a deny; allow
-  and deny lists go per process; answers go into the stopped session, never the
-  lots file; it confirms the lot after its checks.
-- Integration (lot 32, owner-confirmed): the backend is local; the command runs
-  in `autopilot.py` as a subprocess, log under `~/.claude/autopilot/<projet>/`,
-  20 min at most; only for `Stack` frontend with a command other than `n/a`,
-  between `audit` and `ship`; at `ship` the report must be in `develop...HEAD`,
-  without one the old existence check stays.
+- Autopilot (lots 27-35): the script checks each step itself, never the model's
+  status; `HARNESS_AUTOPILOT=1` denies what a guard would ask; allow and deny
+  lists go per process; answers go into the stopped session, not the lots file.
+- Watch (lot 34): started only when stdout is a terminal and the run is not
+  `--dry-run`, in the same terminal; the personal `autopilot-run` skill keeps
+  its own copy until the promotion.
+- Integration (lot 32): the backend is local; `autopilot.py` runs the command
+  itself, log under `~/.claude/autopilot/<projet>/`, 20 min at most, only for a
+  frontend with a command other than `n/a`, between `audit` and `ship`; the
+  report must be in `develop...HEAD`.
 - Profile (lot 33): `lotfile.py profile` is deepseek when the host of
   `ANTHROPIC_BASE_URL` is not `api.anthropic.com`; `lot-review` cites
-  `printenv` (no permission prompt).
-- Permission rules (lot 33), second layer behind the guard: Claude Code matches
+  `printenv`, no permission prompt.
+- Permission rules (lot 33): second layer behind the guard; Claude Code matches
   the command `rtk` rewrote, so each rule exists bare and behind `rtk`/`rtk
-  proxy`; none opens on `*` (a commit message quoting the command would be
-  denied). Synced as one key: projects keep their own LSP plugins.
+  proxy`; none opens on `*`; projects keep their own LSP plugins.
 - `git-guard.py` sees through shell keywords and groupings; backticks, `eval`
   and a command name in a variable stay out by decision (lots 25, 33).
 - Claude Code caps a hook's context at 10,000 characters: `ponytail` has its
@@ -67,33 +68,35 @@
 
 ## Pitfalls
 
-- The deepseek card (4500 chars) has a 9-char margin (lot 35): a new
-  carded rule costs ~180 chars cut elsewhere on it; under the autopilot
-  `python3 .github/scripts/*` is denied, so edit it by hand and let
-  `deepseek-card.test.sh` prove the generation.
-- The session runs the installed plugin copy, not the branch: a fix on the
-  branch acts only after promotion and update.
+- The deepseek card has a 9-char margin (lot 35): a new carded rule needs
+  ~180 chars cut elsewhere; the autopilot denies `python3 .github/scripts/*`,
+  so edit it by hand and let `deepseek-card.test.sh` prove it.
+- The session runs the installed plugin, not the branch: a fix acts only after
+  promotion and update.
 - No local `shellcheck`: CI runs the workflows lint.
 - `tests/run.sh` and `tests/lib.sh` unset `HARNESS_AUTOPILOT` and
-  `ANTHROPIC_BASE_URL`; a suite that tests them sets them after `lib.sh` (lot 29).
-- `claude plugin update --scope project` with no project install at this path
-  updates another project's: Step A0 checks `installed_plugins.json` (lot 30)
-  and runs verbatim (`PLUGIN_UPDATE` in the allowlist).
+  `ANTHROPIC_BASE_URL`; a suite testing them sets them after `lib.sh` (lot 29).
+- `claude plugin update --scope project` with no project install here updates
+  another project's: Step A0 checks `installed_plugins.json` and runs it
+  verbatim (`PLUGIN_UPDATE` in the allowlist) (lot 30).
 - Under auto mode, a Bash call the `rtk` hook rewrites (`grep`, `cat`, `git`)
-  gets "no verdict" once: re-issue the rewritten command, or use Read (lot 33).
-- `tests/autopilot.test.sh`: `fixture` takes the `Integration command` as its
-  third argument; `AUTOPILOT_INTEGRATION_TIMEOUT` overrides the 20 min for the
-  timeout case, as `AUTOPILOT_STEP_TIMEOUT` does for a session (lot 32).
+  gets "no verdict" once: re-issue it, or use Read (lot 33).
+- `tests/autopilot.test.sh`: `fixture` takes the `Integration command` third;
+  `AUTOPILOT_INTEGRATION_TIMEOUT` and `AUTOPILOT_STEP_TIMEOUT` override the
+  ceilings for the timeout cases (lot 32).
+- Importing `watch.py` in a test writes `__pycache__` beside it unless
+  `sys.dont_write_bytecode` is set; the line truncates the model to 16 chars
+  (lot 34).
 - `WebFetch` fails while the small model is a deepseek one: `curl` the `.md`
   pages of the Claude Code docs instead (lot 33).
 
 ## Open questions
 
-- `lot-test` section 2 has no `Stack = harness` branch, and sections 3.1 and
-  3.2 have nothing to act on when `Coverage tool` is `none` (friction 22-24).
 - Untested against a real `claude`: `--answer --resume`, `--disallowedTools`
-  and `SessionStart` in `claude -p`. A permission ask in `-p` is a deny: every
-  command a step runs must be in `allowed_tools()` (lots 28-33).
-- The 8 projects' `CLAUDE.md` skill tables lack the `ponytail` row (lot 33).
+  and `SessionStart` in `claude -p`. A permission ask in `-p` is a deny: a
+  step's commands must be in `allowed_tools()` (lots 28-33).
+- The watch's positive launch (stdout a terminal) has no automated test; the
+  suite proves the redirected case (lot 34).
+- The 8 projects' skill tables lack the `ponytail` row (lot 33).
 - `Integration command` reaches `harness-invariants.yml` only in a later lot,
   once the 8 repos declare the row, not at this promotion (lot 32).
