@@ -142,7 +142,10 @@ confirms.
   if the user says to (LOT-6).
 - `candidate` is `null` → nothing is left to do; report and stop.
 
-Read the candidate's section of the `Lots file`, and nothing else of it.
+Read the candidate's section of the `Lots file`, and nothing else of it. Its
+range comes from `lotfile.py section "$LOT_REPO" N` (the `hooks` directory of
+the plugin, `../../hooks/lotfile.py` from this skill's base directory); then a
+single `Read` of that range, offsets included.
 
 ### Step A5 — Criteria and questions, in one batch
 

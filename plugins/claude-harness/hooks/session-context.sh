@@ -63,12 +63,19 @@ if [ -n "$root" ]; then
   else
     out+=$'\n'"## Status table"$'\n'"(no lots file or no status table found)"$'\n'
   fi
+  # Lot 38: on a lot branch, the range of the lot's section, so the session
+  # reads that range instead of hunting for the heading. Nothing outside a lot
+  # branch, or when no single heading carries the lot.
+  section=$(python3 "$here/lotfile.py" section "$root" "$branch" 2>/dev/null || true)
+  if [ -n "$section" ]; then
+    out+=$'\n'"Current lot section: $section (read this range only)"$'\n'
+  fi
 else
   out+="Directory: $cwd (not a git repository)"$'\n'
 fi
 
 out+=$'\n'"## Before any write"$'\n'
-out+="1. Read CLAUDE.md (Gate parameters, Skills, Project documents), the status table and the current lot section only."$'\n'
+out+="1. Read CLAUDE.md (Gate parameters, Skills, Project documents), the status table and the current lot section only (the \`Current lot section\` range above, when printed)."$'\n'
 out+="2. Never infer the next lot: invoke claude-harness:lot-start. It syncs the status table with git and stops on any ambiguity."$'\n'
 out+="3. Ask every ambiguity in one batch before writing code, or state \"no ambiguity\" with the criteria restated."$'\n'
 out+="4. On a feat/lot-N-* branch, writes are denied until the user types \`lot-start confirm N\`."$'\n'
