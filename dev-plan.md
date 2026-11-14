@@ -53,6 +53,7 @@ Rédigé en français (§11 des conventions) ; identifiants techniques en anglai
 | 34 | `feat/lot-34-autopilot-watch` | A – Harness | Autopilot : suivi en direct dans le terminal, une ligne par appel d'outil avec l'heure, l'étape et le modèle, lancé avec l'autopilot | claude-harness, les 8 repos (via `main`) | ✅ |
 | 35 | `feat/lot-35-headless-ship` | A – Harness | Autopilot : le verrou de lot retiré par l'autopilot après le merge, et une règle « une commande simple par appel Bash » portée par la carte deepseek | claude-harness, les 8 repos (via `main` et la PR de synchro) | ✅ |
 | 36 | `feat/lot-36-census-guard-unfreeze` | A – Harness | Autopilot : la ligne de recensement d'un rapport de gate n'arrête plus le run ; `dev-plan.md` allégé et actualisé | claude-harness, les 8 repos (via `main`) | ✅ |
+| 37 | `feat/lot-37-gate-cost` | A – Harness | Coût de la gate en autopilot : une exécution par arbre au lieu d'une par commit, suites du harnais en parallèle et suite `autopilot` découpée, tests ciblés autorisés par stack et consigne de commandes | claude-harness, les 8 repos (via `main` et la PR de synchro) | ⬜ |
 
 Légende des statuts : ⬜ à faire · 🔄 en cours (livré sur la branche, PR non
 mergée) · ✅ mergé sur `develop` · ⏸️ planifié mais dormant · ❄️ dormant
@@ -413,6 +414,141 @@ lot 35 (≈ 22 min de sessions, plus ≈ 2 min d'arrêt) :
 - `./tests/run.sh` lancé 8 fois en `review` au lot 35 (GATE-1 non tenu par les
   commits de correction successifs).
 - Les rapports `docs/audits/` qui citent la restriction du lot 24.
+
+---
+
+## LOT 37 — Coût de la gate en autopilot ⬜
+
+Branche `feat/lot-37-gate-cost`, depuis `develop`. Repo touché :
+`claude-harness`. Les 8 repos héritent des conventions par la PR de synchro et
+du reste à la promotion `develop` → `main`.
+
+### Origine
+
+Demande de l'utilisateur du 2026-11-14, après l'analyse du run autopilot du
+lot 34 (PR #86) : ≈ 35 min du premier appel au dernier commit et ≈ 250 appels
+d'outils, pour 233 lignes livrées.
+
+1. **16 exécutions de `./tests/run.sh`**, ≈ 80 s chacune, soit ≈ 21 min 30 et
+   62 % du run : `dev` 5, contrôle de l'autopilot après `dev` 1, `test` 2,
+   `review` 4, `audit` 2, `ship` 2. GATE-1, GATE-2, GATE-8 et GIT-3 demandent
+   une exécution par commit, et le lot fait 11 commits, dont 7 sans code.
+   9 exécutions ne vérifiaient aucun code nouveau depuis la précédente ; 3
+   tournaient sur un arbre identique à un arbre déjà vert (contrôle de
+   l'autopilot, entrée de `lot-test`, entrée de `lot-ship`). Déjà relevé au
+   lot 35 (8 exécutions en `review`), laissé hors périmètre du lot 36.
+2. **La gate est séquentielle** : 16 suites, 80 s, dont `autopilot` 45 s,
+   `git-guard` 11 s, `session-context` 7 s et les 13 autres 17 s (mesure du
+   2026-11-14).
+3. **12 commandes refusées** : 4 fois `bash tests/autopilot.test.sh` (`dev`,
+   `test`, `review`, `audit`), parce qu'`allowed_tools()` n'autorise que la
+   `Validation command` ; 4 lectures hors dépôt par le shell (`jq`, `cmp`,
+   `sha256sum` sur `~/.claude/`) ; 3 appels de `script` ; 1 commande git
+   composée. Le même manque existe dans les projets : les journaux
+   d'elya-frontend montrent des sessions qui tentent
+   `npx ng test --no-watch --filter`.
+4. **Un test rouge relance tout** : en `dev`, deux corrections de test ont
+   chacune relancé la gate complète, la suite ciblée ayant été refusée. Une
+   suite est un script linéaire : sa plus petite unité relançable est le
+   fichier, et `tests/autopilot.test.sh` (1 092 lignes, une trentaine de
+   sections) pèse à elle seule plus de la moitié de la gate.
+
+### Livrables
+
+1. **Une gate par arbre, pas par commit** : GATE-1, GATE-2, GATE-8 et GIT-3
+   réécrits dans `CONVENTIONS.md`, carte `deepseek` régénérée, et les skills
+   `lot-start` (Step B3), `lot-test`, `lot-review`, `lot-audit`, `lot-ship`
+   alignés :
+   - une exécution verte couvre tous les commits découpés dans l'arbre qu'elle
+     a vérifié (en `dev` : code, bump et mémoire, une seule exécution) ;
+   - un commit qui n'ajoute à un arbre vert qu'un livrable documentaire de la
+     gate ne la relance pas : `docs/audits/*.md`, `docs/memory.md`, la ligne de
+     statut du fichier de lots, les lignes de recensement de `CLAUDE.md` et
+     `AGENTS.md`. Ses contrôles sont `cmp CLAUDE.md AGENTS.md` (DOC-1) et le
+     plafond de la mémoire (MEM-1) ;
+   - aucune exécution à l'entrée d'une étape sur un arbre propre : l'étape
+     précédente l'a laissé vert ;
+   - `lot-ship` lance la gate une fois, sur l'arbre final, avant le push : avec
+     la CI de la PR, c'est la preuve du lot entier.
+   Le contrôle de l'autopilot après `dev` (`validation_green`) reste : c'est le
+   seul qui ne dépend pas de la parole d'un modèle. Effet attendu sur un lot
+   comme le 34 : 6 exécutions complètes au lieu de 16.
+2. **`tests/run.sh` lance les suites en parallèle** (`&` et `wait`, aucune
+   dépendance ajoutée) : sortie de chaque suite mise en tampon et affichée dans
+   l'ordre actuel, verdict et code de sortie inchangés. Une suite qui partage
+   un état avec une autre (fichier hors de son `mktemp`, port) est corrigée.
+3. **`tests/autopilot.test.sh` découpée** en suites thématiques, fakes et
+   fixtures dans un fichier sourcé commun. La durée par section est mesurée
+   d'abord ; le découpage vise qu'aucune suite ne dépasse 15 s. Aucune
+   assertion perdue.
+4. **Tests ciblés autorisés, par `Stack`** : `allowed_tools()` ajoute les
+   entrées d'une table indexée par `Stack`, à côté de `TEST_FILES` :
+
+   | `Stack` | Forme ciblée | Entrée d'autorisation |
+   |---|---|---|
+   | `harness` | `bash tests/<suite>.test.sh` | Une entrée exacte par fichier `tests/*.test.sh` présent au lancement de l'étape, chemin relatif et absolu, sans joker |
+   | `backend` | `./mvnw test -Dtest=<Classe>` | `./mvnw test -Dtest=*` |
+   | `frontend` | `npm test -- <filtre>` (`--filter` sous Vitest, `--include` sous Karma) | `npm test -- *` |
+   | `other` | Aucune : la `Validation command` | Aucune |
+
+   Les jokers de `backend` et `frontend` sont du même niveau que
+   `<Validation command> *`, déjà autorisé.
+5. **Consigne de commandes** ajoutée au `SYSTEM_PROMPT` de chaque étape,
+   générée depuis la même liste que l'autorisation :
+   - tests : la `Validation command` ou la forme ciblée de la `Stack` du
+     projet, telle qu'autorisée ; après un test rouge, relancer le test
+     corrigé seul, et la gate complète une fois avant le commit ;
+   - fichier hors du dépôt : l'outil Read, jamais `cat`, `jq`, `cmp` ni
+     `sha256sum` ;
+   - une commande simple par appel (CODE-7) ;
+   - aucun binaire qui lance une autre commande (`script`, `xargs`, `env`,
+     `bash -c`) ;
+   - une commande refusée n'est pas retentée sous une autre forme.
+6. **Tests** : `tests/run-gate.test.sh` (une suite rouge parmi des vertes
+   donne le code 1 et son nom, sortie dans l'ordre) ; suites `autopilot` (les
+   entrées de chacune des quatre stacks, aucune entrée pour `other`, consigne
+   présente dans la commande de chaque étape et citant la forme ciblée de la
+   stack) ; les cas de `skills` et `conventions` que la réécriture des
+   règles touche.
+7. **Documentation** : `README.md` (section autopilot), `CLAUDE.md` et son
+   miroir `AGENTS.md`, `docs/memory.md`, version du plugin bumpée.
+
+### Arbitrages (2026-11-14, utilisateur)
+
+| Sujet | Décision |
+|---|---|
+| Réécriture de GATE-1, GATE-2, GATE-8 et GIT-3 | Oui ; les 8 PR de synchro qu'elle entraîne sont acceptées |
+| Cache de gate par empreinte d'arbre | Refusé |
+| Tests ciblés des stacks `backend` et `frontend` | Oui, par les deux entrées à joker du livrable 4 (ASK-1) |
+| Stack `other` (deployment, summerize-youtube) | Aucune forme ciblée : leurs sessions relancent la `Validation command` |
+
+Deux choix du rédacteur, non tranchés par l'utilisateur : le contrôle de
+l'autopilot après `dev` est gardé, bien qu'il tourne sur un arbre que la
+session dit vert ; dans ce repo la relance se fait au fichier de suite, pas au
+cas (le découpage du livrable 3 remplace un filtre par section).
+
+### Critères de validation
+
+- `./tests/run.sh` vert, nouveaux cas inclus ; le total des assertions des
+  suites `autopilot` est celui d'avant le découpage, plus les cas ajoutés.
+- Durée de la gate et de chaque suite, avant et après, dans la description de
+  la PR.
+- `autopilot.py --dry-run` affiche pour chaque étape les entrées de tests
+  ciblés de la `Stack` du projet et la consigne.
+- Carte `deepseek` régénérée ; `cmp CLAUDE.md AGENTS.md` silencieux.
+- Version du plugin bumpée (job `plugin-version`).
+
+### Hors périmètre
+
+- Une forme ciblée pour la stack `other`.
+- Un paramètre de gate par projet pour la commande ciblée.
+- La durée des gates `./mvnw verify` et `npm run build && npm test` : les
+  livrables 2 et 3 ne concernent que la suite de ce repo.
+- La relance d'un seul cas à l'intérieur d'une suite de ce repo.
+- Un cache de gate par empreinte d'arbre.
+- Le nombre d'appels dû à une session neuve par étape et à CODE-7.
+- Le bloc affiché deux fois par `watch.py` dans le journal du lot 34, non
+  diagnostiqué.
 
 ---
 
