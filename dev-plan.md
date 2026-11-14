@@ -50,7 +50,7 @@ Rédigé en français (§11 des conventions) ; identifiants techniques en anglai
 | 30 | `feat/lot-30-plugin-update-before-lot` | A – Harness | `lot-start` met à jour le plugin du repo (`claude plugin update … --scope project`) avant tout lot, et arrête la session quand la version a changé | claude-harness, les 8 repos (via `main`) | ✅ |
 | 32 | `feat/lot-32-autopilot-integration` | A – Harness | Autopilot : étape `integration` qui lance la commande `Integration command` du frontend contre le vrai backend et fait rédiger le rapport, contrôle de fraîcheur du rapport avant `ship` | claude-harness, les 8 repos (via `main`) | ✅ |
 | 33 | `feat/lot-33-ponytail-guards` | A – Harness | Skill `ponytail` (le plus petit changement complet) avec son renvoi `CODE-6` dans `CONVENTIONS.md` ; durcissement des gardes repris du lot 31 : formes shell que `git-guard.py` laisse passer, refus de permissions, signal de profil, contrôle des Critical ouverts | claude-harness, les 8 repos (via `main` et la PR de synchro) | ✅ |
-| 34 | `feat/lot-34-autopilot-watch` | A – Harness | Autopilot : suivi en direct dans le terminal, une ligne par appel d'outil avec l'heure, l'étape et le modèle, lancé avec l'autopilot | claude-harness, les 8 repos (via `main`) | ⬜ |
+| 34 | `feat/lot-34-autopilot-watch` | A – Harness | Autopilot : suivi en direct dans le terminal, une ligne par appel d'outil avec l'heure, l'étape et le modèle, lancé avec l'autopilot | claude-harness, les 8 repos (via `main`) | 🔄 |
 | 35 | `feat/lot-35-headless-ship` | A – Harness | Autopilot : le verrou de lot retiré par l'autopilot après le merge, et une règle « une commande simple par appel Bash » portée par la carte deepseek | claude-harness, les 8 repos (via `main` et la PR de synchro) | ✅ |
 | 36 | `feat/lot-36-census-guard-unfreeze` | A – Harness | Autopilot : la ligne de recensement d'un rapport de gate n'arrête plus le run ; `dev-plan.md` allégé et actualisé | claude-harness, les 8 repos (via `main`) | ✅ |
 
@@ -267,7 +267,7 @@ Rapports : `docs/audits/lot-32-review.md`, `docs/audits/lot-32.md`.
 Fait : skill `ponytail` (CODE-6) injecté dans chaque session ; gardes durcies (mots-clés du shell, pushs larges, `gh api`, refus de permissions, signal de profil, Critical ouverts).
 Rapports : `docs/audits/lot-33-review.md`, `docs/audits/lot-33.md`.
 
-## LOT 34 — Autopilot : suivi en direct dans le terminal ⬜
+## LOT 34 — Autopilot : suivi en direct dans le terminal 🔄
 
 Branche `feat/lot-34-autopilot-watch`, depuis `develop`. Repo touché :
 `claude-harness`. Les 8 repos en héritent à la promotion `develop` → `main`.
