@@ -205,7 +205,9 @@ def commands_hint(params):
     return ("Commands: " + tests + ". A file outside the repository is read with the Read "
             "tool, never `cat`, `jq`, `cmp` or `sha256sum`. One simple command per Bash call "
             "(CODE-7). No binary that launches another command (`script`, `xargs`, `env`, "
-            "`bash -c`). A denied command is not retried in another form.")
+            "`bash -c`). `python3` runs only from the plugin cache, and a script of the "
+            "repository is exercised through its tests. A denied command is not retried in "
+            "another form.")
 
 
 def system_prompt(params):
@@ -623,8 +625,17 @@ class Pilot:
             and not (path in CENSUS_FILES and census_only(self.root, path, before))
         ]
         if outside:
+            # A step that ended ok or blocked with its report committed did its
+            # work: resume at the following step instead of replaying a whole
+            # review (lot 39); a failed step, or no report, resumes at the step.
+            # Either way the commit stays on the branch and joins the next
+            # step's diff: this stop is its one check, the owner reverts it.
+            # The step's questions travel with the stop, so none is lost.
+            questions = answer.get("questions") or []
+            landed = answer.get("status") in ("ok", "blocked") and committed(self.root, report)
             raise Stop("%s: a commit touches files outside the lot's diff: %s"
-                       % (step, ", ".join(outside)), step)
+                       % (step, ", ".join(outside)), following if landed else step,
+                       questions=questions)
         if answer.get("status") in ("ok", "blocked") and not committed(self.root, report):
             # The step's own questions often say why the report is not committed;
             # questions are a block whatever the status says, as in expect_ok.

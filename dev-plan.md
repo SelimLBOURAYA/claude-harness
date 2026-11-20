@@ -55,6 +55,7 @@ Rédigé en français (§11 des conventions) ; identifiants techniques en anglai
 | 36 | `feat/lot-36-census-guard-unfreeze` | A – Harness | Autopilot : la ligne de recensement d'un rapport de gate n'arrête plus le run ; `dev-plan.md` allégé et actualisé | claude-harness, les 8 repos (via `main`) | ✅ |
 | 37 | `feat/lot-37-gate-cost` | A – Harness | Coût de la gate en autopilot : une exécution par arbre au lieu d'une par commit, suites du harnais en parallèle et suite `autopilot` découpée, tests ciblés autorisés par stack et consigne de commandes | claude-harness, les 8 repos (via `main` et la PR de synchro) | ✅ |
 | 38 | `feat/lot-38-lot-section-pointer` | A – Harness | Section du lot localisée : le hook de démarrage donne la plage de lignes de la section du lot courant, `lotfile.py section` pour le candidat de `lot-start` | claude-harness, les 8 repos (via `main`) | ✅ |
+| 39 | `feat/lot-39-gate-friction` | A – Harness | Frictions mesurées sur les runs du lot 38 : marge de la mémoire de projet, livrable manqué vu par `lot-review` sans revue rejouée, preuve d'une vérification manuelle portée de `dev` à `ship`, consigne `python3` de l'autopilot, `lot-ship` renvoyé à la plage du hook | claude-harness, les 8 repos (via `main`) | ✅ |
 
 Légende des statuts : ⬜ à faire · 🔄 en cours (livré sur la branche, PR non
 mergée) · ✅ mergé sur `develop` · ⏸️ planifié mais dormant · ❄️ dormant
@@ -291,75 +292,116 @@ Rapports : `docs/audits/lot-37-review.md`, `docs/audits/lot-37.md`.
 
 ## LOT 38 — Section du lot localisée ✅
 
-Branche `feat/lot-38-lot-section-pointer`, depuis `develop`. Repo touché :
+Fait : `lotfile.py section <root> <lot>` rend la plage de lignes de la section d'un lot (titre de niveau 2, hors bloc de code) ; le hook de démarrage l'injecte sur une branche de lot (`Current lot section`) ; `lot-start`, `lot-test`, `lot-review` et `lot-audit` lisent cette plage. `lot-ship` n'y renvoie pas encore (lot 39).
+Rapports : `docs/audits/lot-38-review.md`, `docs/audits/lot-38.md`.
+
+## LOT 39 — Frictions de la gate mesurées sur le lot 38 ✅
+
+Branche `feat/lot-39-gate-friction`, depuis `develop`. Repo touché :
 `claude-harness`. Les 8 repos en héritent à la promotion `develop` → `main`.
+
+Note : le merge `f3b5bf7` (`chore/lot-39-version-3`) ne pose que la cible de
+version 3.0.0 ; il ne livre pas le lot, qui reste à faire.
 
 ### Origine
 
-Demande de l'utilisateur du 2026-11-14, après l'évaluation du coût en tokens
-des runs autopilot (lots 28 à 37 et elya-frontend 7). Le coût suit les lectures
-en cache, c'est-à-dire le nombre de tours multiplié par la taille du contexte.
+Demande de l'utilisateur du 2026-11-14, après l'analyse des logs autopilot de
+deux runs du lot 38 : le run livré, sous le plugin 2.10.0, et un rejeu dans une
+copie isolée, sous le 2.13.0. La mesure est le contexte relu à chaque appel
+API, attribué à ce que l'appel faisait.
 
-1. **Le lot 36 a déjà allégé `dev-plan.md`** (3 125 → ≈ 570 lignes) : la
-   lecture complète du fichier a disparu.
-2. **Chaque étape cherche encore la section de son lot à tâtons.** Runs des
-   lots 34 et 37, les seuls après l'allègement : ≈ 18 appels de repérage pour
-   les deux lots (`grep "37"`, `grep "Lot 37"`, qui échoue parce que le titre
-   est `## LOT 37`, `wc -l`), plus des lectures à côté de la section
-   (`start` du lot 37 : lignes 1 à 419 en trois `Read`, ≈ 34 k octets ;
-   `test` du lot 34 : le fichier entier, 35 k octets ; `ship` du lot 34 :
-   quatre fenêtres de 60 lignes). Soit ≈ 9 appels par lot, chacun payant une
-   relecture du contexte entier (50 à 90 k tokens).
-3. **Le hook de démarrage connaît déjà le lot** (branche `feat/lot-N-*`) et le
-   fichier de lots, mais n'injecte que le tableau de statut.
+1. **La mémoire de projet est saturée.** `docs/memory.md` fait 5 997
+   caractères sur 6 000. Chaque clôture rogne en plusieurs passes (run livré :
+   6 141 → 5 974 → 6 043 → 6 014 → 5 980, deux commits au même titre ; rejeu :
+   6 432 → 6 223 → 6 025), puis `lot-review` rogne à son tour. Soit 12 % du
+   contexte relu du run livré et 20 % du rejeu, en fin de session, là où chaque
+   appel relit le plus.
+2. **Un livrable manqué arrête le run, puis rejoue la revue.** Rejeu : `dev`
+   n'a pas touché `lot-ship/SKILL.md`, que le lot nommait ; `lot-review` l'a
+   corrigé, contre sa propre règle (un constat hors du diff n'est pas corrigé,
+   LOT-5) ; `gate_step` a arrêté le run, et `--resume` a relancé une revue
+   entière qui n'avait plus rien à faire.
+3. **Une vérification manuelle est refaite.** Run livré : le critère
+   « vérification manuelle, consignée dans la PR » a été déroulé par `dev`
+   (26 appels), tenté par `lot-review`, renvoyé par `lot-audit`, puis refait en
+   entier par `lot-ship` (59 appels), soit 14 % du contexte relu. Rien ne porte
+   le résultat de `dev` à `ship`.
+4. **`python3` sur un script du dépôt est refusé sans être annoncé.** 12 refus
+   sur le run livré, 3 sur le rejeu, chacun suivi d'une enquête dans les
+   réglages et dans `autopilot.py`.
+5. **`lot-ship` cherche encore dans le fichier de lots** : le lot 38 ne l'a pas
+   renvoyé à la plage du hook.
 
 ### Livrables
 
-1. **`lotfile.py`** : une fonction qui rend la plage de lignes (1-based,
-   bornes incluses) de la section d'un lot dans le fichier de lots, et la
-   commande `lotfile.py section <root> <lot>` qui l'affiche sous la forme
-   `<fichier>:<début>-<fin>`. Règle de reconnaissance, calée sur les 8
-   fichiers de lots du portefeuille :
-   - titre de niveau 2, `## LOT <id>` ou `## Lot <id>`, casse ignorée ;
-   - identifiant comparé sans les zéros de tête (`## Lot 01` = lot `1`),
-     suffixe de sous-lot gardé (`8b` ≠ `8`) ;
-   - fin de section : la ligne avant le titre de niveau 2 suivant, ou la fin
-     du fichier ;
-   - aucun titre trouvé, ou plusieurs : rien affiché, code de sortie 1.
-2. **`session-context.sh`** : sur une branche de lot (`LOT_BRANCH`), une ligne
-   `Current lot section: <fichier>:<début>-<fin> (read this range only)` après
-   le tableau de statut, et la consigne 1 de « Before any write » qui y
-   renvoie. Rien d'ajouté hors d'une branche de lot ou quand la section est
-   introuvable. Le plafond `CAP` reste.
-3. **`lot-start` Step A4** : la section du candidat se lit par
-   `lotfile.py section`, puis un seul `Read` de cette plage. Même consigne
-   dans `lot-test`, `lot-review`, `lot-audit` et `lot-ship` là où elles
-   disent de lire la section du lot : la plage donnée par le hook.
-4. **Tests** : `tests/session-context.test.sh` : plage juste pour `## LOT N`,
-   `## Lot 0N` et un sous-lot `Nb` ; dernière section du fichier ; titre
-   absent → aucune ligne ; branche hors lot → aucune ligne ; consigne 1
-   présente avec la plage.
-5. **Documentation** : `docs/memory.md`, version du plugin bumpée.
+Chaque livrable nomme ses fichiers ; aucun autre fichier de skill ou de hook
+n'est à modifier.
+
+1. **Marge de la mémoire.**
+   - `docs/memory.md` : élagué à 4 500 caractères au plus. `## Code map` ne
+     garde que ce que le `Repository layout` de `CLAUDE.md` ne dit pas.
+   - `plugins/claude-harness/skills/lot-start/SKILL.md`, Step B3, point 2 : la
+     clôture laisse le fichier à 5 000 caractères au plus, et retire des notes
+     avant d'en ajouter. Le plafond de MEM-1 reste 6 000 : l'écart est la
+     marge des corrections de `lot-review`.
+2. **Livrable manqué vu par la revue.**
+   - `plugins/claude-harness/skills/lot-review/SKILL.md` : un fichier que la
+     section du lot nomme et que le diff ne contient pas est hors du diff. La
+     revue ne le corrige pas : constat ouvert, décision du propriétaire (en
+     autopilot, classe « Exception », fin de tour `blocked`).
+   - `plugins/claude-harness/autopilot/autopilot.py`, `gate_step` : l'arrêt
+     « a commit touches files outside the lot's diff » reprend à l'étape
+     suivante quand le rapport de l'étape est commité, à l'étape elle-même
+     sinon.
+3. **Preuve d'une vérification manuelle.**
+   - `plugins/claude-harness/skills/lot-start/SKILL.md`, Step B2 : un critère
+     que le lot dit de vérifier à la main est déroulé une fois, par la session
+     de développement ; la commande et son résultat vont dans le corps du
+     commit `feat(N)`, ou la raison pour laquelle elle n'a pas pu l'être.
+   - `plugins/claude-harness/skills/lot-ship/SKILL.md`, section 4 : le corps de
+     la PR reprend ce résultat du commit, sans refaire la vérification.
+4. **Consigne `python3`.** `plugins/claude-harness/autopilot/autopilot.py`,
+   `commands_hint` : une phrase dit que `python3` ne s'exécute que depuis le
+   cache du plugin et qu'un script du dépôt s'exerce par ses tests. Aucune
+   permission ajoutée.
+5. **`lot-ship` et la plage du hook.**
+   `plugins/claude-harness/skills/lot-ship/SKILL.md`, section 3 : le titre de
+   la section est la première ligne de la plage `Current lot section` ; la
+   ligne du tableau de statut se trouve par une seule recherche du nom de la
+   branche.
+6. **Tests** (GATE-3).
+   - `tests/skills.test.sh` : Step B3 nomme les 5 000 caractères ;
+     `lot-review` nomme le livrable manqué ; `lot-start` et `lot-ship` nomment
+     la vérification manuelle ; `lot-ship` renvoie à `Current lot section`.
+     L'assertion du plafond de 6 000 reste telle quelle.
+   - La suite `tests/autopilot-*.test.sh` qui couvre `gate_step` : arrêt hors
+     diff avec le rapport commité → reprise à l'étape suivante ; sans le
+     rapport → reprise à l'étape.
+   - La suite `tests/autopilot-*.test.sh` qui couvre le prompt système : la
+     phrase `python3` y figure.
+7. **Version du plugin** bumpée à `3.0.0` (choix de l'utilisateur, majeure) :
+   `plugin.json` et les deux champs de `.claude-plugin/marketplace.json`.
 
 ### Critères de validation
 
 - `./tests/run.sh` vert, nouveaux cas inclus.
-- `lotfile.py section` donne la bonne plage sur les fichiers de lots réels des
-  8 repos pour leur dernier lot (vérification manuelle, consignée dans la PR).
-- Version du plugin bumpée (job `plugin-version`).
-- Mesure au premier run autopilot qui suit : appels de repérage du fichier de
-  lots par étape, à comparer aux ≈ 9 par lot de l'origine.
+- `wc -m docs/memory.md` rend 4 500 au plus à la clôture du développement.
+- Version du plugin à `3.0.0` (job `plugin-version`).
+- Mesure au premier run autopilot d'un lot neuf, après la promotion : appels
+  consacrés à `docs/memory.md` (14 pour `dev` et 11 pour `lot-review` au
+  rejeu), refus `python3`, aucune seconde session `review`.
 
 ### Hors périmètre
 
-- Injecter le texte de la section dans le contexte (il dépasse `CAP` : ≈ 9 k
-  caractères pour le lot 37).
-- Replier ou archiver les lots livrés : avec le pointeur, la taille du fichier
-  de lots ne coûte plus de tokens. La garde des 600 lignes de `manifests`
-  reste ; quand elle casse, le lot en cours replie à la main les lots livrés
-  les plus anciens.
-- Les autres leviers de l'évaluation : le coût de la review Opus, le respect
-  de CTX-2 par le profil `deepseek`.
+- Une session `dev` neuve au lieu de la reprise de la session `start` : le
+  gain va de moins de 1 M à 3-4 M tokens selon le poids de `start`, à
+  remesurer sur un lot neuf.
+- La cérémonie git (vérifications après chaque commit, trailer
+  `Co-Authored-By`) : `ship` n'a pas été mesuré sous le 2.13.0.
+- La règle `Bash(rtk *)` de `~/.claude/settings.json`, qui laisse passer
+  `rtk proxy python3 …` : décision de sécurité de l'utilisateur, hors du dépôt.
+- Élargir ce que `lot-review` peut modifier hors du diff du lot.
+- Regrouper par motif les lignes de rapports du recensement de `CLAUDE.md`.
 
 ---
 
