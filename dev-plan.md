@@ -56,7 +56,7 @@ Rédigé en français (§11 des conventions) ; identifiants techniques en anglai
 | 37 | `feat/lot-37-gate-cost` | A – Harness | Coût de la gate en autopilot : une exécution par arbre au lieu d'une par commit, suites du harnais en parallèle et suite `autopilot` découpée, tests ciblés autorisés par stack et consigne de commandes | claude-harness, les 8 repos (via `main` et la PR de synchro) | ✅ |
 | 38 | `feat/lot-38-lot-section-pointer` | A – Harness | Section du lot localisée : le hook de démarrage donne la plage de lignes de la section du lot courant, `lotfile.py section` pour le candidat de `lot-start` | claude-harness, les 8 repos (via `main`) | ✅ |
 | 39 | `feat/lot-39-gate-friction` | A – Harness | Frictions mesurées sur les runs du lot 38 : marge de la mémoire de projet, livrable manqué vu par `lot-review` sans revue rejouée, preuve d'une vérification manuelle portée de `dev` à `ship`, consigne `python3` de l'autopilot, `lot-ship` renvoyé à la plage du hook | claude-harness, les 8 repos (via `main`) | ✅ |
-| 40 | `feat/lot-40-model-routing` | A – Harness | Routage automatique des modèles : autopilot sans DeepSeek (Sonnet avec advisor Opus pour start, dev, test et fix ; Opus pour la revue ; Haiku `high` pour `ship`), tâches mineures en lecture seule des sessions Opus déléguées à Haiku, carte de routage injectée, changements de modèle visibles dans le shell | claude-harness, les 8 repos (via `main` et la PR de synchro) | ⬜ |
+| 40 | `feat/lot-40-model-routing` | A – Harness | Routage automatique des modèles : autopilot sans DeepSeek (Sonnet avec advisor Opus pour start, dev, test et fix ; Opus pour la revue ; Haiku `high` pour `ship`), tâches mineures en lecture seule des sessions Opus déléguées à Haiku, carte de routage injectée, changements de modèle visibles dans le shell | claude-harness, les 8 repos (via `main` et la PR de synchro) | 🔄 |
 
 Légende des statuts : ⬜ à faire · 🔄 en cours (livré sur la branche, PR non
 mergée) · ✅ mergé sur `develop` · ⏸️ planifié mais dormant · ❄️ dormant
@@ -301,7 +301,7 @@ Rapports : `docs/audits/lot-38-review.md`, `docs/audits/lot-38.md`.
 Fait : `docs/memory.md` élagué sous 4 500 caractères, clôture à 5 000 au plus (plafond MEM-1 inchangé) ; un fichier nommé par le lot et absent du diff est un constat ouvert de `lot-review`, et `gate_step` reprend à l'étape suivante quand le rapport est commité ; la vérification manuelle est déroulée par `dev` et portée jusqu'à la PR par le commit `feat(N)` ; consigne `python3` dans `commands_hint` ; `lot-ship` renvoyé à `Current lot section` ; plugin 3.0.0.
 Rapports : `docs/audits/lot-39-review.md`, `docs/audits/lot-39.md`.
 
-## LOT 40 — Routage automatique des modèles : Sonnet exécutant, advisor Opus, tâches mineures déléguées ⬜
+## LOT 40 — Routage automatique des modèles : Sonnet exécutant, advisor Opus, tâches mineures déléguées 🔄
 
 Branche `feat/lot-40-model-routing`, depuis `develop`. Repo touché :
 `claude-harness`. Les 8 repos en héritent à la promotion `develop` → `main`, et
