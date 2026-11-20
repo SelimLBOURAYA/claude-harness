@@ -243,7 +243,8 @@ Gate, mandatory in order: `lot-test → lot-review → lot-audit → lot-ship`, 
 | `mirror-sync.sh` | `PostToolUse` on `Edit`, `Write`, `Bash` | Keeps `AGENTS.md` byte-identical to `CLAUDE.md`, including after shell edits (`cp`, `mv`, `sed -i`, redirections). |
 | `lot-lock-guard.py` | `PreToolUse` on `Edit`, `Write`, `MultiEdit`, `NotebookEdit` | On a `feat/lot-*` branch, denies every write until `.claude/current-lot` names that branch; always lets the lots file through, never the lock itself. The repository is resolved from the written path. Writes made through `Bash` are not covered, the lock file's own included (`cp`, `mv`, a redirection, `rtk proxy`): the lock is a confirmation against the write tools, not against Bash. A documented limit. |
 | `lot-confirm.sh` | `UserPromptSubmit` | Writes `.claude/current-lot` when the whole user prompt is `lot-start confirm N` or `/claude-harness:lot-start confirm N` on a `feat/lot-N-*` branch; the lock holds that branch and the date, and `lot-ship` removes it after the merge. The model cannot forge a user prompt; the user's autopilot submits it only once its own checks passed. |
-| `session-context.sh` | `SessionStart` (`startup`, `resume`, `clear`, `compact`) | Re-injects branch, working tree, last merges on develop, the lot lock and the open rows of the status table; flags a compaction summary as untrusted; adds `rules/deepseek.json` when `ANTHROPIC_BASE_URL` names a host other than `api.anthropic.com` (`lotfile.py profile`, the one definition of the profile signal, which `lot-review` and the autopilot read too). Capped at ~2K tokens, never blocks. |
+| `session-context.sh` | `SessionStart` (`startup`, `resume`, `clear`, `compact`) | Re-injects branch, working tree, last merges on develop, the lot lock and the open rows of the status table; flags a compaction summary as untrusted; adds `rules/deepseek.json` when `ANTHROPIC_BASE_URL` names a host other than `api.anthropic.com` (`lotfile.py profile`, the one definition of the profile signal, which `lot-review` and the autopilot read too); otherwise the sections of `rules/model-routing.md` that fit the session's model (lot 40, see [Model routing](#model-routing)). Capped at ~2K tokens, never blocks. |
+| `subagent-model.py` | `PostToolUse` on `Agent` | Shows the user `sous-agent <type> → <model>`, the model that answered (`resolvedModel`), else the configured one marked `(configuré)`. A `systemMessage`: displayed, never given to the model, so it costs no token (lot 40). Never blocks. |
 | `ponytail-context.sh` | `SessionStart` (`startup`, `resume`, `clear`, `compact`) | Injects the body of the `ponytail` skill (CODE-6) into every session, under every profile. A hook of its own: Claude Code keeps at most 10,000 characters of each hook's context, so the text keeps its own budget and leaves the state its own. Never blocks. |
 
 `session-context.sh` reads that freshness through `hooks/plugin-currency.py`, a
@@ -277,13 +278,15 @@ autopilot --resume                  # a stopped run, at its recorded step
 autopilot --resume --answer "..."   # the answers to a blocked lot-start or dev
 ```
 
-| Step | Model | Settings |
-|---|---|---|
-| `lot-start` part A, then `lot-start confirm N`, development and Step B3 in the same session | DeepSeek | `~/.claude/settings.deepseek.json` |
-| `lot-test` | DeepSeek | `~/.claude/settings.deepseek.json` |
-| Fix of a bug `lot-test` revealed, once, then `lot-test` again | DeepSeek | `~/.claude/settings.deepseek.json` |
-| `lot-review`, then `lot-audit` | Opus | `~/.claude/settings.claude.json` |
-| `lot-ship` | DeepSeek | `~/.claude/settings.deepseek.json` |
+| Step | Model | Effort | Advisor |
+|---|---|---|---|
+| `lot-start` part A, then `lot-start confirm N`, development and Step B3 in the same session | Sonnet 5.5 | `medium` | Opus |
+| `lot-test` | Sonnet 5.5 | `medium` | Opus |
+| Fix of a bug `lot-test` revealed, once, then `lot-test` again | Sonnet 5.5 | `medium` | Opus |
+| `lot-review`, then `lot-audit` (and `integration-check`) | Opus 5.5 | `medium` | none |
+| `lot-ship` | Haiku 5.5 | `high` | none |
+
+The routing is fixed (lot 40), with no option; see [Model routing](#model-routing).
 
 - **`N`**: `lot-start` receives `/claude-harness:lot-start N`, and the run
   stops if the lot it answers is not `N`. Refused with `--resume`, whose lot
@@ -292,7 +295,10 @@ autopilot --resume --answer "..."   # the answers to a blocked lot-start or dev
   the script starts `autopilot/watch.py` as a child process in the same
   terminal: one line per tool call, text, denial and step result, each with the
   time, the step and the model (`↳` before a sub-agent), `~HH:MM` for the
-  history replayed when a step starts; a log older than the run is not followed. The child stops with the run, whatever
+  history replayed when a step starts; a log older than the run is not followed.
+  The model changes have their lines (lot 40): `▶` the step's model, effort and
+  advisor, `⇢`/`⇠` a subagent's launch and the model that answered it, `◆` an
+  advisor call, `≠` before a message from another model than the step's. The child stops with the run, whatever
   ends it. A redirected output starts no watcher.
 - **`--answer TEXT`**: only after a stop `blocked` at `lot-start` (Part A) or
   during the development, and only with `--resume`. The script resumes the
@@ -304,7 +310,8 @@ autopilot --resume --answer "..."   # the answers to a blocked lot-start or dev
 - **Profile precondition**: neither `~/.claude/settings.json` nor the
   environment points `ANTHROPIC_BASE_URL` at a host other than
   `api.anthropic.com` (run `claude-profile claude` first). `--settings` merges
-  and cannot remove a variable, so the script refuses to start otherwise.
+  and cannot remove a variable, so the script refuses to start otherwise. Every
+  step then runs under the `claude` profile; no step names a profile file.
 - **Checks**: every step answers through a JSON schema (`status`, `lot`,
   `questions`, `reason`), and the script checks it itself before the next one:
   no `sync-status.py` stop and the lot branch created before the confirmation; a
@@ -363,6 +370,43 @@ autopilot --resume --answer "..."   # the answers to a blocked lot-start or dev
   `~/.claude/autopilot/<project>/<date>-lot-N-<step>.jsonl`; the last line the
   script prints sums up the merge or the stop, with the findings fixed, ignored
   and deferred.
+
+## Model routing
+
+Lot 40: no manual model choice, neither an autopilot option nor `/advisor`.
+
+- **The `claude` profile** (`~/.claude/settings.claude.json`, made active by
+  `claude-profile claude`): `model` `claude-sonnet-5-5` at `effortLevel`
+  `medium`, `advisorModel` `opus`, `env.CLAUDE_CODE_SUBAGENT_MODEL`
+  `claude-haiku-5-5`, and `modelSettings."claude-haiku-5-5".effortLevel`
+  `high`. Interactive sessions code on Sonnet with the Opus advisor and
+  delegate read-only work to Haiku subagents. `CLAUDE_CODE_SUBAGENT_MODEL_FORCE`
+  is not set: an agent that names its own model (`Plan`, the reviewers) keeps it.
+- **An Opus session keeps the advisor without calling it**: Claude Code accepts
+  an advisor at least as capable as the base model, so Opus advising Opus is
+  accepted and billed, and no setting turns the advisor off for one model.
+  The routing card's `Opus sessions` section forbids the call instead.
+- **The routing card**, `plugins/claude-harness/rules/model-routing.md`, is
+  injected by `session-context.sh` under the `claude` profile: `Advisor (Opus)`,
+  `Subagents (Haiku)` and `Delegation triggers` for Sonnet; `Subagents (Haiku)`,
+  `Delegation triggers` and `Opus sessions` for Opus; nothing for Haiku or the
+  `deepseek` profile. The SessionStart input carries no model: the hook reads
+  `ANTHROPIC_MODEL`, then `model` in `settings.json`; a `/model` switch is not
+  seen.
+- **The autopilot** fixes each step's routing (table under [Autopilot](#autopilot)).
+  Each step gets `--model`, `--advisor opus` for the Sonnet steps, and
+  `--settings` as JSON: `modelSettings` for its own effort and Haiku's `high`,
+  `CLAUDE_CODE_SUBAGENT_MODEL` and `ANTHROPIC_MODEL`. Never `--effort`, which
+  would set the subagents' effort too. `--advisor off` is refused by Claude
+  Code, so a step without advisor is told not to call it in its system prompt.
+- **The advisor is inactive** when `DISABLE_TELEMETRY` or
+  `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC` is set.
+- **Visible in the shell**: the autopilot's watch prints every model change;
+  in an interactive session, `subagent-model.py` shows each subagent's model.
+  An interactive advisor call is a server-side tool no hook sees: it shows only
+  if the app displays it.
+
+The `deepseek` profile stays for the interactive sessions the owner opens on it.
 
 ## Reusable CI workflows
 

@@ -75,8 +75,6 @@ chmod +x "$FAKEBIN"/*
 FAKEHOME="$WORK/home"
 mkdir -p "$FAKEHOME/.claude"
 echo '{}' > "$FAKEHOME/.claude/settings.json"
-echo '{}' > "$FAKEHOME/.claude/settings.claude.json"
-echo '{}' > "$FAKEHOME/.claude/settings.deepseek.json"
 
 # fixture <name> <stack> [integration command] : a harnessed clone on develop,
 # prints its path; the scenario directory $WORK/<name>.scen holds the default

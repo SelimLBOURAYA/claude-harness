@@ -9,7 +9,9 @@
 #
 # Under the deepseek profile (runtime signal: ANTHROPIC_BASE_URL names a host
 # other than api.anthropic.com, `lotfile.py profile`, the definition lot-review
-# and the autopilot read too), the imperative rules of rules/deepseek.json are added.
+# and the autopilot read too), the imperative rules of rules/deepseek.json are added;
+# under the claude profile, the sections of rules/model-routing.md that fit the
+# session's model (lot 40): none for Haiku or an unknown model.
 #
 # Never blocks: a missing repository, lots file or table degrades the output,
 # and the hook always exits 0. The output is capped at CAP characters (~2K tokens).
@@ -19,6 +21,7 @@ CAP=9000
 TABLE_CAP=2500
 here=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 rules="$here/../rules/deepseek.json"
+routing="$here/../rules/model-routing.md"
 
 payload=$(cat)
 source=$(printf '%s' "$payload" | jq -r '.source // "startup"' 2>/dev/null || echo startup)
@@ -87,11 +90,32 @@ if [ "$source" = "compact" ]; then
 fi
 
 card_section=""
-if [ "$(python3 "$here/lotfile.py" profile 2>/dev/null)" = deepseek ] && [ -f "$rules" ]; then
-  card=$(jq -r '.rules[] | "- \(.id): \(.rule)"' "$rules" 2>/dev/null || true)
-  if [ -n "$card" ]; then
-    card_section=$'\n'"## deepseek profile: imperative rules"$'\n'
-    card_section+="$(jq -r '.precedence' "$rules" 2>/dev/null)"$'\n'"$card"$'\n'
+if [ "$(python3 "$here/lotfile.py" profile 2>/dev/null)" = deepseek ]; then
+  if [ -f "$rules" ]; then
+    card=$(jq -r '.rules[] | "- \(.id): \(.rule)"' "$rules" 2>/dev/null || true)
+    if [ -n "$card" ]; then
+      card_section=$'\n'"## deepseek profile: imperative rules"$'\n'
+      card_section+="$(jq -r '.precedence' "$rules" 2>/dev/null)"$'\n'"$card"$'\n'
+    fi
+  fi
+else
+  # Lot 40: the model routing card, its sections chosen by the session's model.
+  # The SessionStart input carries no model (V1): ANTHROPIC_MODEL, which the
+  # autopilot sets per step, then the owner's settings.
+  # shortcut: a `/model` switch or a project-level `model` is not seen; revisit if a session misroutes.
+  model=${ANTHROPIC_MODEL:-}
+  [ -n "$model" ] || model=$(jq -r '.model // ""' "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/settings.json" 2>/dev/null || true)
+  case "$model" in
+    *opus*) wanted="Subagents (Haiku)|Delegation triggers|Opus sessions" ;;
+    *sonnet*) wanted="Advisor (Opus)|Subagents (Haiku)|Delegation triggers" ;;
+    *) wanted="" ;;
+  esac
+  if [ -n "$wanted" ] && [ -f "$routing" ]; then
+    card=$(awk -v wanted="|$wanted|" '
+      /^## / { print; next }
+      /^### / { keep = index(wanted, "|" substr($0, 5) "|") > 0 }
+      keep' "$routing")
+    card_section=$'\n'"$card"$'\n'
   fi
 fi
 

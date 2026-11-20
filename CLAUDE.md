@@ -51,6 +51,8 @@ plugins/claude-harness/
   hooks/lotfile.py                   shared readers: gate parameters, status table, lock
   hooks/plugin-currency.py           installed copy vs main: the freshness warning of the SessionStart hook
   hooks/mirror-sync.sh               CLAUDE.md <-> AGENTS.md mirror
+  hooks/subagent-model.py            shows the user each subagent's model, no token (lot 40)
+  rules/model-routing.md             model routing card injected by session-context.sh (lot 40)
   skills/<name>/SKILL.md             generic skills shared by every repo
   skills/lot-start/sync-status.py    status table sync with develop
   autopilot/autopilot.py             runs one lot from lot-start to merge, a headless session per step
@@ -126,6 +128,7 @@ Every blocking invariant is also enforced in CI, which is the only agent-agnosti
 | `plugins/claude-harness/skills/ponytail/SKILL.md` | Smallest complete change skill, injected into every session (lot 33) |
 | `plugins/claude-harness/skills/ponytail/LICENSE` | MIT notice of the upstream ponytail project the skill adapts |
 | `plugins/claude-harness/rules/deepseek.json` | Imperative rules card for the `deepseek` profile, injected at session start (lot 19) |
+| `plugins/claude-harness/rules/model-routing.md` | Model routing card: advisor, Haiku subagents, delegation triggers, Opus sessions; sections injected by the session's model (lot 40) |
 | `plugins/claude-harness/autopilot/autopilot.py` | Autopilot: one lot from `lot-start` to merge, a session and a model per step, stop and notification at the first blocker (lot 27) |
 | `plugins/claude-harness/autopilot/watch.py` | Live watch of an autopilot run, started by `autopilot.py` in a terminal (lot 34) |
 | `docs/audits/lot-0.md` | Lot 0 report — technical verifications V1 to V7 |

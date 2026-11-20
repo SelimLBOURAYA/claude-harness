@@ -47,6 +47,31 @@ elif case == "denied":
 elif case == "escape":
     emit({"type": "assistant", "message": {"model": "deepseek-v4", "content": [
         {"type": "text", "text": "\x1b]52;c;cGF5bG9hZA==\x07done \x9b2J"}]}})
+elif case == "route":
+    emit({"type": "autopilot", "subtype": "step", "step": "dev", "model": "claude-sonnet-5-5",
+          "effort": "medium", "advisor": "opus"})
+elif case == "spawn":
+    emit({"type": "autopilot", "subtype": "step", "step": "review", "model": "claude-opus-5-5",
+          "effort": "medium", "advisor": None},
+         {"type": "system", "subtype": "task_started", "tool_use_id": "tu_9",
+          "description": "find the callers", "subagent_type": "Explore"},
+         {"type": "user", "message": {"role": "user", "content": [
+             {"type": "tool_result", "tool_use_id": "tu_9", "content": []}]},
+          "tool_use_result": {"agentType": "Explore", "resolvedModel": "claude-haiku-5-5"}})
+elif case == "advisor":
+    emit({"type": "autopilot", "subtype": "step", "step": "dev", "model": "claude-sonnet-5-5",
+          "effort": "medium", "advisor": "opus"},
+         {"type": "assistant", "message": {"model": "claude-sonnet-5-5", "content": [
+             {"type": "server_tool_use", "name": "advisor", "input": {}}]}},
+         {"type": "assistant", "message": {"model": "claude-sonnet-5-5", "content": [
+             {"type": "advisor_tool_result", "content": {}}]}})
+elif case == "offmodel":
+    emit({"type": "autopilot", "subtype": "step", "step": "dev", "model": "claude-sonnet-5-5",
+          "effort": "medium", "advisor": "opus"},
+         {"type": "assistant", "message": {"model": "claude-opus-5-5", "content": [
+             {"type": "text", "text": "autre modèle"}]}},
+         {"type": "assistant", "message": {"model": "claude-sonnet-5-5", "content": [
+             {"type": "text", "text": "même modèle"}]}})
 elif case == "clock":
     for line in watch.lines({"type": "assistant", "message": {
             "model": "deepseek-v4", "content": [
@@ -80,6 +105,22 @@ out=$(watch_case escape)
 assert_eq "" "$(tr -d '\n' <<< "$out" | grep -P '[\x00-\x1f\x7f]' || true)" \
   "a watch line carries no control character from the log"
 assert_contains "$out" "done" "a watch line keeps the text around a neutralised control"
+
+# --- the model changes (lot 40) ---------------------------------------------
+out=$(watch_case route)
+assert_contains "$out" "▶ étape: claude-sonnet-5-5, effort medium, advisor opus" \
+  "a step's start line carries its model, effort and advisor"
+out=$(watch_case spawn)
+assert_contains "$out" "advisor off" "a step without advisor says so"
+assert_contains "$out" "⇢ sous-agent Explore: find the callers" "a subagent's launch gets a line with its description"
+assert_contains "$out" "⇠ sous-agent Explore → claude-haiku-5-5 find the callers" \
+  "a subagent's return names the model that answered it"
+out=$(watch_case advisor)
+assert_eq 1 "$(grep -c '◆ advisor opus' <<< "$out")" "an advisor call gets one line, its result none"
+out=$(watch_case offmodel)
+assert_contains "$(grep 'autre modèle' <<< "$out")" "≠claude-opus-5-5" \
+  "a message from another model than the step's is marked"
+assert_eq "" "$(grep 'même modèle' <<< "$out" | grep -o '≠' || true)" "the step's own model is not marked"
 
 out=$(watch_case clock)
 assert_eq 1 "$(grep -cE '^[0-9]{2}:[0-9]{2}:[0-9]{2} ' <<< "$out")" \
