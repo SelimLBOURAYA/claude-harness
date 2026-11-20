@@ -30,6 +30,10 @@ out=$(printf 'garbage' | python3 "$HOOK"); rc=$?
 assert_eq 0 "$rc" "an unreadable input exits 0"
 assert_eq "" "$out" "and prints nothing"
 assert_eq "" "$(run '{"tool_name":"Bash","tool_input":{"command":"ls"}}')" "another tool: nothing"
+out=$(run '{"tool_name":"Agent","tool_input":"x","tool_response":"y"}'); rc=$?
+assert_eq 0 "$rc" "a non-object tool_input exits 0"
+assert_eq "sous-agent general-purpose → modèle de la session (configuré)" "$(msg "$out")" \
+  "a non-object tool_input still gets its line"
 assert_ok "the hook leaves no __pycache__" -- test ! -e "$REPO_ROOT/plugins/claude-harness/hooks/__pycache__"
 
 finish

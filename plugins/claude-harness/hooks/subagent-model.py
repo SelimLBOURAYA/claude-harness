@@ -19,7 +19,8 @@ import sys
 
 
 def message(payload):
-    tool_input = payload.get("tool_input") or {}
+    tool_input = payload.get("tool_input")
+    tool_input = tool_input if isinstance(tool_input, dict) else {}
     response = payload.get("tool_response")
     response = response if isinstance(response, dict) else {}
     kind = response.get("agentType") or tool_input.get("subagent_type") or "general-purpose"
