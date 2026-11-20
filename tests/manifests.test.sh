@@ -47,6 +47,7 @@ assert_ok "lot confirmation on UserPromptSubmit" -- wired UserPromptSubmit "" lo
 assert_ok "state re-injection on SessionStart" -- \
   wired SessionStart "startup|resume|clear|compact" session-context.sh
 assert_ok "mirror on PostToolUse" -- wired PostToolUse "Edit|Write|MultiEdit|Bash" mirror-sync.sh
+assert_ok "subagent model display on PostToolUse Agent" -- wired PostToolUse "Agent|Task" subagent-model.py
 while IFS= read -r script; do
   assert_file "$REPO_ROOT/plugins/claude-harness/hooks/$script" "wired hook $script exists"
 done < <(jq -r '.hooks[][].hooks[].command' "$hj" | grep -oE 'hooks/[a-z-]+\.(py|sh)' | sed 's#hooks/##' | sort -u)

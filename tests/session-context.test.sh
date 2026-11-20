@@ -28,10 +28,14 @@ git -C "$REPO" commit -qm "docs: seed the lots file"
 git -C "$REPO" switch -qc feat/lot-2-b
 printf 'wip\n' > "$REPO/dirty.txt"
 
-# context <source> <cwd> [ANTHROPIC_BASE_URL]
+# context <source> <cwd> [ANTHROPIC_BASE_URL] [ANTHROPIC_MODEL]
+# The owner's settings are an empty config directory unless CFG names another.
+CFG="$WORK/cfg"
+mkdir -p "$CFG"
 context() {
   jq -nc --arg s "$1" --arg d "$2" '{hook_event_name:"SessionStart", source:$s, cwd:$d}' \
-    | env -u ANTHROPIC_BASE_URL ${3:+ANTHROPIC_BASE_URL=$3} bash "$HOOK"
+    | env -u ANTHROPIC_BASE_URL -u ANTHROPIC_MODEL CLAUDE_CONFIG_DIR="$CFG" \
+      ${3:+ANTHROPIC_BASE_URL=$3} ${4:+ANTHROPIC_MODEL=$4} bash "$HOOK"
 }
 text() { printf '%s' "$1" | jq -r '.hookSpecificOutput.additionalContext'; }
 
@@ -170,6 +174,35 @@ assert_eq "" "$(printf '%s' "$body" | grep 'LOT-1' || true)" "claude profile: no
 # Lot 33: the desktop app sets ANTHROPIC_BASE_URL to the native API itself.
 body=$(text "$(context startup "$REPO" https://api.anthropic.com)")
 assert_eq "" "$(printf '%s' "$body" | grep 'LOT-1' || true)" "the native API URL: no deepseek rules"
+
+# --- the model routing card, by the session's model (lot 40) ---------------
+body=$(text "$(context startup "$REPO" "" claude-sonnet-5-5)")
+assert_contains "$body" "## Model routing" "sonnet: the routing card is injected"
+for section in "### Advisor (Opus)" "### Subagents (Haiku)" "### Delegation triggers"; do
+  assert_contains "$body" "$section" "sonnet: the card carries '$section'"
+done
+assert_eq "" "$(printf '%s' "$body" | grep -F '### Opus sessions' || true)" "sonnet: no Opus sessions section"
+assert_contains "$body" "- Call the advisor BEFORE substantive work" "sonnet: a section carries its rules"
+body=$(text "$(context startup "$REPO" "" "claude-opus-5-5[1m]")")
+for section in "### Subagents (Haiku)" "### Delegation triggers" "### Opus sessions"; do
+  assert_contains "$body" "$section" "opus: the card carries '$section'"
+done
+assert_contains "$body" "- Never call the advisor" "opus: the advisor is forbidden"
+assert_eq "" "$(printf '%s' "$body" | grep -F '### Advisor (Opus)' || true)" "opus: no Advisor section"
+body=$(text "$(context startup "$REPO" "" claude-haiku-5-5)")
+assert_eq "" "$(printf '%s' "$body" | grep -F 'Model routing' || true)" "haiku: no routing card"
+body=$(text "$(context startup "$REPO" https://api.deepseek.com/anthropic claude-sonnet-5-5)")
+assert_eq "" "$(printf '%s' "$body" | grep -F 'Model routing' || true)" "deepseek profile: no routing card"
+assert_contains "$body" "deepseek profile: imperative rules" "deepseek profile: its own rules instead"
+body=$(text "$(context startup "$REPO")")
+assert_eq "" "$(printf '%s' "$body" | grep -F 'Model routing' || true)" "no model known: no routing card"
+# Without ANTHROPIC_MODEL, the owner's settings name the model.
+printf '{"model":"claude-sonnet-5-5"}\n' > "$CFG/settings.json"
+body=$(text "$(context startup "$REPO")")
+assert_contains "$body" "### Advisor (Opus)" "the owner's settings.json model selects the sections"
+body=$(text "$(context startup "$REPO" "" claude-opus-5-5)")
+assert_contains "$body" "### Opus sessions" "ANTHROPIC_MODEL wins over the settings"
+rm "$CFG/settings.json"
 
 # --- the profile signal, one definition (lot 33) ---------------------------
 for case in "|claude" "https://api.anthropic.com|claude" "https://API.anthropic.com/|claude" \

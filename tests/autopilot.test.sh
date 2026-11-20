@@ -15,17 +15,35 @@ assert_contains "$(cat "$R.scen/calls.log")" "Bash(python3 $FAKEHOME/.claude/plu
 assert_eq 0 "$(grep -cF 'Bash(python3 *)' "$R.scen/calls.log")" \
   "python3 is never allowed on any argument"
 log="$R.scen/calls.log"
-for step in start dev test ship; do
-  assert_contains "$(grep "^$step " "$log")" "settings.deepseek.json" "$step runs on the deepseek settings"
-  assert_eq "" "$(grep "^$step " "$log" | grep -o -- '--model' || true)" "$step passes no Claude model"
-done
+# Lot 40: the model routing, read from each step's real command.
+# route <step> <model> <effort> <advisor|off>
+route() {
+  local line
+  line=$(grep "^$1 " "$log")
+  assert_contains "$line" "--model $2 " "$1 runs on $2"
+  assert_contains "$line" "\"$2\": {\"effortLevel\": \"$3\"}" "$1 runs at effort $3"
+  assert_contains "$line" '"claude-haiku-5-5": {"effortLevel": "high"}' "$1's Haiku subagents run at effort high"
+  assert_contains "$line" '"CLAUDE_CODE_SUBAGENT_MODEL": "claude-haiku-5-5"' "$1's subagents are Haiku"
+  assert_contains "$line" "\"ANTHROPIC_MODEL\": \"$2\"" "$1 tells its SessionStart hook its model"
+  assert_eq "" "$(grep -o -- '--effort' <<< "$line" || true)" "$1 passes no --effort, which would reach the subagents"
+  if [ "$4" = off ]; then
+    assert_eq "" "$(grep -o -- '--advisor' <<< "$line" || true)" "$1 enables no advisor"
+    assert_contains "$line" "Never call the advisor tool in this step." "$1 is told not to call the advisor"
+  else
+    assert_contains "$line" "--advisor $4 " "$1 has the $4 advisor"
+    assert_eq "" "$(grep -o 'Never call the advisor' <<< "$line" || true)" "$1 may call its advisor"
+  fi
+}
+for step in start dev test; do route "$step" claude-sonnet-5-5 medium opus; done
+for step in review audit; do route "$step" claude-opus-5-5 medium off; done
+route ship claude-haiku-5-5 high off
+assert_eq "" "$(grep -oE 'settings\.(deepseek|claude)\.json' "$log" || true)" \
+  "no step names a profile settings file, DeepSeek's least of all"
 assert_contains "$(grep '^dev ' "$log")" "prompt=lot-start confirm 5" "the confirmation is the exact prompt"
 assert_contains "$(grep '^dev ' "$log")" "--resume S-start" "the development resumes the lot-start session"
-assert_contains "$(grep '^review ' "$log")" "--model claude-opus-5-5" "lot-review runs on Opus"
-assert_contains "$(grep '^audit ' "$log")" "--model claude-opus-5-5" "lot-audit runs on Opus"
-for step in review audit; do
-  assert_contains "$(grep "^$step " "$log")" "settings.claude.json" "$step runs on the claude settings, never deepseek"
-done
+step_log=("$FAKEHOME/.claude/autopilot/happy/"*lot-5-review.jsonl)
+assert_eq '{"type": "autopilot", "subtype": "step", "step": "review", "model": "claude-opus-5-5", "effort": "medium", "advisor": null}' \
+  "$(head -1 "${step_log[0]}")" "a step's log opens with its routing, for the watch"
 assert_contains "$(grep '^review ' "$log")" "autopilot=1" "HARNESS_AUTOPILOT=1 reaches lot-review"
 assert_contains "$(grep '^audit ' "$log")" "autopilot=1" "HARNESS_AUTOPILOT=1 reaches lot-audit"
 assert_eq "" "$(grep -c -- '--dangerously-skip-permissions' "$log" | grep -v '^0$')" \
@@ -104,7 +122,8 @@ R=$(fixture fixonce harness)
 printf 'failed\nfailed\n' > "$R.scen/test.status"
 assert_eq 1 "$(pilot "$R")" "a second lot-test failure stops the run"
 assert_eq "start dev test fix test " "$(calls "$R")" "one fix session, then lot-test again"
-assert_contains "$(grep '^fix ' "$R.scen/calls.log")" "settings.deepseek.json" "the fix runs on the deepseek settings"
+log="$R.scen/calls.log"
+route fix claude-sonnet-5-5 medium opus
 assert_eq test "$(state "$R" resume)" "the stop resumes at lot-test"
 
 R=$(fixture fixok harness)

@@ -72,20 +72,29 @@ STEP_TIMEOUT = int(os.environ.get("AUTOPILOT_STEP_TIMEOUT", "1800"))
 INTEGRATION_TIMEOUT = int(os.environ.get("AUTOPILOT_INTEGRATION_TIMEOUT", "1200"))
 INTEGRATION_REPORT = "docs/audits/lot-0-integration.md"
 
-OPUS = ("--model", "claude-opus-5-5", "--effort", "medium")
-PROFILES = {"claude": "settings.claude.json", "deepseek": "settings.deepseek.json"}
+SONNET = "claude-sonnet-5-5"
+OPUS = "claude-opus-5-5"
+HAIKU = "claude-haiku-5-5"
+# The effort of every step's Haiku subagents (lot 40).
+SUBAGENT_EFFORT = "high"
 
-# step -> (label, model options, profile)
+# step -> (label, model, effort, advisor or None). The model routing of lot 40:
+# Sonnet with the Opus advisor executes, Opus judges, Haiku ships. Every step
+# runs under the claude profile; DeepSeek is out of the autopilot.
 MODELS = {
-    "start": ("DeepSeek", (), "deepseek"),
-    "dev": ("DeepSeek", (), "deepseek"),
-    "test": ("DeepSeek", (), "deepseek"),
-    "fix": ("DeepSeek", (), "deepseek"),
-    "review": ("Opus", OPUS, "claude"),
-    "audit": ("Opus", OPUS, "claude"),
-    "integration": ("Opus", OPUS, "claude"),
-    "ship": ("DeepSeek", (), "deepseek"),
+    "start": ("Sonnet", SONNET, "medium", "opus"),
+    "dev": ("Sonnet", SONNET, "medium", "opus"),
+    "test": ("Sonnet", SONNET, "medium", "opus"),
+    "fix": ("Sonnet", SONNET, "medium", "opus"),
+    "review": ("Opus", OPUS, "medium", None),
+    "audit": ("Opus", OPUS, "medium", None),
+    "integration": ("Opus", OPUS, "medium", None),
+    "ship": ("Haiku", HAIKU, "high", None),
 }
+# `--advisor off` is refused by Claude Code 2.1.314 (lot 40, V2), and the
+# owner's `advisorModel` puts the advisor in every session: a step without one
+# is told so.
+NO_ADVISOR = "Never call the advisor tool in this step."
 SEQUENCE = ("start", "dev", "test", "review", "audit", "ship")
 # The lot IDs lot-confirm.sh accepts. The lot comes from the model's answer and
 # names log files, reports and the confirmation prompt: nothing else passes.
@@ -210,9 +219,10 @@ def commands_hint(params):
             "another form.")
 
 
-def system_prompt(params):
-    """The system prompt of every step: the run's shape, then this Stack's commands."""
-    return SYSTEM_PROMPT + "\n" + commands_hint(params)
+def system_prompt(params, step):
+    """The system prompt of a step: the run's shape, this Stack's commands, the advisor ban."""
+    prompt = SYSTEM_PROMPT + "\n" + commands_hint(params)
+    return prompt if MODELS[step][3] else prompt + "\n" + NO_ADVISOR
 
 # A gate report's census row is an addition to CLAUDE.md and AGENTS.md that
 # GATE-8 and DOC-1 require, not a change to the lot's scope (lot 36).
@@ -332,16 +342,39 @@ def write_state(root, state):
 # sessions
 
 
-def command(step, home, params, session=None):
-    label, model, profile = MODELS[step]
-    cmd = ["claude", "-p", *model, "--settings", os.path.join(home, ".claude", PROFILES[profile])]
+def step_settings(step):
+    """The step's flag settings, above the owner's own (lot 40).
+
+    The efforts go through `modelSettings`, never `--effort`: that option sets
+    the subagents' effort too (V3). The subagent model is the autopilot's own,
+    whatever the owner's settings say; ANTHROPIC_MODEL tells the SessionStart
+    hook the step's model, which its input does not carry (V1).
+    """
+    model, effort = MODELS[step][1:3]
+    efforts = {HAIKU: {"effortLevel": SUBAGENT_EFFORT}}
+    efforts[model] = {"effortLevel": effort}
+    return {"modelSettings": efforts,
+            "env": {"CLAUDE_CODE_SUBAGENT_MODEL": HAIKU, "ANTHROPIC_MODEL": model}}
+
+
+def describe(step):
+    """`Sonnet medium, advisor opus`: the routing of a step, for the terminal."""
+    label, _, effort, advisor = MODELS[step]
+    return "%s %s, advisor %s" % (label, effort, advisor or "off")
+
+
+def command(step, params, session=None):
+    advisor = MODELS[step][3]
+    cmd = ["claude", "-p", "--model", MODELS[step][1], "--settings", json.dumps(step_settings(step))]
+    if advisor:
+        cmd += ["--advisor", advisor]
     if session:
         cmd += ["--resume", session]
     cmd += [
         "--permission-mode", "acceptEdits",
         "--output-format", "stream-json", "--verbose",
         "--json-schema", json.dumps(SCHEMA),
-        "--append-system-prompt", system_prompt(params),
+        "--append-system-prompt", system_prompt(params, step),
     ]
     return cmd
 
@@ -444,7 +477,7 @@ class Pilot:
 
     def session(self, step, resume=None, prompt=None):
         """Run one step's session; returns its structured answer, or stops."""
-        cmd = command(step, self.home, self.params, resume) + allowed_tools(
+        cmd = command(step, self.params, resume) + allowed_tools(
             self.params, self.home, self.root)
         if prompt is None:
             prompt = PROMPTS[step].format(
@@ -452,9 +485,14 @@ class Pilot:
         env = dict(os.environ, HARNESS_AUTOPILOT="1")
         path = self.log_path(step)
         os.makedirs(self.logs, exist_ok=True)
-        print("autopilot: %s (%s), log %s" % (step, MODELS[step][0], path), flush=True)
+        print("autopilot: %s (%s), log %s" % (step, describe(step), path), flush=True)
         offset = os.path.getsize(path) if os.path.exists(path) else 0
         with open(path, "a", encoding="utf-8") as out:
+            # The step's routing opens its log, for watch.py (lot 40).
+            label, model, effort, advisor = MODELS[step]
+            out.write(json.dumps({"type": "autopilot", "subtype": "step", "step": step,
+                                  "model": model, "effort": effort, "advisor": advisor}) + "\n")
+            out.flush()
             proc = subprocess.Popen(
                 cmd, cwd=self.root, env=env, stdin=subprocess.PIPE, stdout=out,
                 stderr=subprocess.STDOUT, text=True, start_new_session=True,
@@ -871,10 +909,12 @@ def main(argv=None):
         for step in order:
             session = "<lot-start session>" if step == "dev" else None
             cmd = [long_values.get(arg, arg) for arg in
-                   command(step, home, params, session) + allowed_tools(params, home, root)]
+                   command(step, params, session) + allowed_tools(params, home, root)]
             prompt = start_prompt(args.lot) if step == "start" else \
                 PROMPTS[step].format(lot="<N>", log="<integration log>")
-            print("%-6s %-8s %s <<< %s" % (step, MODELS[step][0], " ".join(cmd), prompt))
+            label, _, effort, advisor = MODELS[step]
+            print("%-6s %-6s %-6s advisor=%-4s %s <<< %s"
+                  % (step, label, effort, advisor or "off", " ".join(cmd), prompt))
         return 0
 
     state = read_state(root)
