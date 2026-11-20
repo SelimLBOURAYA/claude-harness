@@ -198,6 +198,7 @@ Every blocking invariant is also enforced in CI, which is the only agent-agnosti
 | `docs/audits/lot-39-review.md` | Lot 39 code-review report |
 | `docs/audits/lot-39.md` | Lot 39 audit report — security, performance, architecture |
 | `docs/audits/lot-40-review.md` | Lot 40 code-review report |
+| `docs/audits/lot-40.md` | Lot 40 audit report — security, performance, architecture |
 | `docs/audits/portfolio/p4-meta-harness-2026-09-17-v2.md` | P4 portfolio audit (supersedes the removed morning v1) |
 | `docs/audits/portfolio/p5-harness-cicd-2026-09-17.md` | P5 CI/CD guards audit |
 | `docs/audits/portfolio/p6-meta-portfolio-2026-09-17.md` | P6 cross-cutting portfolio audit |
