@@ -25,8 +25,10 @@ EOF
 assert_eq 0 "$(pilot "$R")" "a frontend with an Integration command runs integration"
 assert_eq "start dev test review audit integration ship " "$(calls "$R")" \
   "integration runs between the audit and the ship"
-assert_contains "$(grep '^integration ' "$R.scen/calls.log")" "settings.claude.json" \
-  "the integration report session runs on the claude settings"
+assert_contains "$(grep '^integration ' "$R.scen/calls.log")" "--model claude-opus-5-5 " \
+  "the integration report session runs on Opus"
+assert_contains "$(grep '^integration ' "$R.scen/calls.log")" "Never call the advisor tool in this step." \
+  "the integration report session is told not to call the advisor"
 assert_contains "$(grep '^integration ' "$R.scen/calls.log")" \
   "prompt=/claude-harness:integration-check " "the session gets the skill prompt"
 assert_contains "$(grep '^integration ' "$R.scen/calls.log")" "lot-5-integration.log" \

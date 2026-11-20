@@ -7,6 +7,14 @@
 R=$(fixture dry harness)
 out=$(cd "$R" && PATH="$FAKEBIN:$PATH" HOME="$FAKEHOME" python3 "$PILOT" --dry-run)
 assert_contains "$out" "review Opus" "--dry-run shows the model of each step"
+# Lot 40: the model, the effort and the advisor of every step, none on DeepSeek.
+for want in "start  Sonnet medium advisor=opus" "dev    Sonnet medium advisor=opus" \
+            "test   Sonnet medium advisor=opus" "fix    Sonnet medium advisor=opus" \
+            "review Opus   medium advisor=off" "audit  Opus   medium advisor=off" \
+            "ship   Haiku  high   advisor=off"; do
+  assert_contains "$out" "$want" "--dry-run shows '$want'"
+done
+assert_eq "" "$(grep -io 'deepseek' <<< "$out" || true)" "--dry-run puts no step on DeepSeek"
 assert_eq "" "$(grep '^integration ' <<< "$out" || true)" \
   "a stack without Integration command lists no integration step"
 assert_eq "" "$(calls "$R")" "--dry-run runs no session"

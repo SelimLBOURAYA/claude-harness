@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 """Follow an autopilot run: one line per tool call, text, denial and step result.
 
+Lot 40 adds the model changes: the step's routing (model, effort, advisor),
+each subagent's launch and the model that answered it, each advisor call, and a
+`≠` mark on a message from another model than the step's.
+
 Usage: watch.py [project_dir [since]]   (default: the current directory, any age)
 Reads the newest ~/.claude/autopilot/<project>/*.jsonl written at or after the
 epoch `since` and switches to the next step's log as soon as it appears; the
@@ -52,7 +56,10 @@ def detail(args):
     return ""
 
 
-MODEL = {"name": "?"}
+# The step's model and advisor (lot 40), from the autopilot's routing line or the init event.
+MODEL = {"name": "?", "advisor": None}
+# A subagent's description, by the tool_use_id that launched it, for its return line.
+TASKS = {}
 # C0 and C1 controls: a model's text or a tool input must not drive the terminal (escape sequences).
 CONTROL = re.compile("[\x00-\x1f\x7f-\x9f]")
 
@@ -65,17 +72,40 @@ def lines(event, step, stamp=None):
 def render(event, step, stamp=None):
     stamp = stamp or time.strftime("%H:%M:%S")
     kind, sub = event.get("type"), event.get("subtype")
-    if kind == "system" and sub == "init" and event.get("model"):
+    if kind == "autopilot" and sub == "step":
+        MODEL.update(name=str(event.get("model") or "?"), advisor=event.get("advisor"))
+    elif kind == "system" and sub == "init" and event.get("model"):
         MODEL["name"] = event["model"].split("[")[0]
     agent = MODEL["name"]
     if kind == "assistant":
         agent = ((event.get("message") or {}).get("model") or agent).split("[")[0]
         if event.get("parent_tool_use_id"):
             agent = "↳" + agent
+        elif agent != MODEL["name"] and MODEL["name"] != "?":
+            # A message from another model than the step's (lot 40).
+            agent = "≠" + agent
     step = "%-11s %-16s" % (step, agent[:16])
-    if kind == "assistant":
+    if kind == "autopilot" and sub == "step":
+        yield "%s  %s ▶ étape: %s, effort %s, advisor %s" % (
+            stamp, step, MODEL["name"], event.get("effort") or "?", MODEL["advisor"] or "off")
+    elif kind == "system" and sub == "task_started":
+        TASKS[event.get("tool_use_id")] = event.get("description") or ""
+        yield "%s  %s ⇢ sous-agent %s: %s" % (
+            stamp, step, event.get("subagent_type") or "?", str(event.get("description") or "")[:90])
+    elif kind == "user" and isinstance(event.get("tool_use_result"), dict) \
+            and event["tool_use_result"].get("resolvedModel"):
+        result = event["tool_use_result"]
+        tool_use = next((block.get("tool_use_id") for block in
+                         (event.get("message") or {}).get("content") or []
+                         if isinstance(block, dict) and block.get("tool_use_id")), None)
+        yield "%s  %s ⇠ sous-agent %s → %s %s" % (
+            stamp, step, result.get("agentType") or "?", result["resolvedModel"],
+            str(TASKS.pop(tool_use, ""))[:80])
+    elif kind == "assistant":
         for block in (event.get("message") or {}).get("content") or []:
-            if block.get("type") == "tool_use":
+            if block.get("type") == "server_tool_use" and block.get("name") == "advisor":
+                yield "%s  %s ◆ advisor %s" % (stamp, step, MODEL["advisor"] or "?")
+            elif block.get("type") == "tool_use":
                 yield "%s  %s %-8s %s" % (stamp, step, block.get("name"), detail(block.get("input") or {}))
             elif block.get("type") == "text" and (block.get("text") or "").strip():
                 yield "%s  %s » %s" % (stamp, step, block["text"].strip().splitlines()[0][:110])
