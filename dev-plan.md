@@ -56,6 +56,7 @@ Rédigé en français (§11 des conventions) ; identifiants techniques en anglai
 | 37 | `feat/lot-37-gate-cost` | A – Harness | Coût de la gate en autopilot : une exécution par arbre au lieu d'une par commit, suites du harnais en parallèle et suite `autopilot` découpée, tests ciblés autorisés par stack et consigne de commandes | claude-harness, les 8 repos (via `main` et la PR de synchro) | ✅ |
 | 38 | `feat/lot-38-lot-section-pointer` | A – Harness | Section du lot localisée : le hook de démarrage donne la plage de lignes de la section du lot courant, `lotfile.py section` pour le candidat de `lot-start` | claude-harness, les 8 repos (via `main`) | ✅ |
 | 39 | `feat/lot-39-gate-friction` | A – Harness | Frictions mesurées sur les runs du lot 38 : marge de la mémoire de projet, livrable manqué vu par `lot-review` sans revue rejouée, preuve d'une vérification manuelle portée de `dev` à `ship`, consigne `python3` de l'autopilot, `lot-ship` renvoyé à la plage du hook | claude-harness, les 8 repos (via `main`) | ✅ |
+| 40 | `feat/lot-40-model-routing` | A – Harness | Routage automatique des modèles : autopilot sans DeepSeek (Sonnet avec advisor Opus pour start, dev, test et fix ; Opus pour la revue ; Haiku `high` pour `ship`), tâches mineures en lecture seule des sessions Opus déléguées à Haiku, carte de routage injectée, changements de modèle visibles dans le shell | claude-harness, les 8 repos (via `main` et la PR de synchro) | ⬜ |
 
 Légende des statuts : ⬜ à faire · 🔄 en cours (livré sur la branche, PR non
 mergée) · ✅ mergé sur `develop` · ⏸️ planifié mais dormant · ❄️ dormant
@@ -297,111 +298,253 @@ Rapports : `docs/audits/lot-38-review.md`, `docs/audits/lot-38.md`.
 
 ## LOT 39 — Frictions de la gate mesurées sur le lot 38 ✅
 
-Branche `feat/lot-39-gate-friction`, depuis `develop`. Repo touché :
-`claude-harness`. Les 8 repos en héritent à la promotion `develop` → `main`.
+Fait : `docs/memory.md` élagué sous 4 500 caractères, clôture à 5 000 au plus (plafond MEM-1 inchangé) ; un fichier nommé par le lot et absent du diff est un constat ouvert de `lot-review`, et `gate_step` reprend à l'étape suivante quand le rapport est commité ; la vérification manuelle est déroulée par `dev` et portée jusqu'à la PR par le commit `feat(N)` ; consigne `python3` dans `commands_hint` ; `lot-ship` renvoyé à `Current lot section` ; plugin 3.0.0.
+Rapports : `docs/audits/lot-39-review.md`, `docs/audits/lot-39.md`.
 
-Note : le merge `f3b5bf7` (`chore/lot-39-version-3`) ne pose que la cible de
-version 3.0.0 ; il ne livre pas le lot, qui reste à faire.
+## LOT 40 — Routage automatique des modèles : Sonnet exécutant, advisor Opus, tâches mineures déléguées ⬜
+
+Branche `feat/lot-40-model-routing`, depuis `develop`. Repo touché :
+`claude-harness`. Les 8 repos en héritent à la promotion `develop` → `main`, et
+par la PR de synchro pour `CONVENTIONS.md`.
 
 ### Origine
 
-Demande de l'utilisateur du 2026-11-14, après l'analyse des logs autopilot de
-deux runs du lot 38 : le run livré, sous le plugin 2.10.0, et un rejeu dans une
-copie isolée, sous le 2.13.0. La mesure est le contexte relu à chaque appel
-API, attribué à ce que l'appel faisait.
+Demande de l'utilisateur du 2026-11-20 : allier performance et efficience, et
+ménager ses crédits, avec le schéma « Sonnet par défaut, Opus en advisor,
+sous-agents Haiku pour les tâches courantes ». Ce schéma vient du modèle public
+`sonnet-opus-advisor-haiku-subagents` (davila7/claude-code-templates). D'après
+Anthropic, Sonnet avec un advisor Opus gagne 2,7 points sur SWE-bench
+Multilingual par rapport à Sonnet seul, pour un coût par tâche agentique en baisse
+de 11,9 %. La partie Haiku n'est pas mesurée.
 
-1. **La mémoire de projet est saturée.** `docs/memory.md` fait 5 997
-   caractères sur 6 000. Chaque clôture rogne en plusieurs passes (run livré :
-   6 141 → 5 974 → 6 043 → 6 014 → 5 980, deux commits au même titre ; rejeu :
-   6 432 → 6 223 → 6 025), puis `lot-review` rogne à son tour. Soit 12 % du
-   contexte relu du run livré et 20 % du rejeu, en fin de session, là où chaque
-   appel relit le plus.
-2. **Un livrable manqué arrête le run, puis rejoue la revue.** Rejeu : `dev`
-   n'a pas touché `lot-ship/SKILL.md`, que le lot nommait ; `lot-review` l'a
-   corrigé, contre sa propre règle (un constat hors du diff n'est pas corrigé,
-   LOT-5) ; `gate_step` a arrêté le run, et `--resume` a relancé une revue
-   entière qui n'avait plus rien à faire.
-3. **Une vérification manuelle est refaite.** Run livré : le critère
-   « vérification manuelle, consignée dans la PR » a été déroulé par `dev`
-   (26 appels), tenté par `lot-review`, renvoyé par `lot-audit`, puis refait en
-   entier par `lot-ship` (59 appels), soit 14 % du contexte relu. Rien ne porte
-   le résultat de `dev` à `ship`.
-4. **`python3` sur un script du dépôt est refusé sans être annoncé.** 12 refus
-   sur le run livré, 3 sur le rejeu, chacun suivi d'une enquête dans les
-   réglages et dans `autopilot.py`.
-5. **`lot-ship` cherche encore dans le fichier de lots** : le lot 38 ne l'a pas
-   renvoyé à la plage du hook.
+Choix de l'utilisateur, arrêtés le 2026-11-20 :
+
+- aucun choix manuel : ni option de l'autopilot ni commande `/advisor`. Le
+  modèle de chaque session ou étape est fixé par le routage ;
+- les sessions interactives s'ouvrent sur Sonnet 5.5 `medium`, avec Opus pour
+  advisor et des sous-agents Haiku 5.5 en effort `high`. Ces réglages ont été
+  posés à la demande de l'utilisateur dans `~/.claude/settings.claude.json`
+  le 2026-11-20 (`model`, `advisorModel: "opus"`,
+  `env.CLAUDE_CODE_SUBAGENT_MODEL`, `modelSettings."claude-haiku-5-5"`). Ils
+  sont actifs au prochain `claude-profile claude` ;
+- l'autopilot n'utilise plus DeepSeek : `start`, `dev`, `test` et `fix` passent
+  sur Sonnet, `ship` sur Haiku. Le profil `deepseek` reste disponible pour les
+  sessions interactives que l'utilisateur ouvre lui-même ;
+- dans une session Opus, interactive ou d'autopilot, les tâches mineures en
+  lecture seule vont à Haiku. Opus n'appelle jamais l'advisor. Les
+  modifications restent à Opus : les journaux comptent 5 modifications par
+  `review` et 2 par `audit` (médianes), contre 32 commandes et lectures par
+  `review`. Déléguer une correction coûte à Opus la consigne, presque aussi
+  longue que la correction, plus la relecture du diff : l'agent Sonnet
+  `implementer` envisagé est écarté ;
+- `CLAUDE_CODE_SUBAGENT_MODEL_FORCE` n'est pas posé : un agent qui fixe son
+  propre modèle (`Plan`, les relecteurs) le garde ;
+- les changements de modèle sont visibles dans le shell : dans le terminal de
+  suivi de l'autopilot, et dans les sessions interactives tant que l'affichage
+  ne coûte aucun token au modèle ;
+- la version du plugin passe en majeure, `4.0.0`.
+
+Faits relevés dans Claude Code 2.1.314 : le réglage `advisorModel`, l'option
+masquée `--advisor <model>` et la commande `/advisor [fable|opus|sonnet|off]`
+existent. Un advisor est accepté s'il est « au moins aussi capable que le
+modèle de base » : un Opus qui conseille un Opus est donc accepté, et facturé.
+Aucun réglage par modèle ne permet de couper l'advisor pour Opus seulement.
+
+Mesure qui fonde l'effort, faite sur les 66 sessions des journaux autopilot
+(`~/.claude/autopilot/`, 6 repos, du 2026-10-22 au 2026-11-20) :
+
+| Étape | Sessions | Appels d'outils, médiane (min–max) |
+|---|---|---|
+| `start` | 9 | 33 (19–142) |
+| `dev` | 12 | 83 (37–213), plus de 100 sur 4 sessions (harness 32, 37, 38 ; elya-frontend 7) |
+| `test` | 11 | 42 (21–69) |
+| `ship` | 10 | 37 (27–114) |
+
+Les sections de lot nomment leurs fichiers et leurs critères : ce sont des tâches
+bien spécifiées, pour lesquelles Anthropic recommande l'effort `medium`. Les
+`dev` longs (un tiers des sessions) passent par l'advisor Opus plutôt que par un
+effort plus élevé de Sonnet. Décision : Sonnet en `medium` partout.
+
+Base de comparaison des étapes Opus (`total_cost_usd` des mêmes journaux) :
+`review` 1,57 $ en médiane sur 12 sessions, `audit` 0,72 $ sur 11.
+
+### Carte de routage
+
+`plugins/claude-harness/rules/model-routing.md` (nouveau), à reprendre tel quel.
+Les sections `Advisor (Opus)` et `Subagents (Haiku)` sont le bloc donné par
+l'utilisateur, mot pour mot. `Delegation triggers` durcit la délégation : quand
+la consigne lui laisse le choix, Sonnet la saute en invoquant la latence (constat
+de l'utilisateur sur ses agents Copilot, 2026-11-17). `Opus sessions` interdit
+l'advisor à une session Opus, où `advisorModel` le rend présent.
+
+```markdown
+## Model routing
+
+### Advisor (Opus)
+- Call the advisor BEFORE substantive work: before writing code,
+  committing to an interpretation, or building on an assumption.
+  Read-only orientation (finding files, reading sources) may come first.
+- Call it when stuck: recurring errors, non-converging approach,
+  results that don't fit, or before changing approach.
+- Call it BEFORE declaring done — save/commit the deliverable first.
+- Target 2-3 calls per task. Short reactive steps don't need one.
+- Give advice serious weight. If evidence contradicts it, don't
+  silently switch: make one more advisor call stating the conflict.
+
+### Subagents (Haiku)
+- Delegate to at most 3 parallel subagents, read-only work only:
+  codebase search, log/test-output triage, summarizing, classification.
+- Never delegate file edits, migrations, or state-changing commands.
+- Each subagent returns conclusions + file:line refs, not file dumps.
+- Verify subagent findings before acting on them.
+
+### Delegation triggers
+- Delegate before doing the work yourself when a search likely needs
+  more than 2 grep/glob calls or spans more than 5 files, or when test,
+  build or log output longer than ~50 lines must be triaged.
+- Exempt: one grep or read on a known path, or files already in context.
+- Latency and "the task looks simple" are not valid reasons to skip
+  a trigger.
+
+### Opus sessions
+- Never call the advisor: no model in this session is stronger than you.
+```
+
+Diffusion de la carte :
+
+| Session | Sections reçues |
+|---|---|
+| Sonnet, interactive ou étape autopilot | `Advisor (Opus)`, `Subagents (Haiku)`, `Delegation triggers` |
+| Opus, interactive ou étape autopilot | `Subagents (Haiku)`, `Delegation triggers`, `Opus sessions` |
+| Haiku, DeepSeek | aucune |
 
 ### Livrables
 
 Chaque livrable nomme ses fichiers ; aucun autre fichier de skill ou de hook
 n'est à modifier.
 
-1. **Marge de la mémoire.**
-   - `docs/memory.md` : élagué à 4 500 caractères au plus. `## Code map` ne
-     garde que ce que le `Repository layout` de `CLAUDE.md` ne dit pas.
-   - `plugins/claude-harness/skills/lot-start/SKILL.md`, Step B3, point 2 : la
-     clôture laisse le fichier à 5 000 caractères au plus, et retire des notes
-     avant d'en ajouter. Le plafond de MEM-1 reste 6 000 : l'écart est la
-     marge des corrections de `lot-review`.
-2. **Livrable manqué vu par la revue.**
-   - `plugins/claude-harness/skills/lot-review/SKILL.md` : un fichier que la
-     section du lot nomme et que le diff ne contient pas est hors du diff. La
-     revue ne le corrige pas : constat ouvert, décision du propriétaire (en
-     autopilot, classe « Exception », fin de tour `blocked`).
-   - `plugins/claude-harness/autopilot/autopilot.py`, `gate_step` : l'arrêt
-     « a commit touches files outside the lot's diff » reprend à l'étape
-     suivante quand le rapport de l'étape est commité, à l'étape elle-même
-     sinon.
-3. **Preuve d'une vérification manuelle.**
-   - `plugins/claude-harness/skills/lot-start/SKILL.md`, Step B2 : un critère
-     que le lot dit de vérifier à la main est déroulé une fois, par la session
-     de développement ; la commande et son résultat vont dans le corps du
-     commit `feat(N)`, ou la raison pour laquelle elle n'a pas pu l'être.
-   - `plugins/claude-harness/skills/lot-ship/SKILL.md`, section 4 : le corps de
-     la PR reprend ce résultat du commit, sans refaire la vérification.
-4. **Consigne `python3`.** `plugins/claude-harness/autopilot/autopilot.py`,
-   `commands_hint` : une phrase dit que `python3` ne s'exécute que depuis le
-   cache du plugin et qu'un script du dépôt s'exerce par ses tests. Aucune
-   permission ajoutée.
-5. **`lot-ship` et la plage du hook.**
-   `plugins/claude-harness/skills/lot-ship/SKILL.md`, section 3 : le titre de
-   la section est la première ligne de la plage `Current lot section` ; la
-   ligne du tableau de statut se trouve par une seule recherche du nom de la
-   branche.
-6. **Tests** (GATE-3).
-   - `tests/skills.test.sh` : Step B3 nomme les 5 000 caractères ;
-     `lot-review` nomme le livrable manqué ; `lot-start` et `lot-ship` nomment
-     la vérification manuelle ; `lot-ship` renvoie à `Current lot section`.
-     L'assertion du plafond de 6 000 reste telle quelle.
-   - La suite `tests/autopilot-*.test.sh` qui couvre `gate_step` : arrêt hors
-     diff avec le rapport commité → reprise à l'étape suivante ; sans le
-     rapport → reprise à l'étape.
-   - La suite `tests/autopilot-*.test.sh` qui couvre le prompt système : la
-     phrase `python3` y figure.
-7. **Version du plugin** bumpée à `3.0.0` (choix de l'utilisateur, majeure) :
+1. **Routage de l'autopilot.** `plugins/claude-harness/autopilot/autopilot.py` :
+
+   | Étape | Modèle | Effort | Advisor |
+   |---|---|---|---|
+   | `start`, `dev`, `test`, `fix` | Sonnet 5.5 | `medium` | `--advisor opus` |
+   | `review`, `audit`, `integration` | Opus 5.5 | `medium` | coupé |
+   | `ship` | Haiku 5.5 | `high` | coupé |
+
+   - Toutes les étapes tournent sous le profil `claude` ; `settings.deepseek.json`
+     sort de l'autopilot. Le refus d'un `ANTHROPIC_BASE_URL` qui désigne un
+     autre hôte reste en place.
+   - « Coupé » : `--advisor off` si V2 montre que l'option l'accepte malgré
+     l'`advisorModel` du fichier de réglages, sinon une phrase du prompt
+     système qui interdit l'appel.
+   - Toute étape reçoit `CLAUDE_CODE_SUBAGENT_MODEL=claude-haiku-5-5` de
+     l'autopilot lui-même, sans dépendre du fichier de réglages de
+     l'utilisateur ; ses sous-agents Haiku tournent en effort `high` par le
+     moyen que retient V3.
+   - La carte arrive par le hook de démarrage (livrable 2), sans copie dans le
+     prompt système.
+   - `--dry-run` affiche le modèle, l'effort et l'advisor de chaque étape.
+2. **Carte injectée.** `plugins/claude-harness/hooks/session-context.sh` : la
+   carte est injectée selon la diffusion, avec le modèle de la session lu par
+   le moyen que retient V1, dans tout repo où le plugin est chargé, en session
+   interactive comme en autopilot.
+3. **Changements de modèle visibles dans le shell.**
+   - `plugins/claude-harness/autopilot/watch.py` : une ligne au début de chaque
+     étape (modèle, effort, advisor) ; une ligne à chaque lancement de
+     sous-agent, avec sa description et le modèle qui répond (champ
+     `message.model` des messages du sous-agent) ; une ligne à chaque appel de
+     l'advisor (forme relevée par V4) ; une ligne marquée quand un message
+     vient d'un autre modèle que celui de l'étape.
+   - `plugins/claude-harness/hooks/subagent-model.py` (nouveau), branché dans
+     `plugins/claude-harness/hooks/hooks.json` sur l'outil `Agent` : il rend un
+     `systemMessage` « sous-agent <type> → <modèle> », que l'utilisateur voit
+     et que le modèle ne lit pas. Le modèle affiché est celui qui a répondu
+     quand l'entrée du hook le donne (V5), sinon le modèle configuré, marqué
+     comme tel. Jamais d'`additionalContext`.
+   - Un appel de l'advisor en session interactive est un outil côté serveur
+     qu'aucun hook ne voit : il n'est visible que si l'app l'affiche d'elle-même
+     (V4).
+4. **README.** `README.md`, section « Routage des modèles » : les réglages du
+   profil `claude` (Sonnet par défaut, advisor Opus, sous-agents Haiku en
+   `high`) ; pourquoi l'advisor reste présent dans une session Opus sans y être
+   appelé ; le routage fixe de l'autopilot ; l'advisor
+   est inactif quand `DISABLE_TELEMETRY` ou
+   `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC` est posé.
+5. **Convention.** `CONVENTIONS.md`, PROF-1 : le profil `claude` porte le code
+   interactif sur Sonnet avec l'advisor Opus, la revue et l'audit sur Opus, et
+   toutes les étapes de l'autopilot ; le profil `deepseek` sert aux sessions
+   interactives que l'utilisateur choisit d'y ouvrir. La carte
+   `rules/deepseek.json` est régénérée par `.github/scripts/deepseek-card.py`.
+6. **Recensement.** `CLAUDE.md` et `AGENTS.md` : `rules/model-routing.md` entre
+   dans `## Project documents` ; `hooks/subagent-model.py` entre dans
+   `Repository layout`.
+7. **Tests** (GATE-3).
+   - Suites `tests/autopilot-*.test.sh` : le modèle, l'effort et l'advisor de
+     chaque étape dans la commande ; aucune commande ne nomme
+     `settings.deepseek.json` ; la variable `CLAUDE_CODE_SUBAGENT_MODEL` sur
+     chaque étape.
+   - Suite de `watch.py` : la ligne de début d'étape, la ligne d'un sous-agent
+     avec le modèle qui répond, la ligne d'un appel de l'advisor, la ligne
+     marquée d'un message hors du modèle de l'étape.
+   - Suite du hook de démarrage : les sections de la carte pour Sonnet, pour
+     Opus, et rien pour Haiku ni pour le profil `deepseek`.
+   - `tests/subagent-model.test.sh` (nouveau) : le `systemMessage` avec le
+     modèle qui a répondu, avec le modèle configuré marqué comme tel, et
+     l'absence d'`additionalContext`.
+8. **Version du plugin** bumpée à `4.0.0` (choix de l'utilisateur, majeure) :
    `plugin.json` et les deux champs de `.claude-plugin/marketplace.json`.
+
+### Vérifications avant le code
+
+À faire au début du développement, résultat dans le corps du commit `feat(40)`.
+Une vérification qui échoue arrête le lot et revient à l'utilisateur.
+
+- **V1** : la donnée d'entrée du hook `SessionStart` indique-t-elle le modèle
+  de la session ? Sinon, le hook lit `model` dans les réglages effectifs.
+- **V2** : `claude -p --model claude-sonnet-5-5 --advisor opus` active-t-il
+  l'advisor (`--debug` affiche `[AdvisorTool] Server-side tool enabled`) ?
+  `--advisor off` le coupe-t-il quand `advisorModel` est posé dans le fichier
+  passé à `--settings` ?
+- **V3** : `claude -p --model claude-haiku-5-5 --effort high` est-il accepté ?
+  Un sous-agent Haiku suit-il `modelSettings."claude-haiku-5-5".effortLevel`,
+  ou une variable d'environnement de l'autopilot ? Si aucun moyen ne fixe
+  l'effort d'un sous-agent, arrêt et question.
+- **V4** : comment un appel de l'advisor apparaît-il dans le flux
+  `stream-json`, et l'app Claude l'affiche-t-elle en session interactive ?
+- **V5** : que portent les entrées `PreToolUse` et `PostToolUse` de l'outil
+  `Agent` (modèle du sous-agent, usage) ? Un `systemMessage` s'affiche-t-il
+  dans l'app sans entrer dans le contexte du modèle ?
 
 ### Critères de validation
 
 - `./tests/run.sh` vert, nouveaux cas inclus.
-- `wc -m docs/memory.md` rend 4 500 au plus à la clôture du développement.
-- Version du plugin à `3.0.0` (job `plugin-version`).
-- Mesure au premier run autopilot d'un lot neuf, après la promotion : appels
-  consacrés à `docs/memory.md` (14 pour `dev` et 11 pour `lot-review` au
-  rejeu), refus `python3`, aucune seconde session `review`.
+- `autopilot.py --dry-run` montre Sonnet `medium` avec l'advisor Opus pour
+  `start`, `dev`, `test` et `fix`, Opus `medium` sans advisor pour `review`,
+  `audit` et `integration`, Haiku `high` sans advisor pour `ship`, et aucune
+  étape sur DeepSeek.
+- Version du plugin à `4.0.0` (job `plugin-version`).
+- Mesure au premier run autopilot d'un lot neuf après la promotion : chaque
+  changement de modèle a sa ligne dans le terminal de suivi ; coût et durée par
+  étape comparés aux médianes ci-dessus ; appels à l'advisor par étape Sonnet ;
+  sous-agents Haiku par étape Opus.
 
 ### Hors périmètre
 
-- Une session `dev` neuve au lieu de la reprise de la session `start` : le
-  gain va de moins de 1 M à 3-4 M tokens selon le poids de `start`, à
-  remesurer sur un lot neuf.
-- La cérémonie git (vérifications après chaque commit, trailer
-  `Co-Authored-By`) : `ship` n'a pas été mesuré sous le 2.13.0.
-- La règle `Bash(rtk *)` de `~/.claude/settings.json`, qui laisse passer
-  `rtk proxy python3 …` : décision de sécurité de l'utilisateur, hors du dépôt.
-- Élargir ce que `lot-review` peut modifier hors du diff du lot.
-- Regrouper par motif les lignes de rapports du recensement de `CLAUDE.md`.
+- Les agents Copilot d'IntelliJ (`~/.copilot/agents/*.agent.md`) : hors du
+  dépôt et hors de Claude Code.
+- Changer le modèle principal d'une session selon l'importance de la tâche :
+  Claude Code ne le fait pas ; la délégation passe par les sous-agents.
+- Déléguer les modifications d'une session Opus à un agent Sonnet : écarté
+  (voir Origine). À rouvrir si la mesure du premier run montre des `review`
+  qui modifient beaucoup.
+- Remettre DeepSeek dans l'autopilot : un autre lot, s'il le faut.
+- Un effort variable selon la taille de la section du lot : à revoir si la
+  mesure du premier run montre des `dev` Sonnet qui ne convergent pas en
+  `medium`.
+- `CLAUDE_CODE_SUBAGENT_MODEL_FORCE`.
+- La ligne d'état (`claude-usage-monitor`), plugin tiers.
+- Une ligne de compte rendu en fin de tour imposée par la carte : la
+  visibilité passe par le hook, sans token.
 
 ---
 
